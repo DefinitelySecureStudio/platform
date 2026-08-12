@@ -1,0 +1,54 @@
+name: Bug report
+description: Report a reproducible problem in the production platform.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Do not include credentials, proprietary lore, unpublished canon,
+        personal data, or private production context. Use synthetic or
+        already-public examples.
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Observed behavior
+      description: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should have happened?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: Provide the smallest content-safe reproduction you can.
+      placeholder: |-
+        1. Run ...
+        2. Configure ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: input
+    id: revision
+    attributes:
+      label: Version or revision
+      description: Tag, commit SHA, or deployment version, if known.
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Relevant operating system, runtime, and deployment details.
+  - type: checkboxes
+    id: public-content
+    attributes:
+      label: Public-content confirmation
+      options:
+        - label: I removed secrets, private context, proprietary lore, and unpublished canon from this report.
+          required: true

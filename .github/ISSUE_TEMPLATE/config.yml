@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/DefinitelySecureStudio/platform/security/advisories/new
+    about: Report vulnerabilities and sensitive disclosures privately.
+  - name: Studio repository architecture
+    url: https://github.com/DefinitelySecureStudio/studio/blob/main/ARCHITECTURE.md
+    about: Review repository responsibilities and content boundaries.

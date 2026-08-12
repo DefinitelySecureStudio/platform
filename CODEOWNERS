@@ -1,0 +1,7 @@
+# Default ownership; replace or extend with teams as the maintainer group grows.
+* @andrewperis
+
+# Sensitive operational and repository-control surfaces.
+/.github/ @andrewperis
+/automation/ @andrewperis
+/SECURITY.md @andrewperis

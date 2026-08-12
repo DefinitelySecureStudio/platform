@@ -1,0 +1,39 @@
+name: Feature request
+description: Propose a production-platform capability.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What production problem should the platform solve?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe observable behavior without prescribing an implementation.
+    validations:
+      required: true
+  - type: dropdown
+    id: owner
+    attributes:
+      label: Ownership check
+      description: Which repository should own the proposed work?
+      options:
+        - Platform implementation
+        - Codex specification or schema
+        - Lab experiment or prototype
+        - Universe public canon
+        - Lore private world-building
+        - Studio governance
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Contracts and dependencies
+      description: Identify any existing or proposed cross-repository contract.
