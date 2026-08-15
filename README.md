@@ -58,12 +58,13 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) before proposing a change. Report
 security vulnerabilities through the private process in
 [SECURITY.md](SECURITY.md), not a public issue.
 
-## License status
+## License
 
-No open-source license has been selected yet. Until the licensing decision in
-[studio issue #31](https://github.com/DefinitelySecureStudio/studio/issues/31)
-is completed and a license is added, the repository contents remain all rights
-reserved. Public visibility does not grant permission to use, copy, modify, or
-distribute the software.
+Except where otherwise noted, original work in this repository is licensed
+under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for attribution and
+important boundaries.
 
-© 2026 Definitely Secure Studio. All rights reserved.
+The license does not grant rights to Definitely Secure Studio names, the Prompt
+Mark, wordmarks, logos, other brand assets, or proprietary creative material.
+Third-party material remains subject to its own terms. Examples and fixtures
+must be synthetic, properly licensed, or already public.
