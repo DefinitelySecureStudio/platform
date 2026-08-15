@@ -36,6 +36,12 @@ Pull requests should explain what changed, why it belongs in `platform`, how it
 was validated, and whether it changes any cross-repository contract. Do not
 silently redefine a contract owned by `codex`; propose that change there first.
 
-All changes are reviewed under the repository's branch protection rules. By
-contributing, you agree that your contribution is subject to the repository's
-current license status and any contribution terms adopted later.
+All changes are reviewed under the repository's branch protection rules.
+
+## Contributions and licensing
+
+By intentionally submitting a contribution for inclusion, you license it under
+the [Apache License 2.0](LICENSE), consistent with section 5 of that license.
+You represent that you have the right to submit it. Identify third-party code,
+dependencies, or assets in the pull request and preserve every required license
+and notice; do not submit material with unknown or incompatible terms.
