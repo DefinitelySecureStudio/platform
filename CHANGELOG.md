@@ -2,8 +2,8 @@
 
 All notable changes to the platform will be documented in this file.
 
-The release and versioning convention will be finalized with the Studio's
-cross-repository versioning strategy before the first release.
+Releases follow the Studio's content-addressed dependency, versioning, and
+provenance strategy. See `docs/architecture.md`.
 
 ## Unreleased
 
