@@ -27,6 +27,12 @@ private `lore` repository.
 The organization-wide ownership model is defined in the
 [`studio` repository architecture](https://github.com/DefinitelySecureStudio/studio/blob/main/ARCHITECTURE.md).
 
+## Constitutional alignment
+
+This repository adopts the Definitely Secure Studio Constitution v1.0.0. See
+[CONSTITUTION_CONFORMANCE.md](CONSTITUTION_CONFORMANCE.md) for the exact
+reference, assessed revision, checklist evidence, findings, and review triggers.
+
 ## Content boundary
 
 This is a public, content-neutral software repository. Do not commit:
