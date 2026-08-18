@@ -34,6 +34,12 @@ byte size, and verified SHA-256 digest.
 - Platform packages use their ecosystem lock and integrity data; container
   deployments use an OCI manifest digest rather than a floating tag.
 
+Before Studio issue #72 publishes the first immutable Codex contract bundles,
+non-release implementation work may pin an accepted contract by exact commit,
+verified byte size, and SHA-256 digest. That provisional dependency must be
+visible in runtime evidence and conformance records and is release-blocking
+until replaced by the complete immutable artifact tuple.
+
 Do not use cross-repository submodules, build-time clones, branch references, or
 vendored canon, lore, or schemas. Version ranges may discover upgrades, but a
 reviewed lock resolves one exact artifact.

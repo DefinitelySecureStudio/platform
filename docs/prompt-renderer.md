@@ -18,9 +18,9 @@ history, provider output, or undeclared context. Literal text has no placeholder
 or escape syntax: `${HOME}`, `{{secret}}`, and similar text remains unchanged.
 
 The renderer performs the checks needed to resolve and format parts safely. It
-does not replace the complete structural and semantic validator tracked by
-Studio issue #64. A production caller must validate a definition first. Context
-values use the explicit interim shape below; complete package identity,
+does not replace the [structural and semantic validator](prompt-validation.md).
+A production caller must validate a definition first. Context values use the
+explicit interim shape below; complete package identity,
 authorization, integrity, expiry, and review validation belongs to the Context
 Builder integration tracked by issue #67.
 
