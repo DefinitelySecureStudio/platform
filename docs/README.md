@@ -10,3 +10,7 @@ repository first.
 Documentation must remain content-neutral. Use synthetic or already-public
 examples and redact credentials, personal data, private production context,
 proprietary lore, and unpublished canon.
+
+- [`architecture.md`](architecture.md) defines repository and dependency boundaries.
+- [`adr/0001-node-esm-runtime.md`](adr/0001-node-esm-runtime.md) selects the initial runtime.
+- [`prompt-renderer.md`](prompt-renderer.md) documents rendering, canonicalization, and errors.
