@@ -7,4 +7,6 @@ provenance strategy. See `docs/architecture.md`.
 
 ## Unreleased
 
+- Adopted Constitution v1.0.0 with a revision-scoped conformance assessment and
+  pre-implementation agent, workflow, and release control requirements.
 - Created the initial repository scaffold and ownership boundaries.
