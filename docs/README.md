@@ -13,4 +13,6 @@ proprietary lore, and unpublished canon.
 
 - [`architecture.md`](architecture.md) defines repository and dependency boundaries.
 - [`adr/0001-node-esm-runtime.md`](adr/0001-node-esm-runtime.md) selects the initial runtime.
+- [`adr/0002-compiled-prompt-schema-validation.md`](adr/0002-compiled-prompt-schema-validation.md) records reproducible schema compilation.
+- [`prompt-validation.md`](prompt-validation.md) documents validation, lint rules, diagnostics, and CI use.
 - [`prompt-renderer.md`](prompt-renderer.md) documents rendering, canonicalization, and errors.

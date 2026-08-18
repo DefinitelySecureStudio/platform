@@ -1,0 +1,21 @@
+Definitely Secure Studio Platform third-party notices
+
+The Prompt Definition schema compiler/runtime includes the following packages.
+Complete dependency versions and integrity values are recorded in
+package-lock.json. Each package remains subject to its own license.
+
+- ajv 8.20.0 — MIT — Copyright Evgeny Poberezkin and contributors
+  https://github.com/ajv-validator/ajv
+- ajv-formats 3.0.1 — MIT — Copyright Evgeny Poberezkin and contributors
+  https://github.com/ajv-validator/ajv-formats
+- fast-deep-equal 3.1.3 — MIT — Copyright Evgeny Poberezkin and contributors
+  https://github.com/epoberezkin/fast-deep-equal
+- fast-uri 3.1.5 — BSD-3-Clause — Copyright its contributors
+  https://github.com/fastify/fast-uri
+- json-schema-traverse 1.0.0 — MIT — Copyright Evgeny Poberezkin and contributors
+  https://github.com/epoberezkin/json-schema-traverse
+- require-from-string 2.0.2 — MIT — Copyright Vsevolod Strukchinsky and contributors
+  https://github.com/floatdrop/require-from-string
+
+The installed package distributions contain their full license texts. Preserve
+those texts when redistributing the corresponding packages.

@@ -26,9 +26,14 @@ safe for a public repository, do not include it and ask a maintainer privately.
 - Run the relevant tests, linters, and security checks before opening a pull
   request.
 
-The initial runtime requires Node.js 22 or newer and uses no third-party
-packages. Run `npm test` before opening a pull request that affects JavaScript,
-prompt rendering, examples, or fixtures.
+The runtime requires Node.js 22 or newer. Install the exact reviewed dependency
+graph with `npm ci`; do not use an unlocked install in CI. Run `npm test` before
+opening a pull request that affects JavaScript, prompt validation/rendering,
+examples, fixtures, or generated schema code.
+
+Never edit generated schema-validator code manually. An intentional contract
+update must use the documented generator, exact source artifact, digest check,
+tests, dependency/provenance update, and review.
 
 ## Pull requests
 

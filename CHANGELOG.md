@@ -7,6 +7,9 @@ provenance strategy. See `docs/architecture.md`.
 
 ## Unreleased
 
+- Added Prompt Definition v1 schema validation, semantic/security linting,
+  machine-readable diagnostics, duplicate-key-safe parsing, collection checks,
+  and a CI-ready CLI.
 - Added a dependency-free Prompt Definition v1 renderer with strict explicit
   value resolution, deterministic canonical output, structured errors, tests,
   and synthetic examples.

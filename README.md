@@ -3,9 +3,8 @@
 Production software for the Definitely Secure Studio creative toolchain.
 
 > [!NOTE]
-> The first runtime capability uses dependency-free Node.js ESM. Runtime choices
-> are recorded in repository-local architecture decisions as production
-> capabilities are added.
+> Platform uses Node.js ESM with repository-local architecture decisions for
+> runtime and dependency choices.
 
 ## Responsibility
 
@@ -61,12 +60,15 @@ in source control, logs, build artifacts, or test fixtures.
 
 ## Development
 
-Node.js 22 or newer is required. The initial Prompt SDK converts validated
-Prompt Definition v1 documents into a deterministic, provider-neutral rendered
-prompt. See [the renderer contract and usage guide](docs/prompt-renderer.md).
+Node.js 22 or newer is required. The Prompt SDK validates and lints Prompt
+Definition v1 documents, then converts valid definitions into deterministic,
+provider-neutral rendered prompts. See the [validation](docs/prompt-validation.md)
+and [rendering](docs/prompt-renderer.md) guides.
 
 ```sh
+npm ci
 npm test
+npm run validate:prompt -- path/to/prompt.json
 node examples/prompt-renderer.mjs
 ```
 
@@ -79,8 +81,9 @@ security vulnerabilities through the private process in
 ## License
 
 Except where otherwise noted, original work in this repository is licensed
-under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for attribution and
-important boundaries.
+under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) and
+[THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES) for attribution, dependency licenses,
+and important boundaries.
 
 The license does not grant rights to Definitely Secure Studio names, the Prompt
 Mark, wordmarks, logos, other brand assets, or proprietary creative material.
