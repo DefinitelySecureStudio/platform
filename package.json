@@ -1,0 +1,16 @@
+{
+  "name": "@definitely-secure-studio/platform",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./prompt-sdk": "./src/prompt-sdk/index.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test",
+    "check": "npm test"
+  }
+}

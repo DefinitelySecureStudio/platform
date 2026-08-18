@@ -26,9 +26,9 @@ safe for a public repository, do not include it and ask a maintainer privately.
 - Run the relevant tests, linters, and security checks before opening a pull
   request.
 
-The repository is language-neutral while its initial architecture is selected.
-More specific setup and validation commands will be added here with the first
-implementation.
+The initial runtime requires Node.js 22 or newer and uses no third-party
+packages. Run `npm test` before opening a pull request that affects JavaScript,
+prompt rendering, examples, or fixtures.
 
 ## Pull requests
 

@@ -3,9 +3,9 @@
 Production software for the Definitely Secure Studio creative toolchain.
 
 > [!NOTE]
-> This repository is an early, language-neutral scaffold. Runtime and package
-> choices will be made through repository-local architecture decisions as the
-> first production capabilities are defined.
+> The first runtime capability uses dependency-free Node.js ESM. Runtime choices
+> are recorded in repository-local architecture decisions as production
+> capabilities are added.
 
 ## Responsibility
 
@@ -56,7 +56,19 @@ in source control, logs, build artifacts, or test fixtures.
 | [`tests/`](tests/) | Automated tests and content-neutral fixtures |
 | [`automation/`](automation/) | Build, release, maintenance, and operational automation |
 | [`docs/`](docs/) | Platform architecture and operational documentation |
+| [`examples/`](examples/) | Synthetic, runnable public-interface examples |
 | [`.github/`](.github/) | Contribution and repository workflow templates |
+
+## Development
+
+Node.js 22 or newer is required. The initial Prompt SDK converts validated
+Prompt Definition v1 documents into a deterministic, provider-neutral rendered
+prompt. See [the renderer contract and usage guide](docs/prompt-renderer.md).
+
+```sh
+npm test
+node examples/prompt-renderer.mjs
+```
 
 ## Contributing and security
 

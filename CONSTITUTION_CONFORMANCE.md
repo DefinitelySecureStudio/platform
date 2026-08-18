@@ -5,20 +5,20 @@
 - Constitution: [Definitely Secure Studio Constitution v1.0.0](https://github.com/DefinitelySecureStudio/studio/tree/constitution/v1.0.0)
 - Constitution tag: `constitution/v1.0.0`
 - Constitution commit: [`a9cc8a503aa30e17820edc62ac95f7cbe10e0564`](https://github.com/DefinitelySecureStudio/studio/commit/a9cc8a503aa30e17820edc62ac95f7cbe10e0564)
-- Status: `Conforming` (effective only after accountable-owner approval and merge of the adopting pull request)
-- Assessed scope: the complete language-neutral scaffold at the assessed revision, including architecture, dependency/input boundaries, automation policy, repository controls, and release intent
-- Excluded scope: future runtime code, agents, providers, deployments, production data, builds, and releases; none exists at this revision
+- Status: `Conforming candidate` (effective after accountable-owner approval and merge of this implementation pull request)
+- Assessed scope: the scaffold plus the dependency-free Prompt Definition v1 renderer, explicit input/context resolution, canonicalization, structured errors, tests, examples, and runtime ADR in the candidate diff
+- Excluded scope: full Prompt Definition semantic validation, context-package authorization/integrity/expiry validation, provider adapters, model execution, agents, deployments, production data, builds, and releases
 - Accountable owner: [`@andrewperis`](https://github.com/andrewperis), Platform maintainer
-- Assessment revision and date: `77940424913145926bad980acf898edfc3d8a45b`; 2026-08-17
+- Assessment base revision and date: `571d82f91eea330c3087b74b1c272ffa86299300`; candidate diff assessed 2026-08-17
 - Checklist revision: `a9cc8a503aa30e17820edc62ac95f7cbe10e0564`
 - Applicable profiles: universal; repository and production-system; agent and automated-workflow; release
-- Evidence: this record; repository files at the assessed revision; GitHub settings verified 2026-08-17; adoption issue [#3](https://github.com/DefinitelySecureStudio/platform/issues/3); adopting pull request
+- Evidence: this record; renderer source and tests in the candidate diff; GitHub settings verified 2026-08-17; Studio issue [#63](https://github.com/DefinitelySecureStudio/studio/issues/63); implementation pull request
 - Active constitutional exceptions: None
-- Residual risk: this assessment proves only scaffold controls; the first runtime/provider/agent/deployment/release requires a new system and release assessment before consequential use
-- Next review: 2026-11-17, or before first consequential runtime, provider, private-context use, agent, deployment, or release and on Constitution, authority, contract, data, dependency, visibility, owner, or security change
+- Residual risk: the accepted Prompt Definition v1 contract is pinned to a provisional exact Codex commit until issue #72 releases immutable artifacts; complete definition validation (#64), context-package trust checks (#67), and provider execution remain outside this renderer
+- Next review: 2026-11-17, on replacement of the provisional contract reference, or before consequential provider, private-context, agent, deployment, or release use and on Constitution, authority, contract, data, dependency, visibility, owner, or security change
 
-Before merge the repository remains `Transition required`. Owner review and
-merge provide the A4 governance approval and GitHub records the adopting commit.
+Before merge this implementation remains a `Conforming candidate`. Owner review
+and merge provide the A4 governance approval and GitHub records the exact commit.
 Production-sensitive evidence must remain restricted with only a reader-safe,
 non-derivable attestation in public records.
 
@@ -29,7 +29,9 @@ non-derivable attestation in public records.
 | PL-1 | Major | Resolved in adopting change | Automation and PR policy now make agent delegation, external policy enforcement, failure recovery, release gates, A4 approval, and byte identity prerequisites. |
 | PL-2 | Major | Resolved 2026-08-17 | Secret scanning, push protection, vulnerability alerts, and Dependabot security updates were enabled. |
 | PL-3 | Minor | Resolved 2026-08-17 | Undocumented Projects was disabled. |
-| PL-4 | Advisory | Deferred by scope | There is no runtime, provider, dependency, CI, deploy, or release candidate to validate; first use triggers reassessment. |
+| PL-4 | Advisory | Narrowed by this change | The deterministic renderer is assessed; provider, context-package, deployment, and release behavior remain deferred and trigger reassessment. |
+| PL-5 | Major | Resolved in candidate | Rendering accepts only explicit declared values, preserves classification/provenance outside message bytes, rejects incompatible values with redacted structured errors, and produces deterministic canonical bytes and a digest. |
+| PL-6 | Advisory | Open, release-blocking | Prompt Definition v1 is pinned to accepted Codex commit `bd31b6249e068d3317306afb857d68024f2929be`; replace it with the immutable released artifact from Studio issue #72 before release. |
 
 ## Checklist evidence
 
@@ -62,7 +64,7 @@ checklist order.
 | U10 | N/A | No creative generation workflow exists. |
 | U11 | P | Architecture requires exact contract/input versions, commits, URIs, media types, sizes, digests, workflow identity, and attestations. |
 | U12 | P | Proposed artifacts and validation are distinct from approval; missing evidence is not a pass. |
-| U13 | N/A | No nondeterministic provider operation exists. |
+| U13 | P | Rendering is deterministic for the same definition and explicit values; canonical output has no time, randomness, host state, filesystem, network, environment, or provider input. |
 | U14 | N/A | No selected generated output or release bytes exist. |
 | U15 | P | Protected Git history and required future workflow evidence provide attributable, ordered audit records. |
 | U16 | P | Content boundaries, trust boundaries, secret handling, private reporting, recovery, and release controls precede implementation. |
@@ -83,8 +85,8 @@ checklist order.
 | ID | Result | Evidence or rationale |
 | --- | --- | --- |
 | R1 | P | README, Studio architecture, CODEOWNERS, LICENSE, and NOTICE define one public production-software responsibility and prohibited content. |
-| R2 | P | Protected `main`, CODEOWNER review, private reporting, and enabled security protections match the standard; no dependency ecosystem or release exists yet. |
-| R3 | P | Architecture requires immutable version/commit/artifact/size/digest references and forbids branches, broad checkouts, copied schemas, and circular builds. |
+| R2 | P | Protected `main`, CODEOWNER review, private reporting, enabled security protections, Node 22 engine declaration, built-in tests, and zero third-party packages match the current runtime risk. |
+| R3 | P | Architecture requires immutable references. The renderer uses the policy-permitted exact accepted Codex commit provisionally and records replacement by the issue #72 artifact as release-blocking. |
 | R4 | P | Public code/tests/fixtures/logs use synthetic or public data and exclude private Lore, unpublished Canon, secrets, and protected context. |
 | R5 | P | This file is the required declaration. |
 
@@ -113,13 +115,13 @@ checklist order.
 
 | ID | Result | Evidence or rationale |
 | --- | --- | --- |
-| O1 | P | PL-1 through PL-4 are classified; no unresolved Blocker or Major remains in scope. |
-| O2 | P | Effective status is exactly `Conforming`; pre-merge status remains `Transition required`. |
-| O3 | P | Approval covers only the base revision and adoption diff. |
+| O1 | P | PL-1 through PL-6 are classified; no unresolved Blocker or Major remains in assessed scope. |
+| O2 | P | Candidate status is explicit; owner merge makes the assessed implementation conforming. |
+| O3 | P | Approval covers only the base revision and issue #63 candidate diff. |
 | O4 | P | Date and material triggers are explicit. |
 
 ## Approval
 
-The owner approves this assessment by reviewing and merging the adopting pull
-request. No future runtime or release inherits system-level conformance from
-this scaffold assessment.
+The owner approves this assessment by reviewing and merging the implementation
+pull request. No provider, context-package integration, deployment, or release
+inherits conformance from this renderer assessment.
