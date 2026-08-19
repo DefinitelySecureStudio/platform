@@ -34,6 +34,10 @@ byte size, and verified SHA-256 digest.
 - Platform packages use their ecosystem lock and integrity data; container
   deployments use an OCI manifest digest rather than a floating tag.
 
+Provider execution uses the same rule: the core Prompt SDK consumes the pinned
+Codex execution contract and invokes an adapter interface. Provider SDKs,
+credentials, and vendor response types do not cross that core boundary.
+
 Before Studio issue #72 publishes the first immutable Codex contract bundles,
 non-release implementation work may pin an accepted contract by exact commit,
 verified byte size, and SHA-256 digest. That provisional dependency must be

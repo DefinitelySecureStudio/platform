@@ -16,7 +16,8 @@
     "test": "node --test",
     "check": "npm test",
     "validate:prompt": "node src/prompt-sdk/cli.js validate",
-    "generate:prompt-schema": "node scripts/generate-prompt-schema-validator.mjs"
+    "generate:prompt-schema": "node scripts/generate-prompt-schema-validator.mjs",
+    "generate:execution-schema": "node scripts/generate-execution-schema-validator.mjs"
   },
   "dependencies": {
     "ajv": "8.20.0",
