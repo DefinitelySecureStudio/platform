@@ -62,8 +62,11 @@ in source control, logs, build artifacts, or test fixtures.
 
 Node.js 22 or newer is required. The Prompt SDK validates and lints Prompt
 Definition v1 documents, then converts valid definitions into deterministic,
-provider-neutral rendered prompts. See the [validation](docs/prompt-validation.md)
-and [rendering](docs/prompt-renderer.md) guides.
+provider-neutral rendered prompts. It can execute those prompts through a
+provider-neutral synchronous adapter boundary with explicit capability
+negotiation, provenance, cancellation, and normalized failures. See the
+[validation](docs/prompt-validation.md), [rendering](docs/prompt-renderer.md),
+and [execution](docs/provider-execution.md) guides.
 
 ```sh
 npm ci

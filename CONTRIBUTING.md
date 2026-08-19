@@ -35,6 +35,10 @@ Never edit generated schema-validator code manually. An intentional contract
 update must use the documented generator, exact source artifact, digest check,
 tests, dependency/provenance update, and review.
 
+Provider adapters must implement the Codex execution contract, declare exact
+capabilities and identity, honor abort signals, normalize provider failures, and
+perform no hidden retries. Keep provider SDK imports outside the core Prompt SDK.
+
 ## Pull requests
 
 Pull requests should explain what changed, why it belongs in `platform`, how it

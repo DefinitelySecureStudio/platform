@@ -10,7 +10,9 @@ snapshots and failure output.
 Prompt SDK tests use Node's built-in test runner and synthetic passing/failing
 fixtures. Coverage includes rendering, exact schema conformance, semantic and
 security lint rules, duplicate-key parsing, diagnostic redaction, and CLI exit
-behavior:
+behavior. Provider execution tests cover capability negotiation, identity and
+digest provenance, defaults, error normalization, no-retry behavior,
+cancellation, timeout, invalid outcomes, and the deterministic mock adapter:
 
 ```sh
 npm test

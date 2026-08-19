@@ -1,6 +1,11 @@
 export { canonicalJson } from "./canonical-json.js";
-export { CONTRACT } from "./diagnostics.js";
+export { CONTRACT, EXECUTION_CONTRACT, PROMPT_DEFINITION_CONTRACT } from "./diagnostics.js";
+export { AdapterExecutionError, ExecutionValidationError } from "./execution-errors.js";
+export { createExecutionRequest } from "./execution-request.js";
+export { executePrompt } from "./execute.js";
 export { PromptRenderError } from "./errors.js";
+export { MockTextAdapter, mockTextAdapterDescriptor } from "./mock-adapter.js";
 export { parsePromptJson } from "./parse-json.js";
 export { renderPrompt, tryRenderPrompt } from "./render.js";
+export { validateExecutionCompatibility, validateExecutionDocument, validateExecutionResult } from "./validate-execution.js";
 export { validatePromptDefinition, validatePromptDefinitions } from "./validate.js";

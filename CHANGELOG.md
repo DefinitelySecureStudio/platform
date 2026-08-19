@@ -7,6 +7,9 @@ provenance strategy. See `docs/architecture.md`.
 
 ## Unreleased
 
+- Added Provider Execution v1 validation, synchronous adapter execution,
+  capability negotiation, normalized provenance/errors, cancellation and
+  timeout handling, and a deterministic mock adapter.
 - Added Prompt Definition v1 schema validation, semantic/security linting,
   machine-readable diagnostics, duplicate-key-safe parsing, collection checks,
   and a CI-ready CLI.
