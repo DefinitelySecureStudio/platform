@@ -67,12 +67,16 @@ provider-neutral synchronous adapter boundary with explicit capability
 negotiation, provenance, cancellation, and normalized failures. See the
 [validation](docs/prompt-validation.md), [rendering](docs/prompt-renderer.md),
 and [execution](docs/provider-execution.md) guides.
+The [prompt registry](docs/prompt-registry.md) discovers validated definitions
+from approved filesystem/repository locations and resolves exact versions with
+explicit lifecycle behavior.
 
 ```sh
 npm ci
 npm test
 npm run validate:prompt -- path/to/prompt.json
 node examples/prompt-renderer.mjs
+node examples/prompt-registry.mjs path/to/approved/prompts
 ```
 
 ## Contributing and security

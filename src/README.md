@@ -13,6 +13,10 @@ Provider Execution v1 validation, preflight negotiation, synchronous execution,
 normalized results/errors, and the provider-free mock adapter also live in the
 Prompt SDK. Vendor SDK integrations remain outside this core boundary.
 
+The Prompt SDK registry discovers contract-valid `*.prompt.json` files from
+explicit approved roots and resolves versions independently of rendering or
+execution. Storage adapters must not redefine Codex identity or lifecycle rules.
+
 Source code must remain content-neutral. Creative inputs enter through versioned
 contracts at runtime and must not be embedded in code, defaults, logs, fixtures,
 or generated build output.

@@ -15,6 +15,8 @@ proprietary lore, and unpublished canon.
 - [`adr/0001-node-esm-runtime.md`](adr/0001-node-esm-runtime.md) selects the initial runtime.
 - [`adr/0002-compiled-prompt-schema-validation.md`](adr/0002-compiled-prompt-schema-validation.md) records reproducible schema compilation.
 - [`adr/0003-provider-neutral-execution-boundary.md`](adr/0003-provider-neutral-execution-boundary.md) records the synchronous adapter boundary.
+- [`adr/0004-filesystem-prompt-registry.md`](adr/0004-filesystem-prompt-registry.md) records deterministic registry storage and selection behavior.
 - [`prompt-validation.md`](prompt-validation.md) documents validation, lint rules, diagnostics, and CI use.
 - [`prompt-renderer.md`](prompt-renderer.md) documents rendering, canonicalization, and errors.
 - [`provider-execution.md`](provider-execution.md) documents execution contracts, adapters, negotiation, and failures.
+- [`prompt-registry.md`](prompt-registry.md) documents discovery, exact/range resolution, lifecycle, and conflict behavior.

@@ -6,16 +6,16 @@
 - Constitution tag: `constitution/v1.0.0`
 - Constitution commit: [`a9cc8a503aa30e17820edc62ac95f7cbe10e0564`](https://github.com/DefinitelySecureStudio/studio/commit/a9cc8a503aa30e17820edc62ac95f7cbe10e0564)
 - Status: `Conforming candidate` (effective after accountable-owner approval and merge of this implementation pull request)
-- Assessed scope: the merged scaffold, renderer, and Prompt Definition validation plus Provider Execution v1 compiled schema validation, semantic/capability checks, synchronous executor, normalized provenance/errors, cancellation/timeout behavior, provider-free mock, tests, documentation, and ADR in the issue #65 candidate diff
-- Excluded scope: context-package authorization/integrity/expiry validation, real provider adapters and credentials, retry/routing orchestration, streaming, agents, deployments, production data, builds, and releases
+- Assessed scope: the merged Platform through issue #65 plus the filesystem-backed prompt registry, deterministic discovery, exact and guarded non-exact resolution, lifecycle behavior, conflict detection, atomic refresh, source identity, tests, example, documentation, and ADR in the issue #66 candidate diff
+- Excluded scope: remote/hosted registry backends, repository cloning/authentication, prompt publication, context-package authorization/integrity/expiry validation, real provider adapters and credentials, retry/routing orchestration, streaming, agents, deployments, production data, builds, and releases
 - Accountable owner: [`@andrewperis`](https://github.com/andrewperis), Platform maintainer
-- Assessment base revision and date: `78df65476244473008221c1d948bcad9f8f16a6d`; issue #65 candidate diff assessed 2026-08-19
+- Assessment base revision and date: `8a1e08b0ca947c156b66ba5d4d2218730deb02f7`; issue #66 candidate diff assessed 2026-08-20
 - Checklist revision: `a9cc8a503aa30e17820edc62ac95f7cbe10e0564`
 - Applicable profiles: universal; repository and production-system; agent and automated-workflow; release
-- Evidence: this record; validators, executor, error model, mock adapter, generated-code provenance, locked dependency graph, tests and documentation in the candidate diff; GitHub settings verified 2026-08-17; Studio issue [#65](https://github.com/DefinitelySecureStudio/studio/issues/65); implementation pull request
+- Evidence: this record; registry, strict SemVer selection, synthetic filesystem tests, source identity, example, documentation, and ADR in the candidate diff; GitHub settings verified 2026-08-17; Studio issue [#66](https://github.com/DefinitelySecureStudio/studio/issues/66); implementation pull request
 - Active constitutional exceptions: None
-- Residual risk: Prompt Definition v1 and Provider Execution v1 are compiled from provisional exact Codex commits until issue #72 releases immutable artifacts; context-package trust checks (#67), real provider integration, retry/routing policy, and human decision gates remain outside this executor
-- Next review: 2026-11-17, on replacement of the provisional contract reference, or before consequential provider, private-context, agent, deployment, or release use and on Constitution, authority, contract, data, dependency, visibility, owner, or security change
+- Residual risk: Prompt Definition v1 and Provider Execution v1 are compiled from provisional exact Codex commits until issue #72 releases immutable artifacts; the registry trusts caller-approved local roots and does not authenticate repository provenance; context-package trust checks (#67), real provider integration, retry/routing policy, and human decision gates remain outside this registry
+- Next review: 2026-11-20, on replacement of a provisional contract reference, addition of a storage backend or repository authentication, or before consequential provider, private-context, agent, deployment, or release use and on Constitution, authority, contract, data, dependency, visibility, owner, or security change
 
 Before merge this implementation remains a `Conforming candidate`. Owner review
 and merge provide the A4 governance approval and GitHub records the exact commit.
@@ -34,6 +34,7 @@ non-derivable attestation in public records.
 | PL-6 | Advisory | Open, release-blocking | Prompt Definition v1 is pinned to accepted Codex commit `bd31b6249e068d3317306afb857d68024f2929be`; replace it with the immutable released artifact from Studio issue #72 before release. |
 | PL-7 | Major | Resolved in candidate | Exact compiled schema validation, semantic/compatibility checks, security linting, duplicate-key parsing, redacted diagnostics, fixtures, and CI exit behavior make malformed or unsafe prompt definitions fail before rendering/execution. |
 | PL-8 | Major | Resolved in candidate | Provider-neutral preflight rejects unsupported targets, capabilities, parameters, and required extensions before invocation; one-call execution preserves exact identity and safe normalized outcomes without hidden retry, routing, or provider SDK coupling. |
+| PL-9 | Major | Resolved in candidate | Registry discovery validates every approved-root definition before atomic snapshot replacement, fails duplicate identities and symlinks, exposes source digests and lifecycle, and requires explicit policy for non-exact or retired resolution. |
 
 ## Checklist evidence
 
@@ -66,7 +67,7 @@ checklist order.
 | U10 | N/A | No creative generation workflow exists. |
 | U11 | P | Architecture requires exact contract/input versions, commits, URIs, media types, sizes, digests, workflow identity, and attestations. |
 | U12 | P | Proposed artifacts and validation are distinct from approval; missing evidence is not a pass. |
-| U13 | P | Validation and rendering are deterministic for the same explicit bytes/values and governing options; neither uses time, randomness, implicit host state, network, environment, or provider input. |
+| U13 | P | Validation, rendering, and registry selection are deterministic for the same explicit bytes, snapshot, and governing options; none uses time, randomness, implicit host state, network, environment, or provider input. |
 | U14 | N/A | No selected generated output or release bytes exist. |
 | U15 | P | Protected Git history and required future workflow evidence provide attributable, ordered audit records. |
 | U16 | P | Content boundaries, trust boundaries, secret handling, private reporting, recovery, and release controls precede implementation. |
@@ -76,9 +77,9 @@ checklist order.
 | U20 | P | No provider is selected; the mock is synthetic, while real adapter/provider selection remains an explicit contractual, privacy, security, and technical review trigger. |
 | U21 | P | Ajv and transitive dependencies are exact-lockfile resolved, reviewed in ADR 0002, and recorded with license/source attribution in `THIRD_PARTY_NOTICES`. |
 | U22 | P | Sensitive disclosure, unsafe dependency, or uncertain rights stops work and uses private reporting. |
-| U23 | P | Library and CLI validation run independently of prompt producers/providers; schema, semantics, security rules, duplicate parsing, and exit behavior have synthetic positive/negative tests. |
+| U23 | P | Library and CLI validation run independently of prompt producers/providers; schema, semantics, registry discovery/resolution, lifecycle, conflicts, path containment, and failure behavior have synthetic positive/negative tests. |
 | U24 | P | Automated checks remain bounded and cannot replace A4 security, rights, creative, or publication review. |
-| U25 | P | Durable inputs use Studio-owned contracts, immutable portable artifacts, integrity digests, and independent validation. |
+| U25 | P | Durable inputs use Studio-owned contracts, exact prompt versions, root-relative source identity, byte size and integrity digests, and independent validation. |
 | U26 | P | Provider-specific features remain behind a Codex-owned adapter contract; portable parameters and required/optional capabilities are distinct from namespaced extensions with explicit reject/omit behavior. |
 | U27 | P | Versioned dependencies, migration/rollout documentation, compatibility, and rollback are required before change. |
 
@@ -89,7 +90,7 @@ checklist order.
 | R1 | P | README, Studio architecture, CODEOWNERS, LICENSE, and NOTICE define one public production-software responsibility and prohibited content. |
 | R2 | P | Protected `main`, CODEOWNER review, private reporting, security protections, Node 22 engine, built-in tests, exact npm lock/integrities, dependency audit, and third-party notices match the current runtime risk. |
 | R3 | P | Both schema generators verify exact accepted Codex commit bytes by size/digest and emit reproducible code; replacement by immutable issue #72 artifacts remains release-blocking. |
-| R4 | P | Public code/tests/fixtures/logs use synthetic or public data and exclude private Lore, unpublished Canon, secrets, and protected context. |
+| R4 | P | Public code/tests/fixtures/logs use synthetic data; registry diagnostics expose safe root ids and relative paths but not prompt bodies, host-absolute paths, secrets, or protected context. |
 | R5 | P | This file is the required declaration. |
 
 ### Agent and automated-workflow profile
@@ -97,7 +98,7 @@ checklist order.
 | ID | Result | Evidence or rationale |
 | --- | --- | --- |
 | G1 | P | Automation policy requires identity, owner, authority, actions, data, tools, destinations, budgets, duration, monitoring, and revocation. |
-| G2 | P | Compiled Codex schema validation and reviewed semantic/security rules execute outside model output; validation never grants authorization or approval. |
+| G2 | P | Compiled Codex validation and reviewed registry selection/lifecycle rules execute outside model output; discovery, lifecycle, and resolution never grant authorization or approval. |
 | G3 | P | Automation cannot self-approve or cross A4 gates. |
 | G4 | P | Execution results preserve correlation, exact provider identity, timing, usage, finish reason, output digest, warnings, and normalized failure/retry guidance; the executor itself never retries. |
 | G5 | P | Synthetic tests cover preflight failure, normalized provider failure, no retry, timeout, cancellation, non-cooperative adapters, invalid response, and exception redaction. |
@@ -117,14 +118,14 @@ checklist order.
 
 | ID | Result | Evidence or rationale |
 | --- | --- | --- |
-| O1 | P | PL-1 through PL-8 are classified; no unresolved Blocker or Major remains in assessed scope. |
+| O1 | P | PL-1 through PL-9 are classified; no unresolved Blocker or Major remains in assessed scope. |
 | O2 | P | Candidate status is explicit; owner merge makes the assessed implementation conforming. |
-| O3 | P | Approval covers only the base revision and issue #65 candidate diff. |
+| O3 | P | Approval covers only the base revision and issue #66 candidate diff. |
 | O4 | P | Date and material triggers are explicit. |
 
 ## Approval
 
 The owner approves this assessment by reviewing and merging the implementation
-pull request. No real provider, context-package integration, retry/routing
-workflow, deployment, or release inherits conformance from this execution
-assessment.
+pull request. No remote registry, repository authentication, prompt publication,
+real provider, context-package integration, retry/routing workflow, deployment,
+or release inherits conformance from this registry assessment.

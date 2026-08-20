@@ -6,6 +6,8 @@ export { executePrompt } from "./execute.js";
 export { PromptRenderError } from "./errors.js";
 export { MockTextAdapter, mockTextAdapterDescriptor } from "./mock-adapter.js";
 export { parsePromptJson } from "./parse-json.js";
+export { FilesystemPromptRegistry, createFilesystemPromptRegistry } from "./registry.js";
+export { PromptRegistryError } from "./registry-errors.js";
 export { renderPrompt, tryRenderPrompt } from "./render.js";
 export { validateExecutionCompatibility, validateExecutionDocument, validateExecutionResult } from "./validate-execution.js";
 export { validatePromptDefinition, validatePromptDefinitions } from "./validate.js";

@@ -38,6 +38,11 @@ Provider execution uses the same rule: the core Prompt SDK consumes the pinned
 Codex execution contract and invokes an adapter interface. Provider SDKs,
 credentials, and vendor response types do not cross that core boundary.
 
+Prompt discovery is a separate storage boundary. The v1 registry reads only
+validated definitions from explicit approved filesystem/repository checkouts,
+records exact source identity, and returns definitions to callers without
+rendering, executing, publishing, or granting lifecycle authority.
+
 Before Studio issue #72 publishes the first immutable Codex contract bundles,
 non-release implementation work may pin an accepted contract by exact commit,
 verified byte size, and SHA-256 digest. That provisional dependency must be
