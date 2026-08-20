@@ -7,6 +7,9 @@ provenance strategy. See `docs/architecture.md`.
 
 ## Unreleased
 
+- Added a vendor-neutral filesystem prompt registry with deterministic
+  discovery, exact and guarded non-exact resolution, lifecycle warnings,
+  conflict detection, atomic refresh, source digests, tests, and examples.
 - Added Provider Execution v1 validation, synchronous adapter execution,
   capability negotiation, normalized provenance/errors, cancellation and
   timeout handling, and a deterministic mock adapter.

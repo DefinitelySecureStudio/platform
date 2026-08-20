@@ -14,6 +14,11 @@ behavior. Provider execution tests cover capability negotiation, identity and
 digest provenance, defaults, error normalization, no-retry behavior,
 cancellation, timeout, invalid outcomes, and the deterministic mock adapter:
 
+Registry tests use temporary synthetic filesystem roots and cover deterministic
+discovery, filters, exact and guarded range/latest resolution, SemVer ordering,
+deprecation/retirement, duplicate conflicts, atomic refresh, and symlink escape
+prevention.
+
 ```sh
 npm test
 ```

@@ -39,6 +39,11 @@ Provider adapters must implement the Codex execution contract, declare exact
 capabilities and identity, honor abort signals, normalize provider failures, and
 perform no hidden retries. Keep provider SDK imports outside the core Prompt SDK.
 
+Registry fixtures and examples must use synthetic definitions. New storage
+backends must preserve exact validation, atomic snapshot behavior, source
+identity, conflict rules, lifecycle warnings, and explicit non-exact selection;
+they must not combine discovery with execution or publication authority.
+
 ## Pull requests
 
 Pull requests should explain what changed, why it belongs in `platform`, how it
