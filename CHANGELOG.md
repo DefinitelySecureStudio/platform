@@ -7,6 +7,9 @@ provenance strategy. See `docs/architecture.md`.
 
 ## Unreleased
 
+- Added Context Package v1 parsing, integrity and authorization validation,
+  prompt-slot binding, classification and provenance propagation, deterministic
+  mocks, adversarial tests, an example, documentation, and an ADR.
 - Added a vendor-neutral filesystem prompt registry with deterministic
   discovery, exact and guarded non-exact resolution, lifecycle warnings,
   conflict detection, atomic refresh, source digests, tests, and examples.

@@ -17,6 +17,10 @@ The Prompt SDK registry discovers contract-valid `*.prompt.json` files from
 explicit approved roots and resolves versions independently of rendering or
 execution. Storage adapters must not redefine Codex identity or lifecycle rules.
 
+Context Package v1 parsing, integrity and authorization validation, prompt-slot
+binding, and provenance propagation also live in the SDK. Context discovery,
+retrieval, selection, assembly, and approval remain outside it.
+
 Source code must remain content-neutral. Creative inputs enter through versioned
 contracts at runtime and must not be embedded in code, defaults, logs, fixtures,
 or generated build output.

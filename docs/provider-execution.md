@@ -7,6 +7,11 @@ provider extensions, descriptors advertise support, and results preserve the
 exact adapter, provider, model, timing, usage, finish, output, and error
 identity observed for one synchronous call.
 
+When rendering uses an authorized Context Package, the request's rendered
+prompt preserves value-free package/manifest, section/source-version, and
+authorization provenance. Adapters receive that exact provenance and must not
+replace it with provider-specific context metadata.
+
 ```js
 import {
   createExecutionRequest,

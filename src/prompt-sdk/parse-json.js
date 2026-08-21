@@ -64,9 +64,9 @@ function duplicateKeyDiagnostics(source) {
 }
 
 /** Parse raw JSON without losing duplicate-key evidence. Never includes source content in diagnostics. */
-export function parsePromptJson(source) {
+export function parseJsonDocument(source, { label = "JSON document" } = {}) {
   if (typeof source !== "string") {
-    return { value: undefined, diagnostics: [diagnostic("error", "JSON_SOURCE_TYPE", "Prompt JSON source must be a string.")] };
+    return { value: undefined, diagnostics: [diagnostic("error", "JSON_SOURCE_TYPE", `${label} source must be a string.`)] };
   }
   try {
     const value = JSON.parse(source);
@@ -78,4 +78,8 @@ export function parsePromptJson(source) {
       diagnostics: [diagnostic("error", "JSON_SYNTAX", "Prompt document is not valid JSON.", "", position === undefined ? {} : { position: Number(position) })]
     };
   }
+}
+
+export function parsePromptJson(source) {
+  return parseJsonDocument(source, { label: "Prompt JSON" });
 }

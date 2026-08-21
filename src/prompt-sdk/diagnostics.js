@@ -11,10 +11,19 @@ export const PROMPT_DEFINITION_CONTRACT = CONTRACT;
 
 export const EXECUTION_CONTRACT = Object.freeze({
   repository: "DefinitelySecureStudio/codex",
-  commit: "8cf6297b5180ca201328f45681417c10771e4e1a",
+  commit: "dfd31a693674dc03dec4784dcdd1345f647cff1e",
   spec_version: "1.0.0",
-  schema_sha256: "sha256:7c0aaa6698c782e54779a0099cf13f8e163aa9559ae4765df58d3061b22e6334",
-  schema_byte_size: 23168,
+  schema_sha256: "sha256:4366665b89d7633974c4be15cac74f754e722b41031f708ca2f825ead892cb8b",
+  schema_byte_size: 25285,
+  status: "provisional-unreleased"
+});
+
+export const CONTEXT_PACKAGE_CONTRACT = Object.freeze({
+  repository: "DefinitelySecureStudio/codex",
+  commit: "dfd31a693674dc03dec4784dcdd1345f647cff1e",
+  spec_version: "1.0.0",
+  schema_sha256: "sha256:a0915675a2036c8f929c53a212fcd14740e12fda0ef643fe13d727f0d62e9509",
+  schema_byte_size: 8409,
   status: "provisional-unreleased"
 });
 

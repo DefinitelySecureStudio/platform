@@ -19,10 +19,10 @@ or escape syntax: `${HOME}`, `{{secret}}`, and similar text remains unchanged.
 
 The renderer performs the checks needed to resolve and format parts safely. It
 does not replace the [structural and semantic validator](prompt-validation.md).
-A production caller must validate a definition first. Context values use the
-explicit interim shape below; complete package identity,
-authorization, integrity, expiry, and review validation belongs to the Context
-Builder integration tracked by issue #67.
+A production caller must validate a definition first. Low-level callers may use
+the explicit context-value shape below. Prepared context should use
+[`renderPromptWithContextPackage`](context-packages.md), which verifies package
+identity, authorization, integrity, expiry, review, and provenance first.
 
 ```js
 const contextValues = {
