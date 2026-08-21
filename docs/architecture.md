@@ -49,6 +49,12 @@ sections, and never searches, retrieves, selects, or assembles context. Package
 and section identities, source versions, classification, and authorization
 evidence survive rendering and provider execution.
 
+Structured-output processing is post-execution and provider-neutral. Platform
+accepts exact schema bytes from an approved caller, validates their identity,
+parses the raw response once, and emits a distinct normalized result or explicit
+failure. It never fetches schemas or treats provider-native JSON mode as
+independent validation.
+
 Before Studio issue #72 publishes the first immutable Codex contract bundles,
 non-release implementation work may pin an accepted contract by exact commit,
 verified byte size, and SHA-256 digest. That provisional dependency must be

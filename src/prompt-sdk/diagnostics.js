@@ -27,6 +27,15 @@ export const CONTEXT_PACKAGE_CONTRACT = Object.freeze({
   status: "provisional-unreleased"
 });
 
+export const STRUCTURED_OUTPUT_CONTRACT = Object.freeze({
+  repository: "DefinitelySecureStudio/codex",
+  commit: "275e0cda2e699fbcb1cdd56323a4d58e3f65e507",
+  spec_version: "1.0.0",
+  schema_sha256: "sha256:6ea2c5d4804b92bbca386d2b64063d72980ca1d294d23338be6adc057caaeeb2",
+  schema_byte_size: 8427,
+  status: "provisional-unreleased"
+});
+
 export function pointer(segments) {
   if (typeof segments === "string") return segments || "";
   return segments.length ? `/${segments.map((segment) => String(segment).replaceAll("~", "~0").replaceAll("/", "~1")).join("/")}` : "";

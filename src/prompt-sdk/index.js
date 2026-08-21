@@ -1,5 +1,5 @@
 export { canonicalJson } from "./canonical-json.js";
-export { CONTEXT_PACKAGE_CONTRACT, CONTRACT, EXECUTION_CONTRACT, PROMPT_DEFINITION_CONTRACT } from "./diagnostics.js";
+export { CONTEXT_PACKAGE_CONTRACT, CONTRACT, EXECUTION_CONTRACT, PROMPT_DEFINITION_CONTRACT, STRUCTURED_OUTPUT_CONTRACT } from "./diagnostics.js";
 export { AdapterExecutionError, ExecutionValidationError } from "./execution-errors.js";
 export { ContextPackageError } from "./context-errors.js";
 export { bindContextPackage, parseContextPackageJson, renderPromptWithContextPackage, validateContextBinding, validateContextDocument } from "./context-packages.js";
@@ -12,5 +12,7 @@ export { parsePromptJson } from "./parse-json.js";
 export { FilesystemPromptRegistry, createFilesystemPromptRegistry } from "./registry.js";
 export { PromptRegistryError } from "./registry-errors.js";
 export { renderPrompt, tryRenderPrompt } from "./render.js";
+export { processStructuredOutput, tryProcessStructuredOutput, validateStructuredOutputDocument } from "./structured-output.js";
+export { StructuredOutputError } from "./structured-output-errors.js";
 export { validateExecutionCompatibility, validateExecutionDocument, validateExecutionResult } from "./validate-execution.js";
 export { validatePromptDefinition, validatePromptDefinitions } from "./validate.js";

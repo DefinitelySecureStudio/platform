@@ -73,6 +73,9 @@ selection inside the SDK.
 The [prompt registry](docs/prompt-registry.md) discovers validated definitions
 from approved filesystem/repository locations and resolves exact versions with
 explicit lifecycle behavior.
+Successful JSON execution results use the
+[Structured Output v1 processor](docs/structured-output.md) for exact raw
+identity, independent parsing/schema validation, and typed normalized results.
 
 ```sh
 npm ci
@@ -81,6 +84,7 @@ npm run validate:prompt -- path/to/prompt.json
 node examples/prompt-renderer.mjs
 node examples/prompt-registry.mjs path/to/approved/prompts
 node examples/context-package.mjs
+node examples/structured-output.mjs
 ```
 
 ## Contributing and security

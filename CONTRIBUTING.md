@@ -48,6 +48,11 @@ Context consumers must use the documented prepared-package boundary. Do not add
 implicit retrieval, search, environment/time access, raw context logging, or
 authorization fallback to package binding.
 
+Structured-output changes must preserve exact raw/normalized/schema identities,
+offline independent validation, value-free diagnostics, explicit retention, and
+provider neutrality. Do not add implicit repair, coercion, defaults, schema
+fetching, or provider SDK types to the core processor.
+
 ## Pull requests
 
 Pull requests should explain what changed, why it belongs in `platform`, how it
