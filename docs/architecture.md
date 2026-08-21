@@ -43,6 +43,12 @@ validated definitions from explicit approved filesystem/repository checkouts,
 records exact source identity, and returns definitions to callers without
 rendering, executing, publishing, or granting lifecycle authority.
 
+Prepared context is another separate boundary. Platform accepts an explicit
+Context Package v1 artifact and authorization, validates and binds declared
+sections, and never searches, retrieves, selects, or assembles context. Package
+and section identities, source versions, classification, and authorization
+evidence survive rendering and provider execution.
+
 Before Studio issue #72 publishes the first immutable Codex contract bundles,
 non-release implementation work may pin an accepted contract by exact commit,
 verified byte size, and SHA-256 digest. That provisional dependency must be

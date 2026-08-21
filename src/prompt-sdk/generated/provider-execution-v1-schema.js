@@ -1,12 +1,12 @@
-// Generated from DefinitelySecureStudio/codex@8cf6297b5180ca201328f45681417c10771e4e1a
-// Source SHA-256: 7c0aaa6698c782e54779a0099cf13f8e163aa9559ae4765df58d3061b22e6334
+// Generated from DefinitelySecureStudio/codex@dfd31a693674dc03dec4784dcdd1345f647cff1e
+// Source SHA-256: 4366665b89d7633974c4be15cac74f754e722b41031f708ca2f825ead892cb8b
 // Rebuild with scripts/generate-execution-schema-validator.mjs; do not edit manually.
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 "use strict";
 export const validate = validate20;
 export default validate20;
-const schema31 = {"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"urn:definitely-secure:contract:provider-execution:1.0.0:provider-execution","title":"Definitely Secure Studio Provider Execution Contract v1.0.0","description":"Provider-neutral adapter descriptors, synchronous execution requests, and normalized execution results.","oneOf":[{"$ref":"#/$defs/adapterDescriptor"},{"$ref":"#/$defs/executionRequest"},{"$ref":"#/$defs/executionResult"}],"$defs":{"semver":{"type":"string","pattern":"^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"},"safeId":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$"},"namespace":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+$","maxLength":128},"owner":{"type":"string","pattern":"^[A-Za-z0-9@][A-Za-z0-9_.:/@-]{0,127}$"},"capability":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)*$","maxLength":128},"classification":{"enum":["public","internal","confidential","restricted"]},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"timestamp":{"type":"string","format":"date-time"},"absoluteUri":{"type":"string","format":"uri","pattern":"^[A-Za-z][A-Za-z0-9+.-]*:"},"artifactReference":{"type":"object","additionalProperties":false,"required":["artifact_uri","media_type","byte_size","sha256"],"properties":{"artifact_uri":{"$ref":"#/$defs/absoluteUri"},"media_type":{"type":"string","pattern":"^[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+$"},"byte_size":{"type":"integer","minimum":0},"sha256":{"$ref":"#/$defs/sha256"}}},"outputSchemaReference":{"type":"object","additionalProperties":false,"required":["schema_id","repository","contract","version","tag","commit","artifact_uri","media_type","byte_size","sha256"],"properties":{"schema_id":{"type":"string","minLength":1,"maxLength":500},"repository":{"type":"string","pattern":"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},"contract":{"type":"string","pattern":"^[a-z0-9]+(?:-[a-z0-9]+)*$"},"version":{"$ref":"#/$defs/semver"},"tag":{"type":"string","pattern":"^contract/[a-z0-9]+(?:-[a-z0-9]+)*/v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},"commit":{"type":"string","pattern":"^[0-9a-f]{40}$"},"artifact_uri":{"$ref":"#/$defs/absoluteUri"},"media_type":{"const":"application/schema+json"},"byte_size":{"type":"integer","minimum":1},"sha256":{"$ref":"#/$defs/sha256"}}},"extension":{"type":"object","additionalProperties":false,"required":["required","fallback","configuration"],"properties":{"required":{"type":"boolean"},"fallback":{"enum":["reject","portable-baseline","omit"]},"configuration":{"type":"object"},"evidence":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/absoluteUri"}}}},"capabilityDescriptor":{"type":"object","additionalProperties":false,"required":["name","implementation"],"properties":{"name":{"$ref":"#/$defs/capability"},"implementation":{"enum":["native","emulated"]},"limits":{"type":"object","additionalProperties":false,"properties":{"max_input_bytes":{"type":"integer","minimum":1},"max_output_tokens":{"type":"integer","minimum":1},"accepted_input_media_types":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","pattern":"^[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+$"}},"output_media_types":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","pattern":"^[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+$"}}}}}},"numericParameterSupport":{"type":"object","additionalProperties":false,"required":["minimum","maximum"],"properties":{"minimum":{"type":"number"},"maximum":{"type":"number"},"default":{"type":"number"}}},"integerParameterSupport":{"type":"object","additionalProperties":false,"required":["minimum","maximum"],"properties":{"minimum":{"type":"integer"},"maximum":{"type":"integer"},"default":{"type":"integer"}}},"adapterDescriptor":{"type":"object","additionalProperties":false,"required":["spec_version","kind","adapter","provider","model","execution_modes","capabilities","parameters","supported_extensions"],"properties":{"spec_version":{"const":"1.0.0"},"kind":{"const":"provider-adapter-descriptor"},"adapter":{"type":"object","additionalProperties":false,"required":["id","version"],"properties":{"id":{"$ref":"#/$defs/namespace"},"version":{"$ref":"#/$defs/semver"}}},"provider":{"type":"object","additionalProperties":false,"required":["id"],"properties":{"id":{"$ref":"#/$defs/safeId"},"display_name":{"type":"string","minLength":1,"maxLength":120}}},"model":{"type":"object","additionalProperties":false,"required":["id"],"properties":{"id":{"$ref":"#/$defs/safeId"},"display_name":{"type":"string","minLength":1,"maxLength":120},"revision":{"type":"string","minLength":1,"maxLength":128}}},"execution_modes":{"type":"array","minItems":1,"uniqueItems":true,"contains":{"const":"synchronous"},"items":{"enum":["synchronous","streaming","asynchronous"]}},"capabilities":{"type":"array","minItems":1,"contains":{"type":"object","properties":{"name":{"const":"text-generation"}},"required":["name"]},"items":{"$ref":"#/$defs/capabilityDescriptor"}},"parameters":{"type":"object","additionalProperties":false,"properties":{"max_output_tokens":{"$ref":"#/$defs/integerParameterSupport"},"temperature":{"$ref":"#/$defs/numericParameterSupport"},"top_p":{"$ref":"#/$defs/numericParameterSupport"},"stop_sequences":{"type":"object","additionalProperties":false,"required":["max_items","max_item_length"],"properties":{"max_items":{"type":"integer","minimum":1},"max_item_length":{"type":"integer","minimum":1}}},"seed":{"$ref":"#/$defs/integerParameterSupport"}}},"supported_extensions":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/namespace"}}}},"renderedPrompt":{"type":"object","additionalProperties":false,"required":["format","definition","renderer","classification","messages","inputs","contexts","byte_size","sha256"],"properties":{"format":{"const":"studio-rendered-messages-v1"},"definition":{"type":"object","additionalProperties":false,"required":["id","version","spec_version"],"properties":{"id":{"type":"string","pattern":"^prompt\\.[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?)+$"},"version":{"$ref":"#/$defs/semver"},"spec_version":{"const":"1.0.0"}}},"renderer":{"type":"object","additionalProperties":false,"required":["name","version","algorithm","canonical_json","contract"],"properties":{"name":{"type":"string","minLength":1,"maxLength":200},"version":{"$ref":"#/$defs/semver"},"algorithm":{"type":"string","minLength":1,"maxLength":100},"canonical_json":{"type":"string","minLength":1,"maxLength":100},"contract":{"type":"object","additionalProperties":false,"required":["repository","commit","status"],"properties":{"repository":{"type":"string","pattern":"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},"commit":{"type":"string","pattern":"^[0-9a-f]{40}$"},"status":{"enum":["provisional-unreleased","released"]}}}}},"classification":{"$ref":"#/$defs/classification"},"messages":{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["role","content"],"properties":{"role":{"enum":["instruction","user","assistant-example"]},"content":{"type":"string"}}}},"inputs":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["name","source","classification"],"properties":{"name":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,63}$"},"source":{"enum":["provided","default"]},"classification":{"$ref":"#/$defs/classification"}}}},"contexts":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["slot","classification","media_type","byte_size"],"properties":{"slot":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,63}$"},"classification":{"$ref":"#/$defs/classification"},"media_type":{"type":"string","pattern":"^[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+$"},"byte_size":{"type":"integer","minimum":0},"reference":{"type":"string","minLength":1,"maxLength":500}}}},"byte_size":{"type":"integer","minimum":1},"sha256":{"$ref":"#/$defs/sha256"}}},"portableParameters":{"type":"object","additionalProperties":false,"properties":{"max_output_tokens":{"type":"integer","minimum":1},"temperature":{"type":"number","minimum":0,"maximum":2},"top_p":{"type":"number","exclusiveMinimum":0,"maximum":1},"stop_sequences":{"type":"array","minItems":1,"maxItems":8,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":256}},"seed":{"type":"integer","minimum":0,"maximum":9007199254740991}}},"expectedOutput":{"type":"object","additionalProperties":false,"required":["kind","media_type","validation"],"properties":{"kind":{"enum":["text","json"]},"media_type":{"enum":["text/plain","application/json"]},"validation":{"enum":["none","json-syntax","json-schema"]},"schema":{"$ref":"#/$defs/outputSchemaReference"}},"allOf":[{"if":{"properties":{"kind":{"const":"text"}},"required":["kind"]},"then":{"properties":{"media_type":{"const":"text/plain"},"validation":{"const":"none"}},"not":{"required":["schema"]}},"else":{"properties":{"media_type":{"const":"application/json"},"validation":{"enum":["json-syntax","json-schema"]}}}},{"if":{"properties":{"validation":{"const":"json-schema"}},"required":["validation"]},"then":{"required":["schema"]},"else":{"not":{"required":["schema"]}}}]},"capabilityRequirements":{"type":"object","additionalProperties":false,"required":["required","optional"],"properties":{"required":{"type":"array","minItems":1,"uniqueItems":true,"contains":{"const":"text-generation"},"items":{"$ref":"#/$defs/capability"}},"optional":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/capability"}}}},"executionRequest":{"type":"object","additionalProperties":false,"required":["spec_version","kind","execution_id","idempotency_key","rendered_prompt","target","capabilities","parameters","expected_output","delegation","observability"],"properties":{"spec_version":{"const":"1.0.0"},"kind":{"const":"execution-request"},"execution_id":{"$ref":"#/$defs/safeId"},"correlation_id":{"$ref":"#/$defs/safeId"},"idempotency_key":{"$ref":"#/$defs/safeId"},"rendered_prompt":{"$ref":"#/$defs/renderedPrompt"},"target":{"type":"object","additionalProperties":false,"required":["adapter_id","provider_id","model_id"],"properties":{"adapter_id":{"$ref":"#/$defs/namespace"},"provider_id":{"$ref":"#/$defs/safeId"},"model_id":{"$ref":"#/$defs/safeId"}}},"capabilities":{"$ref":"#/$defs/capabilityRequirements"},"parameters":{"$ref":"#/$defs/portableParameters"},"expected_output":{"$ref":"#/$defs/expectedOutput"},"timeout_ms":{"type":"integer","minimum":1,"maximum":3600000},"cancellation_id":{"$ref":"#/$defs/safeId"},"delegation":{"type":"object","additionalProperties":false,"required":["caller_id","human_owner","purpose","authority_reference"],"properties":{"caller_id":{"$ref":"#/$defs/safeId"},"human_owner":{"$ref":"#/$defs/owner"},"purpose":{"type":"string","minLength":1,"maxLength":1000},"authority_reference":{"$ref":"#/$defs/absoluteUri"}}},"observability":{"type":"object","additionalProperties":false,"required":["retention","capture_prompt","capture_output"],"properties":{"retention":{"enum":["none","metadata-only","restricted-content"]},"capture_prompt":{"type":"boolean"},"capture_output":{"type":"boolean"}}},"extensions":{"type":"object","propertyNames":{"$ref":"#/$defs/namespace"},"additionalProperties":{"$ref":"#/$defs/extension"}}}},"normalizedUsage":{"type":"object","additionalProperties":false,"required":["provider_reported"],"properties":{"provider_reported":{"type":"boolean"},"input_tokens":{"type":"integer","minimum":0},"output_tokens":{"type":"integer","minimum":0},"total_tokens":{"type":"integer","minimum":0}}},"resultWarning":{"type":"object","additionalProperties":false,"required":["code","message"],"properties":{"code":{"type":"string","pattern":"^[A-Z][A-Z0-9_]{0,127}$"},"message":{"type":"string","minLength":1,"maxLength":1000},"details":{"type":"object"}}},"executionError":{"type":"object","additionalProperties":false,"required":["category","code","message","retryable","stage"],"properties":{"category":{"enum":["invalid-request","authentication","authorization","not-found","capability-mismatch","rate-limit","quota","content-policy","timeout","cancelled","provider-unavailable","transport","invalid-provider-response","output-validation","internal"]},"code":{"type":"string","pattern":"^[A-Z][A-Z0-9_]{0,127}$"},"message":{"type":"string","minLength":1,"maxLength":1000},"retryable":{"type":"boolean"},"stage":{"enum":["preflight","adapter","transport","provider","normalization","output-validation","provenance"]},"retry_after_ms":{"type":"integer","minimum":1,"maximum":86400000},"provider":{"type":"object","additionalProperties":false,"properties":{"code":{"type":"string","minLength":1,"maxLength":200},"http_status":{"type":"integer","minimum":100,"maximum":599},"request_id":{"type":"string","minLength":1,"maxLength":200},"details_reference":{"$ref":"#/$defs/absoluteUri"}}}}},"executionOutput":{"type":"object","additionalProperties":false,"required":["kind","media_type","delivery","classification","byte_size","sha256"],"properties":{"kind":{"enum":["text","json"]},"media_type":{"enum":["text/plain","application/json"]},"delivery":{"enum":["inline","reference"]},"classification":{"$ref":"#/$defs/classification"},"byte_size":{"type":"integer","minimum":0},"sha256":{"$ref":"#/$defs/sha256"},"content":{"type":"string"},"reference":{"$ref":"#/$defs/artifactReference"}},"allOf":[{"if":{"properties":{"kind":{"const":"text"}},"required":["kind"]},"then":{"properties":{"media_type":{"const":"text/plain"}}},"else":{"properties":{"media_type":{"const":"application/json"}}}},{"if":{"properties":{"delivery":{"const":"inline"}},"required":["delivery"]},"then":{"required":["content"],"not":{"required":["reference"]}},"else":{"required":["reference"],"not":{"required":["content"]}}}]},"executionResult":{"type":"object","additionalProperties":false,"required":["spec_version","kind","execution_id","status","identity","timing","finish_reason","warnings"],"properties":{"spec_version":{"const":"1.0.0"},"kind":{"const":"execution-result"},"execution_id":{"$ref":"#/$defs/safeId"},"correlation_id":{"$ref":"#/$defs/safeId"},"provider_request_id":{"type":"string","minLength":1,"maxLength":200},"status":{"enum":["succeeded","failed","cancelled","timed-out"]},"identity":{"type":"object","additionalProperties":false,"required":["adapter_id","adapter_version","provider_id","model_id"],"properties":{"adapter_id":{"$ref":"#/$defs/namespace"},"adapter_version":{"$ref":"#/$defs/semver"},"provider_id":{"$ref":"#/$defs/safeId"},"model_id":{"$ref":"#/$defs/safeId"},"model_revision":{"type":"string","minLength":1,"maxLength":128}}},"timing":{"type":"object","additionalProperties":false,"required":["started_at","completed_at","duration_ms"],"properties":{"started_at":{"$ref":"#/$defs/timestamp"},"completed_at":{"$ref":"#/$defs/timestamp"},"duration_ms":{"type":"integer","minimum":0}}},"finish_reason":{"enum":["stop","length","content-filter","cancelled","error","unknown"]},"usage":{"$ref":"#/$defs/normalizedUsage"},"warnings":{"type":"array","items":{"$ref":"#/$defs/resultWarning"}},"output":{"$ref":"#/$defs/executionOutput"},"error":{"$ref":"#/$defs/executionError"}},"allOf":[{"if":{"properties":{"status":{"const":"succeeded"}},"required":["status"]},"then":{"required":["output"],"not":{"required":["error"]},"properties":{"finish_reason":{"enum":["stop","length","content-filter","unknown"]}}},"else":{"required":["error"],"not":{"required":["output"]}}},{"if":{"properties":{"status":{"const":"failed"}},"required":["status"]},"then":{"properties":{"finish_reason":{"const":"error"}}}},{"if":{"properties":{"status":{"const":"cancelled"}},"required":["status"]},"then":{"properties":{"finish_reason":{"const":"cancelled"},"error":{"properties":{"category":{"const":"cancelled"}}}}}},{"if":{"properties":{"status":{"const":"timed-out"}},"required":["status"]},"then":{"properties":{"finish_reason":{"const":"error"},"error":{"properties":{"category":{"const":"timeout"}}}}}}]}}};
+const schema31 = {"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"urn:definitely-secure:contract:provider-execution:1.0.0:provider-execution","title":"Definitely Secure Studio Provider Execution Contract v1.0.0","description":"Provider-neutral adapter descriptors, synchronous execution requests, and normalized execution results.","oneOf":[{"$ref":"#/$defs/adapterDescriptor"},{"$ref":"#/$defs/executionRequest"},{"$ref":"#/$defs/executionResult"}],"$defs":{"semver":{"type":"string","pattern":"^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"},"safeId":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$"},"namespace":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+$","maxLength":128},"owner":{"type":"string","pattern":"^[A-Za-z0-9@][A-Za-z0-9_.:/@-]{0,127}$"},"capability":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)*$","maxLength":128},"classification":{"enum":["public","internal","confidential","restricted"]},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"timestamp":{"type":"string","format":"date-time"},"absoluteUri":{"type":"string","format":"uri","pattern":"^[A-Za-z][A-Za-z0-9+.-]*:"},"artifactReference":{"type":"object","additionalProperties":false,"required":["artifact_uri","media_type","byte_size","sha256"],"properties":{"artifact_uri":{"$ref":"#/$defs/absoluteUri"},"media_type":{"type":"string","pattern":"^[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+$"},"byte_size":{"type":"integer","minimum":0},"sha256":{"$ref":"#/$defs/sha256"}}},"outputSchemaReference":{"type":"object","additionalProperties":false,"required":["schema_id","repository","contract","version","tag","commit","artifact_uri","media_type","byte_size","sha256"],"properties":{"schema_id":{"type":"string","minLength":1,"maxLength":500},"repository":{"type":"string","pattern":"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},"contract":{"type":"string","pattern":"^[a-z0-9]+(?:-[a-z0-9]+)*$"},"version":{"$ref":"#/$defs/semver"},"tag":{"type":"string","pattern":"^contract/[a-z0-9]+(?:-[a-z0-9]+)*/v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},"commit":{"type":"string","pattern":"^[0-9a-f]{40}$"},"artifact_uri":{"$ref":"#/$defs/absoluteUri"},"media_type":{"const":"application/schema+json"},"byte_size":{"type":"integer","minimum":1},"sha256":{"$ref":"#/$defs/sha256"}}},"extension":{"type":"object","additionalProperties":false,"required":["required","fallback","configuration"],"properties":{"required":{"type":"boolean"},"fallback":{"enum":["reject","portable-baseline","omit"]},"configuration":{"type":"object"},"evidence":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/absoluteUri"}}}},"capabilityDescriptor":{"type":"object","additionalProperties":false,"required":["name","implementation"],"properties":{"name":{"$ref":"#/$defs/capability"},"implementation":{"enum":["native","emulated"]},"limits":{"type":"object","additionalProperties":false,"properties":{"max_input_bytes":{"type":"integer","minimum":1},"max_output_tokens":{"type":"integer","minimum":1},"accepted_input_media_types":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","pattern":"^[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+$"}},"output_media_types":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","pattern":"^[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+$"}}}}}},"numericParameterSupport":{"type":"object","additionalProperties":false,"required":["minimum","maximum"],"properties":{"minimum":{"type":"number"},"maximum":{"type":"number"},"default":{"type":"number"}}},"integerParameterSupport":{"type":"object","additionalProperties":false,"required":["minimum","maximum"],"properties":{"minimum":{"type":"integer"},"maximum":{"type":"integer"},"default":{"type":"integer"}}},"adapterDescriptor":{"type":"object","additionalProperties":false,"required":["spec_version","kind","adapter","provider","model","execution_modes","capabilities","parameters","supported_extensions"],"properties":{"spec_version":{"const":"1.0.0"},"kind":{"const":"provider-adapter-descriptor"},"adapter":{"type":"object","additionalProperties":false,"required":["id","version"],"properties":{"id":{"$ref":"#/$defs/namespace"},"version":{"$ref":"#/$defs/semver"}}},"provider":{"type":"object","additionalProperties":false,"required":["id"],"properties":{"id":{"$ref":"#/$defs/safeId"},"display_name":{"type":"string","minLength":1,"maxLength":120}}},"model":{"type":"object","additionalProperties":false,"required":["id"],"properties":{"id":{"$ref":"#/$defs/safeId"},"display_name":{"type":"string","minLength":1,"maxLength":120},"revision":{"type":"string","minLength":1,"maxLength":128}}},"execution_modes":{"type":"array","minItems":1,"uniqueItems":true,"contains":{"const":"synchronous"},"items":{"enum":["synchronous","streaming","asynchronous"]}},"capabilities":{"type":"array","minItems":1,"contains":{"type":"object","properties":{"name":{"const":"text-generation"}},"required":["name"]},"items":{"$ref":"#/$defs/capabilityDescriptor"}},"parameters":{"type":"object","additionalProperties":false,"properties":{"max_output_tokens":{"$ref":"#/$defs/integerParameterSupport"},"temperature":{"$ref":"#/$defs/numericParameterSupport"},"top_p":{"$ref":"#/$defs/numericParameterSupport"},"stop_sequences":{"type":"object","additionalProperties":false,"required":["max_items","max_item_length"],"properties":{"max_items":{"type":"integer","minimum":1},"max_item_length":{"type":"integer","minimum":1}}},"seed":{"$ref":"#/$defs/integerParameterSupport"}}},"supported_extensions":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/namespace"}}}},"contextPackageProvenance":{"type":"object","additionalProperties":false,"required":["package","section","sources","authorization"],"properties":{"package":{"type":"object","additionalProperties":false,"required":["id","version","instance_id","manifest_sha256"],"properties":{"id":{"type":"string","pattern":"^context-package\\.[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?)+$"},"version":{"$ref":"#/$defs/semver"},"instance_id":{"$ref":"#/$defs/safeId"},"manifest_sha256":{"$ref":"#/$defs/sha256"}}},"section":{"type":"object","additionalProperties":false,"required":["sha256","source_ids"],"properties":{"sha256":{"$ref":"#/$defs/sha256"},"source_ids":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/safeId"}}}},"sources":{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["source_id","kind","version","classification"],"properties":{"source_id":{"$ref":"#/$defs/safeId"},"kind":{"enum":["public-canon","approved-private","caller-supplied","synthetic"]},"version":{"type":"string","minLength":1,"maxLength":200},"classification":{"$ref":"#/$defs/classification"}}}},"authorization":{"type":"object","additionalProperties":false,"required":["decision_id","authority_reference"],"properties":{"decision_id":{"$ref":"#/$defs/safeId"},"authority_reference":{"$ref":"#/$defs/absoluteUri"}}}}},"renderedPrompt":{"type":"object","additionalProperties":false,"required":["format","definition","renderer","classification","messages","inputs","contexts","byte_size","sha256"],"properties":{"format":{"const":"studio-rendered-messages-v1"},"definition":{"type":"object","additionalProperties":false,"required":["id","version","spec_version"],"properties":{"id":{"type":"string","pattern":"^prompt\\.[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?)+$"},"version":{"$ref":"#/$defs/semver"},"spec_version":{"const":"1.0.0"}}},"renderer":{"type":"object","additionalProperties":false,"required":["name","version","algorithm","canonical_json","contract"],"properties":{"name":{"type":"string","minLength":1,"maxLength":200},"version":{"$ref":"#/$defs/semver"},"algorithm":{"type":"string","minLength":1,"maxLength":100},"canonical_json":{"type":"string","minLength":1,"maxLength":100},"contract":{"type":"object","additionalProperties":false,"required":["repository","commit","status"],"properties":{"repository":{"type":"string","pattern":"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},"commit":{"type":"string","pattern":"^[0-9a-f]{40}$"},"status":{"enum":["provisional-unreleased","released"]}}}}},"classification":{"$ref":"#/$defs/classification"},"messages":{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["role","content"],"properties":{"role":{"enum":["instruction","user","assistant-example"]},"content":{"type":"string"}}}},"inputs":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["name","source","classification"],"properties":{"name":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,63}$"},"source":{"enum":["provided","default"]},"classification":{"$ref":"#/$defs/classification"}}}},"contexts":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["slot","classification","media_type","byte_size"],"properties":{"slot":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,63}$"},"classification":{"$ref":"#/$defs/classification"},"media_type":{"type":"string","pattern":"^[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+$"},"byte_size":{"type":"integer","minimum":0},"reference":{"type":"string","minLength":1,"maxLength":500},"package":{"$ref":"#/$defs/contextPackageProvenance"}}}},"byte_size":{"type":"integer","minimum":1},"sha256":{"$ref":"#/$defs/sha256"}}},"portableParameters":{"type":"object","additionalProperties":false,"properties":{"max_output_tokens":{"type":"integer","minimum":1},"temperature":{"type":"number","minimum":0,"maximum":2},"top_p":{"type":"number","exclusiveMinimum":0,"maximum":1},"stop_sequences":{"type":"array","minItems":1,"maxItems":8,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":256}},"seed":{"type":"integer","minimum":0,"maximum":9007199254740991}}},"expectedOutput":{"type":"object","additionalProperties":false,"required":["kind","media_type","validation"],"properties":{"kind":{"enum":["text","json"]},"media_type":{"enum":["text/plain","application/json"]},"validation":{"enum":["none","json-syntax","json-schema"]},"schema":{"$ref":"#/$defs/outputSchemaReference"}},"allOf":[{"if":{"properties":{"kind":{"const":"text"}},"required":["kind"]},"then":{"properties":{"media_type":{"const":"text/plain"},"validation":{"const":"none"}},"not":{"required":["schema"]}},"else":{"properties":{"media_type":{"const":"application/json"},"validation":{"enum":["json-syntax","json-schema"]}}}},{"if":{"properties":{"validation":{"const":"json-schema"}},"required":["validation"]},"then":{"required":["schema"]},"else":{"not":{"required":["schema"]}}}]},"capabilityRequirements":{"type":"object","additionalProperties":false,"required":["required","optional"],"properties":{"required":{"type":"array","minItems":1,"uniqueItems":true,"contains":{"const":"text-generation"},"items":{"$ref":"#/$defs/capability"}},"optional":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/capability"}}}},"executionRequest":{"type":"object","additionalProperties":false,"required":["spec_version","kind","execution_id","idempotency_key","rendered_prompt","target","capabilities","parameters","expected_output","delegation","observability"],"properties":{"spec_version":{"const":"1.0.0"},"kind":{"const":"execution-request"},"execution_id":{"$ref":"#/$defs/safeId"},"correlation_id":{"$ref":"#/$defs/safeId"},"idempotency_key":{"$ref":"#/$defs/safeId"},"rendered_prompt":{"$ref":"#/$defs/renderedPrompt"},"target":{"type":"object","additionalProperties":false,"required":["adapter_id","provider_id","model_id"],"properties":{"adapter_id":{"$ref":"#/$defs/namespace"},"provider_id":{"$ref":"#/$defs/safeId"},"model_id":{"$ref":"#/$defs/safeId"}}},"capabilities":{"$ref":"#/$defs/capabilityRequirements"},"parameters":{"$ref":"#/$defs/portableParameters"},"expected_output":{"$ref":"#/$defs/expectedOutput"},"timeout_ms":{"type":"integer","minimum":1,"maximum":3600000},"cancellation_id":{"$ref":"#/$defs/safeId"},"delegation":{"type":"object","additionalProperties":false,"required":["caller_id","human_owner","purpose","authority_reference"],"properties":{"caller_id":{"$ref":"#/$defs/safeId"},"human_owner":{"$ref":"#/$defs/owner"},"purpose":{"type":"string","minLength":1,"maxLength":1000},"authority_reference":{"$ref":"#/$defs/absoluteUri"}}},"observability":{"type":"object","additionalProperties":false,"required":["retention","capture_prompt","capture_output"],"properties":{"retention":{"enum":["none","metadata-only","restricted-content"]},"capture_prompt":{"type":"boolean"},"capture_output":{"type":"boolean"}}},"extensions":{"type":"object","propertyNames":{"$ref":"#/$defs/namespace"},"additionalProperties":{"$ref":"#/$defs/extension"}}}},"normalizedUsage":{"type":"object","additionalProperties":false,"required":["provider_reported"],"properties":{"provider_reported":{"type":"boolean"},"input_tokens":{"type":"integer","minimum":0},"output_tokens":{"type":"integer","minimum":0},"total_tokens":{"type":"integer","minimum":0}}},"resultWarning":{"type":"object","additionalProperties":false,"required":["code","message"],"properties":{"code":{"type":"string","pattern":"^[A-Z][A-Z0-9_]{0,127}$"},"message":{"type":"string","minLength":1,"maxLength":1000},"details":{"type":"object"}}},"executionError":{"type":"object","additionalProperties":false,"required":["category","code","message","retryable","stage"],"properties":{"category":{"enum":["invalid-request","authentication","authorization","not-found","capability-mismatch","rate-limit","quota","content-policy","timeout","cancelled","provider-unavailable","transport","invalid-provider-response","output-validation","internal"]},"code":{"type":"string","pattern":"^[A-Z][A-Z0-9_]{0,127}$"},"message":{"type":"string","minLength":1,"maxLength":1000},"retryable":{"type":"boolean"},"stage":{"enum":["preflight","adapter","transport","provider","normalization","output-validation","provenance"]},"retry_after_ms":{"type":"integer","minimum":1,"maximum":86400000},"provider":{"type":"object","additionalProperties":false,"properties":{"code":{"type":"string","minLength":1,"maxLength":200},"http_status":{"type":"integer","minimum":100,"maximum":599},"request_id":{"type":"string","minLength":1,"maxLength":200},"details_reference":{"$ref":"#/$defs/absoluteUri"}}}}},"executionOutput":{"type":"object","additionalProperties":false,"required":["kind","media_type","delivery","classification","byte_size","sha256"],"properties":{"kind":{"enum":["text","json"]},"media_type":{"enum":["text/plain","application/json"]},"delivery":{"enum":["inline","reference"]},"classification":{"$ref":"#/$defs/classification"},"byte_size":{"type":"integer","minimum":0},"sha256":{"$ref":"#/$defs/sha256"},"content":{"type":"string"},"reference":{"$ref":"#/$defs/artifactReference"}},"allOf":[{"if":{"properties":{"kind":{"const":"text"}},"required":["kind"]},"then":{"properties":{"media_type":{"const":"text/plain"}}},"else":{"properties":{"media_type":{"const":"application/json"}}}},{"if":{"properties":{"delivery":{"const":"inline"}},"required":["delivery"]},"then":{"required":["content"],"not":{"required":["reference"]}},"else":{"required":["reference"],"not":{"required":["content"]}}}]},"executionResult":{"type":"object","additionalProperties":false,"required":["spec_version","kind","execution_id","status","identity","timing","finish_reason","warnings"],"properties":{"spec_version":{"const":"1.0.0"},"kind":{"const":"execution-result"},"execution_id":{"$ref":"#/$defs/safeId"},"correlation_id":{"$ref":"#/$defs/safeId"},"provider_request_id":{"type":"string","minLength":1,"maxLength":200},"status":{"enum":["succeeded","failed","cancelled","timed-out"]},"identity":{"type":"object","additionalProperties":false,"required":["adapter_id","adapter_version","provider_id","model_id"],"properties":{"adapter_id":{"$ref":"#/$defs/namespace"},"adapter_version":{"$ref":"#/$defs/semver"},"provider_id":{"$ref":"#/$defs/safeId"},"model_id":{"$ref":"#/$defs/safeId"},"model_revision":{"type":"string","minLength":1,"maxLength":128}}},"timing":{"type":"object","additionalProperties":false,"required":["started_at","completed_at","duration_ms"],"properties":{"started_at":{"$ref":"#/$defs/timestamp"},"completed_at":{"$ref":"#/$defs/timestamp"},"duration_ms":{"type":"integer","minimum":0}}},"finish_reason":{"enum":["stop","length","content-filter","cancelled","error","unknown"]},"usage":{"$ref":"#/$defs/normalizedUsage"},"warnings":{"type":"array","items":{"$ref":"#/$defs/resultWarning"}},"output":{"$ref":"#/$defs/executionOutput"},"error":{"$ref":"#/$defs/executionError"}},"allOf":[{"if":{"properties":{"status":{"const":"succeeded"}},"required":["status"]},"then":{"required":["output"],"not":{"required":["error"]},"properties":{"finish_reason":{"enum":["stop","length","content-filter","unknown"]}}},"else":{"required":["error"],"not":{"required":["output"]}}},{"if":{"properties":{"status":{"const":"failed"}},"required":["status"]},"then":{"properties":{"finish_reason":{"const":"error"}}}},{"if":{"properties":{"status":{"const":"cancelled"}},"required":["status"]},"then":{"properties":{"finish_reason":{"const":"cancelled"},"error":{"properties":{"category":{"const":"cancelled"}}}}}},{"if":{"properties":{"status":{"const":"timed-out"}},"required":["status"]},"then":{"properties":{"finish_reason":{"const":"error"},"error":{"properties":{"category":{"const":"timeout"}}}}}}]}}};
 const schema32 = {"type":"object","additionalProperties":false,"required":["spec_version","kind","adapter","provider","model","execution_modes","capabilities","parameters","supported_extensions"],"properties":{"spec_version":{"const":"1.0.0"},"kind":{"const":"provider-adapter-descriptor"},"adapter":{"type":"object","additionalProperties":false,"required":["id","version"],"properties":{"id":{"$ref":"#/$defs/namespace"},"version":{"$ref":"#/$defs/semver"}}},"provider":{"type":"object","additionalProperties":false,"required":["id"],"properties":{"id":{"$ref":"#/$defs/safeId"},"display_name":{"type":"string","minLength":1,"maxLength":120}}},"model":{"type":"object","additionalProperties":false,"required":["id"],"properties":{"id":{"$ref":"#/$defs/safeId"},"display_name":{"type":"string","minLength":1,"maxLength":120},"revision":{"type":"string","minLength":1,"maxLength":128}}},"execution_modes":{"type":"array","minItems":1,"uniqueItems":true,"contains":{"const":"synchronous"},"items":{"enum":["synchronous","streaming","asynchronous"]}},"capabilities":{"type":"array","minItems":1,"contains":{"type":"object","properties":{"name":{"const":"text-generation"}},"required":["name"]},"items":{"$ref":"#/$defs/capabilityDescriptor"}},"parameters":{"type":"object","additionalProperties":false,"properties":{"max_output_tokens":{"$ref":"#/$defs/integerParameterSupport"},"temperature":{"$ref":"#/$defs/numericParameterSupport"},"top_p":{"$ref":"#/$defs/numericParameterSupport"},"stop_sequences":{"type":"object","additionalProperties":false,"required":["max_items","max_item_length"],"properties":{"max_items":{"type":"integer","minimum":1},"max_item_length":{"type":"integer","minimum":1}}},"seed":{"$ref":"#/$defs/integerParameterSupport"}}},"supported_extensions":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/namespace"}}}};
 const schema33 = {"type":"string","pattern":"^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+$","maxLength":128};
 const schema34 = {"type":"string","pattern":"^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"};
@@ -1584,19 +1584,698 @@ return errors === 0;
 validate21.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
 const schema44 = {"type":"object","additionalProperties":false,"required":["spec_version","kind","execution_id","idempotency_key","rendered_prompt","target","capabilities","parameters","expected_output","delegation","observability"],"properties":{"spec_version":{"const":"1.0.0"},"kind":{"const":"execution-request"},"execution_id":{"$ref":"#/$defs/safeId"},"correlation_id":{"$ref":"#/$defs/safeId"},"idempotency_key":{"$ref":"#/$defs/safeId"},"rendered_prompt":{"$ref":"#/$defs/renderedPrompt"},"target":{"type":"object","additionalProperties":false,"required":["adapter_id","provider_id","model_id"],"properties":{"adapter_id":{"$ref":"#/$defs/namespace"},"provider_id":{"$ref":"#/$defs/safeId"},"model_id":{"$ref":"#/$defs/safeId"}}},"capabilities":{"$ref":"#/$defs/capabilityRequirements"},"parameters":{"$ref":"#/$defs/portableParameters"},"expected_output":{"$ref":"#/$defs/expectedOutput"},"timeout_ms":{"type":"integer","minimum":1,"maximum":3600000},"cancellation_id":{"$ref":"#/$defs/safeId"},"delegation":{"type":"object","additionalProperties":false,"required":["caller_id","human_owner","purpose","authority_reference"],"properties":{"caller_id":{"$ref":"#/$defs/safeId"},"human_owner":{"$ref":"#/$defs/owner"},"purpose":{"type":"string","minLength":1,"maxLength":1000},"authority_reference":{"$ref":"#/$defs/absoluteUri"}}},"observability":{"type":"object","additionalProperties":false,"required":["retention","capture_prompt","capture_output"],"properties":{"retention":{"enum":["none","metadata-only","restricted-content"]},"capture_prompt":{"type":"boolean"},"capture_output":{"type":"boolean"}}},"extensions":{"type":"object","propertyNames":{"$ref":"#/$defs/namespace"},"additionalProperties":{"$ref":"#/$defs/extension"}}}};
-const schema61 = {"type":"object","additionalProperties":false,"properties":{"max_output_tokens":{"type":"integer","minimum":1},"temperature":{"type":"number","minimum":0,"maximum":2},"top_p":{"type":"number","exclusiveMinimum":0,"maximum":1},"stop_sequences":{"type":"array","minItems":1,"maxItems":8,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":256}},"seed":{"type":"integer","minimum":0,"maximum":9007199254740991}}};
-const schema69 = {"type":"string","pattern":"^[A-Za-z0-9@][A-Za-z0-9_.:/@-]{0,127}$"};
-const schema65 = {"type":"string","format":"uri","pattern":"^[A-Za-z][A-Za-z0-9+.-]*:"};
-const pattern38 = new RegExp("^[A-Za-z0-9@][A-Za-z0-9_.:/@-]{0,127}$", "u");
-const pattern34 = new RegExp("^[A-Za-z][A-Za-z0-9+.-]*:", "u");
-const schema48 = {"type":"object","additionalProperties":false,"required":["format","definition","renderer","classification","messages","inputs","contexts","byte_size","sha256"],"properties":{"format":{"const":"studio-rendered-messages-v1"},"definition":{"type":"object","additionalProperties":false,"required":["id","version","spec_version"],"properties":{"id":{"type":"string","pattern":"^prompt\\.[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?)+$"},"version":{"$ref":"#/$defs/semver"},"spec_version":{"const":"1.0.0"}}},"renderer":{"type":"object","additionalProperties":false,"required":["name","version","algorithm","canonical_json","contract"],"properties":{"name":{"type":"string","minLength":1,"maxLength":200},"version":{"$ref":"#/$defs/semver"},"algorithm":{"type":"string","minLength":1,"maxLength":100},"canonical_json":{"type":"string","minLength":1,"maxLength":100},"contract":{"type":"object","additionalProperties":false,"required":["repository","commit","status"],"properties":{"repository":{"type":"string","pattern":"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},"commit":{"type":"string","pattern":"^[0-9a-f]{40}$"},"status":{"enum":["provisional-unreleased","released"]}}}}},"classification":{"$ref":"#/$defs/classification"},"messages":{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["role","content"],"properties":{"role":{"enum":["instruction","user","assistant-example"]},"content":{"type":"string"}}}},"inputs":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["name","source","classification"],"properties":{"name":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,63}$"},"source":{"enum":["provided","default"]},"classification":{"$ref":"#/$defs/classification"}}}},"contexts":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["slot","classification","media_type","byte_size"],"properties":{"slot":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,63}$"},"classification":{"$ref":"#/$defs/classification"},"media_type":{"type":"string","pattern":"^[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+$"},"byte_size":{"type":"integer","minimum":0},"reference":{"type":"string","minLength":1,"maxLength":500}}}},"byte_size":{"type":"integer","minimum":1},"sha256":{"$ref":"#/$defs/sha256"}}};
+const schema71 = {"type":"object","additionalProperties":false,"properties":{"max_output_tokens":{"type":"integer","minimum":1},"temperature":{"type":"number","minimum":0,"maximum":2},"top_p":{"type":"number","exclusiveMinimum":0,"maximum":1},"stop_sequences":{"type":"array","minItems":1,"maxItems":8,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":256}},"seed":{"type":"integer","minimum":0,"maximum":9007199254740991}}};
+const schema79 = {"type":"string","pattern":"^[A-Za-z0-9@][A-Za-z0-9_.:/@-]{0,127}$"};
+const schema63 = {"type":"string","format":"uri","pattern":"^[A-Za-z][A-Za-z0-9+.-]*:"};
+const pattern47 = new RegExp("^[A-Za-z0-9@][A-Za-z0-9_.:/@-]{0,127}$", "u");
+const pattern31 = new RegExp("^[A-Za-z][A-Za-z0-9+.-]*:", "u");
+const schema48 = {"type":"object","additionalProperties":false,"required":["format","definition","renderer","classification","messages","inputs","contexts","byte_size","sha256"],"properties":{"format":{"const":"studio-rendered-messages-v1"},"definition":{"type":"object","additionalProperties":false,"required":["id","version","spec_version"],"properties":{"id":{"type":"string","pattern":"^prompt\\.[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?)+$"},"version":{"$ref":"#/$defs/semver"},"spec_version":{"const":"1.0.0"}}},"renderer":{"type":"object","additionalProperties":false,"required":["name","version","algorithm","canonical_json","contract"],"properties":{"name":{"type":"string","minLength":1,"maxLength":200},"version":{"$ref":"#/$defs/semver"},"algorithm":{"type":"string","minLength":1,"maxLength":100},"canonical_json":{"type":"string","minLength":1,"maxLength":100},"contract":{"type":"object","additionalProperties":false,"required":["repository","commit","status"],"properties":{"repository":{"type":"string","pattern":"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},"commit":{"type":"string","pattern":"^[0-9a-f]{40}$"},"status":{"enum":["provisional-unreleased","released"]}}}}},"classification":{"$ref":"#/$defs/classification"},"messages":{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["role","content"],"properties":{"role":{"enum":["instruction","user","assistant-example"]},"content":{"type":"string"}}}},"inputs":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["name","source","classification"],"properties":{"name":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,63}$"},"source":{"enum":["provided","default"]},"classification":{"$ref":"#/$defs/classification"}}}},"contexts":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["slot","classification","media_type","byte_size"],"properties":{"slot":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,63}$"},"classification":{"$ref":"#/$defs/classification"},"media_type":{"type":"string","pattern":"^[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+$"},"byte_size":{"type":"integer","minimum":0},"reference":{"type":"string","minLength":1,"maxLength":500},"package":{"$ref":"#/$defs/contextPackageProvenance"}}}},"byte_size":{"type":"integer","minimum":1},"sha256":{"$ref":"#/$defs/sha256"}}};
 const schema51 = {"enum":["public","internal","confidential","restricted"]};
-const schema54 = {"type":"string","pattern":"^sha256:[0-9a-f]{64}$"};
+const schema57 = {"type":"string","pattern":"^sha256:[0-9a-f]{64}$"};
 const pattern15 = new RegExp("^prompt\\.[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?)+$", "u");
 const pattern18 = new RegExp("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$", "u");
 const pattern19 = new RegExp("^[0-9a-f]{40}$", "u");
 const pattern20 = new RegExp("^[a-z][a-z0-9_]{0,63}$", "u");
-const pattern23 = new RegExp("^sha256:[0-9a-f]{64}$", "u");
+const pattern26 = new RegExp("^sha256:[0-9a-f]{64}$", "u");
+const schema54 = {"type":"object","additionalProperties":false,"required":["package","section","sources","authorization"],"properties":{"package":{"type":"object","additionalProperties":false,"required":["id","version","instance_id","manifest_sha256"],"properties":{"id":{"type":"string","pattern":"^context-package\\.[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?)+$"},"version":{"$ref":"#/$defs/semver"},"instance_id":{"$ref":"#/$defs/safeId"},"manifest_sha256":{"$ref":"#/$defs/sha256"}}},"section":{"type":"object","additionalProperties":false,"required":["sha256","source_ids"],"properties":{"sha256":{"$ref":"#/$defs/sha256"},"source_ids":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/safeId"}}}},"sources":{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["source_id","kind","version","classification"],"properties":{"source_id":{"$ref":"#/$defs/safeId"},"kind":{"enum":["public-canon","approved-private","caller-supplied","synthetic"]},"version":{"type":"string","minLength":1,"maxLength":200},"classification":{"$ref":"#/$defs/classification"}}}},"authorization":{"type":"object","additionalProperties":false,"required":["decision_id","authority_reference"],"properties":{"decision_id":{"$ref":"#/$defs/safeId"},"authority_reference":{"$ref":"#/$defs/absoluteUri"}}}}};
+const pattern23 = new RegExp("^context-package\\.[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?)+$", "u");
+const formats0 = require("ajv-formats/dist/formats").fullFormats.uri;
+
+function validate27(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+let vErrors = null;
+let errors = 0;
+const evaluated0 = validate27.evaluated;
+if(evaluated0.dynamicProps){
+evaluated0.props = undefined;
+}
+if(evaluated0.dynamicItems){
+evaluated0.items = undefined;
+}
+if(data && typeof data == "object" && !Array.isArray(data)){
+if(data.package === undefined){
+const err0 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "package"},message:"must have required property '"+"package"+"'"};
+if(vErrors === null){
+vErrors = [err0];
+}
+else {
+vErrors.push(err0);
+}
+errors++;
+}
+if(data.section === undefined){
+const err1 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "section"},message:"must have required property '"+"section"+"'"};
+if(vErrors === null){
+vErrors = [err1];
+}
+else {
+vErrors.push(err1);
+}
+errors++;
+}
+if(data.sources === undefined){
+const err2 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "sources"},message:"must have required property '"+"sources"+"'"};
+if(vErrors === null){
+vErrors = [err2];
+}
+else {
+vErrors.push(err2);
+}
+errors++;
+}
+if(data.authorization === undefined){
+const err3 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "authorization"},message:"must have required property '"+"authorization"+"'"};
+if(vErrors === null){
+vErrors = [err3];
+}
+else {
+vErrors.push(err3);
+}
+errors++;
+}
+for(const key0 in data){
+if(!((((key0 === "package") || (key0 === "section")) || (key0 === "sources")) || (key0 === "authorization"))){
+const err4 = {instancePath,schemaPath:"#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err4];
+}
+else {
+vErrors.push(err4);
+}
+errors++;
+}
+}
+if(data.package !== undefined){
+let data0 = data.package;
+if(data0 && typeof data0 == "object" && !Array.isArray(data0)){
+if(data0.id === undefined){
+const err5 = {instancePath:instancePath+"/package",schemaPath:"#/properties/package/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+if(vErrors === null){
+vErrors = [err5];
+}
+else {
+vErrors.push(err5);
+}
+errors++;
+}
+if(data0.version === undefined){
+const err6 = {instancePath:instancePath+"/package",schemaPath:"#/properties/package/required",keyword:"required",params:{missingProperty: "version"},message:"must have required property '"+"version"+"'"};
+if(vErrors === null){
+vErrors = [err6];
+}
+else {
+vErrors.push(err6);
+}
+errors++;
+}
+if(data0.instance_id === undefined){
+const err7 = {instancePath:instancePath+"/package",schemaPath:"#/properties/package/required",keyword:"required",params:{missingProperty: "instance_id"},message:"must have required property '"+"instance_id"+"'"};
+if(vErrors === null){
+vErrors = [err7];
+}
+else {
+vErrors.push(err7);
+}
+errors++;
+}
+if(data0.manifest_sha256 === undefined){
+const err8 = {instancePath:instancePath+"/package",schemaPath:"#/properties/package/required",keyword:"required",params:{missingProperty: "manifest_sha256"},message:"must have required property '"+"manifest_sha256"+"'"};
+if(vErrors === null){
+vErrors = [err8];
+}
+else {
+vErrors.push(err8);
+}
+errors++;
+}
+for(const key1 in data0){
+if(!((((key1 === "id") || (key1 === "version")) || (key1 === "instance_id")) || (key1 === "manifest_sha256"))){
+const err9 = {instancePath:instancePath+"/package",schemaPath:"#/properties/package/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key1},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err9];
+}
+else {
+vErrors.push(err9);
+}
+errors++;
+}
+}
+if(data0.id !== undefined){
+let data1 = data0.id;
+if(typeof data1 === "string"){
+if(!pattern23.test(data1)){
+const err10 = {instancePath:instancePath+"/package/id",schemaPath:"#/properties/package/properties/id/pattern",keyword:"pattern",params:{pattern: "^context-package\\.[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?)+$"},message:"must match pattern \""+"^context-package\\.[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?)+$"+"\""};
+if(vErrors === null){
+vErrors = [err10];
+}
+else {
+vErrors.push(err10);
+}
+errors++;
+}
+}
+else {
+const err11 = {instancePath:instancePath+"/package/id",schemaPath:"#/properties/package/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err11];
+}
+else {
+vErrors.push(err11);
+}
+errors++;
+}
+}
+if(data0.version !== undefined){
+let data2 = data0.version;
+if(typeof data2 === "string"){
+if(!pattern5.test(data2)){
+const err12 = {instancePath:instancePath+"/package/version",schemaPath:"#/$defs/semver/pattern",keyword:"pattern",params:{pattern: "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"},message:"must match pattern \""+"^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"+"\""};
+if(vErrors === null){
+vErrors = [err12];
+}
+else {
+vErrors.push(err12);
+}
+errors++;
+}
+}
+else {
+const err13 = {instancePath:instancePath+"/package/version",schemaPath:"#/$defs/semver/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err13];
+}
+else {
+vErrors.push(err13);
+}
+errors++;
+}
+}
+if(data0.instance_id !== undefined){
+let data3 = data0.instance_id;
+if(typeof data3 === "string"){
+if(!pattern6.test(data3)){
+const err14 = {instancePath:instancePath+"/package/instance_id",schemaPath:"#/$defs/safeId/pattern",keyword:"pattern",params:{pattern: "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$"},message:"must match pattern \""+"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$"+"\""};
+if(vErrors === null){
+vErrors = [err14];
+}
+else {
+vErrors.push(err14);
+}
+errors++;
+}
+}
+else {
+const err15 = {instancePath:instancePath+"/package/instance_id",schemaPath:"#/$defs/safeId/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err15];
+}
+else {
+vErrors.push(err15);
+}
+errors++;
+}
+}
+if(data0.manifest_sha256 !== undefined){
+let data4 = data0.manifest_sha256;
+if(typeof data4 === "string"){
+if(!pattern26.test(data4)){
+const err16 = {instancePath:instancePath+"/package/manifest_sha256",schemaPath:"#/$defs/sha256/pattern",keyword:"pattern",params:{pattern: "^sha256:[0-9a-f]{64}$"},message:"must match pattern \""+"^sha256:[0-9a-f]{64}$"+"\""};
+if(vErrors === null){
+vErrors = [err16];
+}
+else {
+vErrors.push(err16);
+}
+errors++;
+}
+}
+else {
+const err17 = {instancePath:instancePath+"/package/manifest_sha256",schemaPath:"#/$defs/sha256/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err17];
+}
+else {
+vErrors.push(err17);
+}
+errors++;
+}
+}
+}
+else {
+const err18 = {instancePath:instancePath+"/package",schemaPath:"#/properties/package/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err18];
+}
+else {
+vErrors.push(err18);
+}
+errors++;
+}
+}
+if(data.section !== undefined){
+let data5 = data.section;
+if(data5 && typeof data5 == "object" && !Array.isArray(data5)){
+if(data5.sha256 === undefined){
+const err19 = {instancePath:instancePath+"/section",schemaPath:"#/properties/section/required",keyword:"required",params:{missingProperty: "sha256"},message:"must have required property '"+"sha256"+"'"};
+if(vErrors === null){
+vErrors = [err19];
+}
+else {
+vErrors.push(err19);
+}
+errors++;
+}
+if(data5.source_ids === undefined){
+const err20 = {instancePath:instancePath+"/section",schemaPath:"#/properties/section/required",keyword:"required",params:{missingProperty: "source_ids"},message:"must have required property '"+"source_ids"+"'"};
+if(vErrors === null){
+vErrors = [err20];
+}
+else {
+vErrors.push(err20);
+}
+errors++;
+}
+for(const key2 in data5){
+if(!((key2 === "sha256") || (key2 === "source_ids"))){
+const err21 = {instancePath:instancePath+"/section",schemaPath:"#/properties/section/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key2},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err21];
+}
+else {
+vErrors.push(err21);
+}
+errors++;
+}
+}
+if(data5.sha256 !== undefined){
+let data6 = data5.sha256;
+if(typeof data6 === "string"){
+if(!pattern26.test(data6)){
+const err22 = {instancePath:instancePath+"/section/sha256",schemaPath:"#/$defs/sha256/pattern",keyword:"pattern",params:{pattern: "^sha256:[0-9a-f]{64}$"},message:"must match pattern \""+"^sha256:[0-9a-f]{64}$"+"\""};
+if(vErrors === null){
+vErrors = [err22];
+}
+else {
+vErrors.push(err22);
+}
+errors++;
+}
+}
+else {
+const err23 = {instancePath:instancePath+"/section/sha256",schemaPath:"#/$defs/sha256/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err23];
+}
+else {
+vErrors.push(err23);
+}
+errors++;
+}
+}
+if(data5.source_ids !== undefined){
+let data7 = data5.source_ids;
+if(Array.isArray(data7)){
+if(data7.length < 1){
+const err24 = {instancePath:instancePath+"/section/source_ids",schemaPath:"#/properties/section/properties/source_ids/minItems",keyword:"minItems",params:{limit: 1},message:"must NOT have fewer than 1 items"};
+if(vErrors === null){
+vErrors = [err24];
+}
+else {
+vErrors.push(err24);
+}
+errors++;
+}
+const len0 = data7.length;
+for(let i0=0; i0<len0; i0++){
+let data8 = data7[i0];
+if(typeof data8 === "string"){
+if(!pattern6.test(data8)){
+const err25 = {instancePath:instancePath+"/section/source_ids/" + i0,schemaPath:"#/$defs/safeId/pattern",keyword:"pattern",params:{pattern: "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$"},message:"must match pattern \""+"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$"+"\""};
+if(vErrors === null){
+vErrors = [err25];
+}
+else {
+vErrors.push(err25);
+}
+errors++;
+}
+}
+else {
+const err26 = {instancePath:instancePath+"/section/source_ids/" + i0,schemaPath:"#/$defs/safeId/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err26];
+}
+else {
+vErrors.push(err26);
+}
+errors++;
+}
+}
+let i1 = data7.length;
+let j0;
+if(i1 > 1){
+outer0:
+for(;i1--;){
+for(j0 = i1; j0--;){
+if(func0(data7[i1], data7[j0])){
+const err27 = {instancePath:instancePath+"/section/source_ids",schemaPath:"#/properties/section/properties/source_ids/uniqueItems",keyword:"uniqueItems",params:{i: i1, j: j0},message:"must NOT have duplicate items (items ## "+j0+" and "+i1+" are identical)"};
+if(vErrors === null){
+vErrors = [err27];
+}
+else {
+vErrors.push(err27);
+}
+errors++;
+break outer0;
+}
+}
+}
+}
+}
+else {
+const err28 = {instancePath:instancePath+"/section/source_ids",schemaPath:"#/properties/section/properties/source_ids/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(vErrors === null){
+vErrors = [err28];
+}
+else {
+vErrors.push(err28);
+}
+errors++;
+}
+}
+}
+else {
+const err29 = {instancePath:instancePath+"/section",schemaPath:"#/properties/section/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err29];
+}
+else {
+vErrors.push(err29);
+}
+errors++;
+}
+}
+if(data.sources !== undefined){
+let data9 = data.sources;
+if(Array.isArray(data9)){
+if(data9.length < 1){
+const err30 = {instancePath:instancePath+"/sources",schemaPath:"#/properties/sources/minItems",keyword:"minItems",params:{limit: 1},message:"must NOT have fewer than 1 items"};
+if(vErrors === null){
+vErrors = [err30];
+}
+else {
+vErrors.push(err30);
+}
+errors++;
+}
+const len1 = data9.length;
+for(let i2=0; i2<len1; i2++){
+let data10 = data9[i2];
+if(data10 && typeof data10 == "object" && !Array.isArray(data10)){
+if(data10.source_id === undefined){
+const err31 = {instancePath:instancePath+"/sources/" + i2,schemaPath:"#/properties/sources/items/required",keyword:"required",params:{missingProperty: "source_id"},message:"must have required property '"+"source_id"+"'"};
+if(vErrors === null){
+vErrors = [err31];
+}
+else {
+vErrors.push(err31);
+}
+errors++;
+}
+if(data10.kind === undefined){
+const err32 = {instancePath:instancePath+"/sources/" + i2,schemaPath:"#/properties/sources/items/required",keyword:"required",params:{missingProperty: "kind"},message:"must have required property '"+"kind"+"'"};
+if(vErrors === null){
+vErrors = [err32];
+}
+else {
+vErrors.push(err32);
+}
+errors++;
+}
+if(data10.version === undefined){
+const err33 = {instancePath:instancePath+"/sources/" + i2,schemaPath:"#/properties/sources/items/required",keyword:"required",params:{missingProperty: "version"},message:"must have required property '"+"version"+"'"};
+if(vErrors === null){
+vErrors = [err33];
+}
+else {
+vErrors.push(err33);
+}
+errors++;
+}
+if(data10.classification === undefined){
+const err34 = {instancePath:instancePath+"/sources/" + i2,schemaPath:"#/properties/sources/items/required",keyword:"required",params:{missingProperty: "classification"},message:"must have required property '"+"classification"+"'"};
+if(vErrors === null){
+vErrors = [err34];
+}
+else {
+vErrors.push(err34);
+}
+errors++;
+}
+for(const key3 in data10){
+if(!((((key3 === "source_id") || (key3 === "kind")) || (key3 === "version")) || (key3 === "classification"))){
+const err35 = {instancePath:instancePath+"/sources/" + i2,schemaPath:"#/properties/sources/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key3},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err35];
+}
+else {
+vErrors.push(err35);
+}
+errors++;
+}
+}
+if(data10.source_id !== undefined){
+let data11 = data10.source_id;
+if(typeof data11 === "string"){
+if(!pattern6.test(data11)){
+const err36 = {instancePath:instancePath+"/sources/" + i2+"/source_id",schemaPath:"#/$defs/safeId/pattern",keyword:"pattern",params:{pattern: "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$"},message:"must match pattern \""+"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$"+"\""};
+if(vErrors === null){
+vErrors = [err36];
+}
+else {
+vErrors.push(err36);
+}
+errors++;
+}
+}
+else {
+const err37 = {instancePath:instancePath+"/sources/" + i2+"/source_id",schemaPath:"#/$defs/safeId/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err37];
+}
+else {
+vErrors.push(err37);
+}
+errors++;
+}
+}
+if(data10.kind !== undefined){
+let data12 = data10.kind;
+if(!((((data12 === "public-canon") || (data12 === "approved-private")) || (data12 === "caller-supplied")) || (data12 === "synthetic"))){
+const err38 = {instancePath:instancePath+"/sources/" + i2+"/kind",schemaPath:"#/properties/sources/items/properties/kind/enum",keyword:"enum",params:{allowedValues: schema54.properties.sources.items.properties.kind.enum},message:"must be equal to one of the allowed values"};
+if(vErrors === null){
+vErrors = [err38];
+}
+else {
+vErrors.push(err38);
+}
+errors++;
+}
+}
+if(data10.version !== undefined){
+let data13 = data10.version;
+if(typeof data13 === "string"){
+if(func2(data13) > 200){
+const err39 = {instancePath:instancePath+"/sources/" + i2+"/version",schemaPath:"#/properties/sources/items/properties/version/maxLength",keyword:"maxLength",params:{limit: 200},message:"must NOT have more than 200 characters"};
+if(vErrors === null){
+vErrors = [err39];
+}
+else {
+vErrors.push(err39);
+}
+errors++;
+}
+if(func2(data13) < 1){
+const err40 = {instancePath:instancePath+"/sources/" + i2+"/version",schemaPath:"#/properties/sources/items/properties/version/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
+if(vErrors === null){
+vErrors = [err40];
+}
+else {
+vErrors.push(err40);
+}
+errors++;
+}
+}
+else {
+const err41 = {instancePath:instancePath+"/sources/" + i2+"/version",schemaPath:"#/properties/sources/items/properties/version/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err41];
+}
+else {
+vErrors.push(err41);
+}
+errors++;
+}
+}
+if(data10.classification !== undefined){
+let data14 = data10.classification;
+if(!((((data14 === "public") || (data14 === "internal")) || (data14 === "confidential")) || (data14 === "restricted"))){
+const err42 = {instancePath:instancePath+"/sources/" + i2+"/classification",schemaPath:"#/$defs/classification/enum",keyword:"enum",params:{allowedValues: schema51.enum},message:"must be equal to one of the allowed values"};
+if(vErrors === null){
+vErrors = [err42];
+}
+else {
+vErrors.push(err42);
+}
+errors++;
+}
+}
+}
+else {
+const err43 = {instancePath:instancePath+"/sources/" + i2,schemaPath:"#/properties/sources/items/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err43];
+}
+else {
+vErrors.push(err43);
+}
+errors++;
+}
+}
+}
+else {
+const err44 = {instancePath:instancePath+"/sources",schemaPath:"#/properties/sources/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(vErrors === null){
+vErrors = [err44];
+}
+else {
+vErrors.push(err44);
+}
+errors++;
+}
+}
+if(data.authorization !== undefined){
+let data15 = data.authorization;
+if(data15 && typeof data15 == "object" && !Array.isArray(data15)){
+if(data15.decision_id === undefined){
+const err45 = {instancePath:instancePath+"/authorization",schemaPath:"#/properties/authorization/required",keyword:"required",params:{missingProperty: "decision_id"},message:"must have required property '"+"decision_id"+"'"};
+if(vErrors === null){
+vErrors = [err45];
+}
+else {
+vErrors.push(err45);
+}
+errors++;
+}
+if(data15.authority_reference === undefined){
+const err46 = {instancePath:instancePath+"/authorization",schemaPath:"#/properties/authorization/required",keyword:"required",params:{missingProperty: "authority_reference"},message:"must have required property '"+"authority_reference"+"'"};
+if(vErrors === null){
+vErrors = [err46];
+}
+else {
+vErrors.push(err46);
+}
+errors++;
+}
+for(const key4 in data15){
+if(!((key4 === "decision_id") || (key4 === "authority_reference"))){
+const err47 = {instancePath:instancePath+"/authorization",schemaPath:"#/properties/authorization/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key4},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err47];
+}
+else {
+vErrors.push(err47);
+}
+errors++;
+}
+}
+if(data15.decision_id !== undefined){
+let data16 = data15.decision_id;
+if(typeof data16 === "string"){
+if(!pattern6.test(data16)){
+const err48 = {instancePath:instancePath+"/authorization/decision_id",schemaPath:"#/$defs/safeId/pattern",keyword:"pattern",params:{pattern: "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$"},message:"must match pattern \""+"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$"+"\""};
+if(vErrors === null){
+vErrors = [err48];
+}
+else {
+vErrors.push(err48);
+}
+errors++;
+}
+}
+else {
+const err49 = {instancePath:instancePath+"/authorization/decision_id",schemaPath:"#/$defs/safeId/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err49];
+}
+else {
+vErrors.push(err49);
+}
+errors++;
+}
+}
+if(data15.authority_reference !== undefined){
+let data17 = data15.authority_reference;
+if(typeof data17 === "string"){
+if(!pattern31.test(data17)){
+const err50 = {instancePath:instancePath+"/authorization/authority_reference",schemaPath:"#/$defs/absoluteUri/pattern",keyword:"pattern",params:{pattern: "^[A-Za-z][A-Za-z0-9+.-]*:"},message:"must match pattern \""+"^[A-Za-z][A-Za-z0-9+.-]*:"+"\""};
+if(vErrors === null){
+vErrors = [err50];
+}
+else {
+vErrors.push(err50);
+}
+errors++;
+}
+if(!(formats0(data17))){
+const err51 = {instancePath:instancePath+"/authorization/authority_reference",schemaPath:"#/$defs/absoluteUri/format",keyword:"format",params:{format: "uri"},message:"must match format \""+"uri"+"\""};
+if(vErrors === null){
+vErrors = [err51];
+}
+else {
+vErrors.push(err51);
+}
+errors++;
+}
+}
+else {
+const err52 = {instancePath:instancePath+"/authorization/authority_reference",schemaPath:"#/$defs/absoluteUri/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err52];
+}
+else {
+vErrors.push(err52);
+}
+errors++;
+}
+}
+}
+else {
+const err53 = {instancePath:instancePath+"/authorization",schemaPath:"#/properties/authorization/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err53];
+}
+else {
+vErrors.push(err53);
+}
+errors++;
+}
+}
+}
+else {
+const err54 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err54];
+}
+else {
+vErrors.push(err54);
+}
+errors++;
+}
+validate27.errors = vErrors;
+return errors === 0;
+}
+validate27.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+
 
 function validate26(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 let vErrors = null;
@@ -2452,7 +3131,7 @@ vErrors.push(err71);
 errors++;
 }
 for(const key6 in data25){
-if(!(((((key6 === "slot") || (key6 === "classification")) || (key6 === "media_type")) || (key6 === "byte_size")) || (key6 === "reference"))){
+if(!((((((key6 === "slot") || (key6 === "classification")) || (key6 === "media_type")) || (key6 === "byte_size")) || (key6 === "reference")) || (key6 === "package"))){
 const err72 = {instancePath:instancePath+"/contexts/" + i2,schemaPath:"#/properties/contexts/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key6},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err72];
@@ -2586,6 +3265,12 @@ vErrors.push(err82);
 errors++;
 }
 }
+if(data25.package !== undefined){
+if(!(validate27(data25.package, {instancePath:instancePath+"/contexts/" + i2+"/package",parentData:data25,parentDataProperty:"package",rootData,dynamicAnchors}))){
+vErrors = vErrors === null ? validate27.errors : vErrors.concat(validate27.errors);
+errors = vErrors.length;
+}
+}
 }
 else {
 const err83 = {instancePath:instancePath+"/contexts/" + i2,schemaPath:"#/properties/contexts/items/type",keyword:"type",params:{type: "object"},message:"must be object"};
@@ -2611,8 +3296,8 @@ errors++;
 }
 }
 if(data.byte_size !== undefined){
-let data31 = data.byte_size;
-if(!(((typeof data31 == "number") && (!(data31 % 1) && !isNaN(data31))) && (isFinite(data31)))){
+let data32 = data.byte_size;
+if(!(((typeof data32 == "number") && (!(data32 % 1) && !isNaN(data32))) && (isFinite(data32)))){
 const err85 = {instancePath:instancePath+"/byte_size",schemaPath:"#/properties/byte_size/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
 if(vErrors === null){
 vErrors = [err85];
@@ -2622,8 +3307,8 @@ vErrors.push(err85);
 }
 errors++;
 }
-if((typeof data31 == "number") && (isFinite(data31))){
-if(data31 < 1 || isNaN(data31)){
+if((typeof data32 == "number") && (isFinite(data32))){
+if(data32 < 1 || isNaN(data32)){
 const err86 = {instancePath:instancePath+"/byte_size",schemaPath:"#/properties/byte_size/minimum",keyword:"minimum",params:{comparison: ">=", limit: 1},message:"must be >= 1"};
 if(vErrors === null){
 vErrors = [err86];
@@ -2636,9 +3321,9 @@ errors++;
 }
 }
 if(data.sha256 !== undefined){
-let data32 = data.sha256;
-if(typeof data32 === "string"){
-if(!pattern23.test(data32)){
+let data33 = data.sha256;
+if(typeof data33 === "string"){
+if(!pattern26.test(data33)){
 const err87 = {instancePath:instancePath+"/sha256",schemaPath:"#/$defs/sha256/pattern",keyword:"pattern",params:{pattern: "^sha256:[0-9a-f]{64}$"},message:"must match pattern \""+"^sha256:[0-9a-f]{64}$"+"\""};
 if(vErrors === null){
 vErrors = [err87];
@@ -2676,12 +3361,12 @@ return errors === 0;
 }
 validate26.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
-const schema58 = {"type":"object","additionalProperties":false,"required":["required","optional"],"properties":{"required":{"type":"array","minItems":1,"uniqueItems":true,"contains":{"const":"text-generation"},"items":{"$ref":"#/$defs/capability"}},"optional":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/capability"}}}};
+const schema68 = {"type":"object","additionalProperties":false,"required":["required","optional"],"properties":{"required":{"type":"array","minItems":1,"uniqueItems":true,"contains":{"const":"text-generation"},"items":{"$ref":"#/$defs/capability"}},"optional":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/capability"}}}};
 
-function validate28(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+function validate30(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 let vErrors = null;
 let errors = 0;
-const evaluated0 = validate28.evaluated;
+const evaluated0 = validate30.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -2924,21 +3609,20 @@ vErrors.push(err16);
 }
 errors++;
 }
-validate28.errors = vErrors;
+validate30.errors = vErrors;
 return errors === 0;
 }
-validate28.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+validate30.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
-const schema62 = {"type":"object","additionalProperties":false,"required":["kind","media_type","validation"],"properties":{"kind":{"enum":["text","json"]},"media_type":{"enum":["text/plain","application/json"]},"validation":{"enum":["none","json-syntax","json-schema"]},"schema":{"$ref":"#/$defs/outputSchemaReference"}},"allOf":[{"if":{"properties":{"kind":{"const":"text"}},"required":["kind"]},"then":{"properties":{"media_type":{"const":"text/plain"},"validation":{"const":"none"}},"not":{"required":["schema"]}},"else":{"properties":{"media_type":{"const":"application/json"},"validation":{"enum":["json-syntax","json-schema"]}}}},{"if":{"properties":{"validation":{"const":"json-schema"}},"required":["validation"]},"then":{"required":["schema"]},"else":{"not":{"required":["schema"]}}}]};
-const schema63 = {"type":"object","additionalProperties":false,"required":["schema_id","repository","contract","version","tag","commit","artifact_uri","media_type","byte_size","sha256"],"properties":{"schema_id":{"type":"string","minLength":1,"maxLength":500},"repository":{"type":"string","pattern":"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},"contract":{"type":"string","pattern":"^[a-z0-9]+(?:-[a-z0-9]+)*$"},"version":{"$ref":"#/$defs/semver"},"tag":{"type":"string","pattern":"^contract/[a-z0-9]+(?:-[a-z0-9]+)*/v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},"commit":{"type":"string","pattern":"^[0-9a-f]{40}$"},"artifact_uri":{"$ref":"#/$defs/absoluteUri"},"media_type":{"const":"application/schema+json"},"byte_size":{"type":"integer","minimum":1},"sha256":{"$ref":"#/$defs/sha256"}}};
-const pattern30 = new RegExp("^[a-z0-9]+(?:-[a-z0-9]+)*$", "u");
-const pattern32 = new RegExp("^contract/[a-z0-9]+(?:-[a-z0-9]+)*/v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$", "u");
-const formats0 = require("ajv-formats/dist/formats").fullFormats.uri;
+const schema72 = {"type":"object","additionalProperties":false,"required":["kind","media_type","validation"],"properties":{"kind":{"enum":["text","json"]},"media_type":{"enum":["text/plain","application/json"]},"validation":{"enum":["none","json-syntax","json-schema"]},"schema":{"$ref":"#/$defs/outputSchemaReference"}},"allOf":[{"if":{"properties":{"kind":{"const":"text"}},"required":["kind"]},"then":{"properties":{"media_type":{"const":"text/plain"},"validation":{"const":"none"}},"not":{"required":["schema"]}},"else":{"properties":{"media_type":{"const":"application/json"},"validation":{"enum":["json-syntax","json-schema"]}}}},{"if":{"properties":{"validation":{"const":"json-schema"}},"required":["validation"]},"then":{"required":["schema"]},"else":{"not":{"required":["schema"]}}}]};
+const schema73 = {"type":"object","additionalProperties":false,"required":["schema_id","repository","contract","version","tag","commit","artifact_uri","media_type","byte_size","sha256"],"properties":{"schema_id":{"type":"string","minLength":1,"maxLength":500},"repository":{"type":"string","pattern":"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},"contract":{"type":"string","pattern":"^[a-z0-9]+(?:-[a-z0-9]+)*$"},"version":{"$ref":"#/$defs/semver"},"tag":{"type":"string","pattern":"^contract/[a-z0-9]+(?:-[a-z0-9]+)*/v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},"commit":{"type":"string","pattern":"^[0-9a-f]{40}$"},"artifact_uri":{"$ref":"#/$defs/absoluteUri"},"media_type":{"const":"application/schema+json"},"byte_size":{"type":"integer","minimum":1},"sha256":{"$ref":"#/$defs/sha256"}}};
+const pattern39 = new RegExp("^[a-z0-9]+(?:-[a-z0-9]+)*$", "u");
+const pattern41 = new RegExp("^contract/[a-z0-9]+(?:-[a-z0-9]+)*/v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$", "u");
 
-function validate31(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+function validate33(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 let vErrors = null;
 let errors = 0;
-const evaluated0 = validate31.evaluated;
+const evaluated0 = validate33.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -3047,7 +3731,7 @@ vErrors.push(err9);
 errors++;
 }
 for(const key0 in data){
-if(!(func1.call(schema63.properties, key0))){
+if(!(func1.call(schema73.properties, key0))){
 const err10 = {instancePath,schemaPath:"#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err10];
@@ -3121,7 +3805,7 @@ errors++;
 if(data.contract !== undefined){
 let data2 = data.contract;
 if(typeof data2 === "string"){
-if(!pattern30.test(data2)){
+if(!pattern39.test(data2)){
 const err16 = {instancePath:instancePath+"/contract",schemaPath:"#/properties/contract/pattern",keyword:"pattern",params:{pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"},message:"must match pattern \""+"^[a-z0-9]+(?:-[a-z0-9]+)*$"+"\""};
 if(vErrors === null){
 vErrors = [err16];
@@ -3171,7 +3855,7 @@ errors++;
 if(data.tag !== undefined){
 let data4 = data.tag;
 if(typeof data4 === "string"){
-if(!pattern32.test(data4)){
+if(!pattern41.test(data4)){
 const err20 = {instancePath:instancePath+"/tag",schemaPath:"#/properties/tag/pattern",keyword:"pattern",params:{pattern: "^contract/[a-z0-9]+(?:-[a-z0-9]+)*/v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},message:"must match pattern \""+"^contract/[a-z0-9]+(?:-[a-z0-9]+)*/v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"+"\""};
 if(vErrors === null){
 vErrors = [err20];
@@ -3221,7 +3905,7 @@ errors++;
 if(data.artifact_uri !== undefined){
 let data6 = data.artifact_uri;
 if(typeof data6 === "string"){
-if(!pattern34.test(data6)){
+if(!pattern31.test(data6)){
 const err24 = {instancePath:instancePath+"/artifact_uri",schemaPath:"#/$defs/absoluteUri/pattern",keyword:"pattern",params:{pattern: "^[A-Za-z][A-Za-z0-9+.-]*:"},message:"must match pattern \""+"^[A-Za-z][A-Za-z0-9+.-]*:"+"\""};
 if(vErrors === null){
 vErrors = [err24];
@@ -3293,7 +3977,7 @@ errors++;
 if(data.sha256 !== undefined){
 let data9 = data.sha256;
 if(typeof data9 === "string"){
-if(!pattern23.test(data9)){
+if(!pattern26.test(data9)){
 const err30 = {instancePath:instancePath+"/sha256",schemaPath:"#/$defs/sha256/pattern",keyword:"pattern",params:{pattern: "^sha256:[0-9a-f]{64}$"},message:"must match pattern \""+"^sha256:[0-9a-f]{64}$"+"\""};
 if(vErrors === null){
 vErrors = [err30];
@@ -3326,16 +4010,16 @@ vErrors.push(err32);
 }
 errors++;
 }
-validate31.errors = vErrors;
+validate33.errors = vErrors;
 return errors === 0;
 }
-validate31.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+validate33.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
 
-function validate30(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+function validate32(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 let vErrors = null;
 let errors = 0;
-const evaluated0 = validate30.evaluated;
+const evaluated0 = validate32.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -3476,7 +4160,7 @@ errors++;
 if(data.validation !== undefined){
 let data4 = data.validation;
 if(!((data4 === "json-syntax") || (data4 === "json-schema"))){
-const err7 = {instancePath:instancePath+"/validation",schemaPath:"#/allOf/0/else/properties/validation/enum",keyword:"enum",params:{allowedValues: schema62.allOf[0].else.properties.validation.enum},message:"must be equal to one of the allowed values"};
+const err7 = {instancePath:instancePath+"/validation",schemaPath:"#/allOf/0/else/properties/validation/enum",keyword:"enum",params:{allowedValues: schema72.allOf[0].else.properties.validation.enum},message:"must be equal to one of the allowed values"};
 if(vErrors === null){
 vErrors = [err7];
 }
@@ -3670,7 +4354,7 @@ errors++;
 if(data.kind !== undefined){
 let data6 = data.kind;
 if(!((data6 === "text") || (data6 === "json"))){
-const err19 = {instancePath:instancePath+"/kind",schemaPath:"#/properties/kind/enum",keyword:"enum",params:{allowedValues: schema62.properties.kind.enum},message:"must be equal to one of the allowed values"};
+const err19 = {instancePath:instancePath+"/kind",schemaPath:"#/properties/kind/enum",keyword:"enum",params:{allowedValues: schema72.properties.kind.enum},message:"must be equal to one of the allowed values"};
 if(vErrors === null){
 vErrors = [err19];
 }
@@ -3683,7 +4367,7 @@ errors++;
 if(data.media_type !== undefined){
 let data7 = data.media_type;
 if(!((data7 === "text/plain") || (data7 === "application/json"))){
-const err20 = {instancePath:instancePath+"/media_type",schemaPath:"#/properties/media_type/enum",keyword:"enum",params:{allowedValues: schema62.properties.media_type.enum},message:"must be equal to one of the allowed values"};
+const err20 = {instancePath:instancePath+"/media_type",schemaPath:"#/properties/media_type/enum",keyword:"enum",params:{allowedValues: schema72.properties.media_type.enum},message:"must be equal to one of the allowed values"};
 if(vErrors === null){
 vErrors = [err20];
 }
@@ -3696,7 +4380,7 @@ errors++;
 if(data.validation !== undefined){
 let data8 = data.validation;
 if(!(((data8 === "none") || (data8 === "json-syntax")) || (data8 === "json-schema"))){
-const err21 = {instancePath:instancePath+"/validation",schemaPath:"#/properties/validation/enum",keyword:"enum",params:{allowedValues: schema62.properties.validation.enum},message:"must be equal to one of the allowed values"};
+const err21 = {instancePath:instancePath+"/validation",schemaPath:"#/properties/validation/enum",keyword:"enum",params:{allowedValues: schema72.properties.validation.enum},message:"must be equal to one of the allowed values"};
 if(vErrors === null){
 vErrors = [err21];
 }
@@ -3707,8 +4391,8 @@ errors++;
 }
 }
 if(data.schema !== undefined){
-if(!(validate31(data.schema, {instancePath:instancePath+"/schema",parentData:data,parentDataProperty:"schema",rootData,dynamicAnchors}))){
-vErrors = vErrors === null ? validate31.errors : vErrors.concat(validate31.errors);
+if(!(validate33(data.schema, {instancePath:instancePath+"/schema",parentData:data,parentDataProperty:"schema",rootData,dynamicAnchors}))){
+vErrors = vErrors === null ? validate33.errors : vErrors.concat(validate33.errors);
 errors = vErrors.length;
 }
 }
@@ -3723,17 +4407,17 @@ vErrors.push(err22);
 }
 errors++;
 }
-validate30.errors = vErrors;
+validate32.errors = vErrors;
 return errors === 0;
 }
-validate30.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+validate32.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
-const schema72 = {"type":"object","additionalProperties":false,"required":["required","fallback","configuration"],"properties":{"required":{"type":"boolean"},"fallback":{"enum":["reject","portable-baseline","omit"]},"configuration":{"type":"object"},"evidence":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/absoluteUri"}}}};
+const schema82 = {"type":"object","additionalProperties":false,"required":["required","fallback","configuration"],"properties":{"required":{"type":"boolean"},"fallback":{"enum":["reject","portable-baseline","omit"]},"configuration":{"type":"object"},"evidence":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/absoluteUri"}}}};
 
-function validate34(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+function validate36(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 let vErrors = null;
 let errors = 0;
-const evaluated0 = validate34.evaluated;
+const evaluated0 = validate36.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -3798,7 +4482,7 @@ errors++;
 if(data.fallback !== undefined){
 let data1 = data.fallback;
 if(!(((data1 === "reject") || (data1 === "portable-baseline")) || (data1 === "omit"))){
-const err5 = {instancePath:instancePath+"/fallback",schemaPath:"#/properties/fallback/enum",keyword:"enum",params:{allowedValues: schema72.properties.fallback.enum},message:"must be equal to one of the allowed values"};
+const err5 = {instancePath:instancePath+"/fallback",schemaPath:"#/properties/fallback/enum",keyword:"enum",params:{allowedValues: schema82.properties.fallback.enum},message:"must be equal to one of the allowed values"};
 if(vErrors === null){
 vErrors = [err5];
 }
@@ -3828,7 +4512,7 @@ const len0 = data3.length;
 for(let i0=0; i0<len0; i0++){
 let data4 = data3[i0];
 if(typeof data4 === "string"){
-if(!pattern34.test(data4)){
+if(!pattern31.test(data4)){
 const err7 = {instancePath:instancePath+"/evidence/" + i0,schemaPath:"#/$defs/absoluteUri/pattern",keyword:"pattern",params:{pattern: "^[A-Za-z][A-Za-z0-9+.-]*:"},message:"must match pattern \""+"^[A-Za-z][A-Za-z0-9+.-]*:"+"\""};
 if(vErrors === null){
 vErrors = [err7];
@@ -3903,10 +4587,10 @@ vErrors.push(err12);
 }
 errors++;
 }
-validate34.errors = vErrors;
+validate36.errors = vErrors;
 return errors === 0;
 }
-validate34.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+validate36.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
 
 function validate25(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
@@ -4290,8 +4974,8 @@ errors++;
 }
 }
 if(data.capabilities !== undefined){
-if(!(validate28(data.capabilities, {instancePath:instancePath+"/capabilities",parentData:data,parentDataProperty:"capabilities",rootData,dynamicAnchors}))){
-vErrors = vErrors === null ? validate28.errors : vErrors.concat(validate28.errors);
+if(!(validate30(data.capabilities, {instancePath:instancePath+"/capabilities",parentData:data,parentDataProperty:"capabilities",rootData,dynamicAnchors}))){
+vErrors = vErrors === null ? validate30.errors : vErrors.concat(validate30.errors);
 errors = vErrors.length;
 }
 }
@@ -4548,8 +5232,8 @@ errors++;
 }
 }
 if(data.expected_output !== undefined){
-if(!(validate30(data.expected_output, {instancePath:instancePath+"/expected_output",parentData:data,parentDataProperty:"expected_output",rootData,dynamicAnchors}))){
-vErrors = vErrors === null ? validate30.errors : vErrors.concat(validate30.errors);
+if(!(validate32(data.expected_output, {instancePath:instancePath+"/expected_output",parentData:data,parentDataProperty:"expected_output",rootData,dynamicAnchors}))){
+vErrors = vErrors === null ? validate32.errors : vErrors.concat(validate32.errors);
 errors = vErrors.length;
 }
 }
@@ -4696,7 +5380,7 @@ errors++;
 if(data21.human_owner !== undefined){
 let data23 = data21.human_owner;
 if(typeof data23 === "string"){
-if(!pattern38.test(data23)){
+if(!pattern47.test(data23)){
 const err64 = {instancePath:instancePath+"/delegation/human_owner",schemaPath:"#/$defs/owner/pattern",keyword:"pattern",params:{pattern: "^[A-Za-z0-9@][A-Za-z0-9_.:/@-]{0,127}$"},message:"must match pattern \""+"^[A-Za-z0-9@][A-Za-z0-9_.:/@-]{0,127}$"+"\""};
 if(vErrors === null){
 vErrors = [err64];
@@ -4756,7 +5440,7 @@ errors++;
 if(data21.authority_reference !== undefined){
 let data25 = data21.authority_reference;
 if(typeof data25 === "string"){
-if(!pattern34.test(data25)){
+if(!pattern31.test(data25)){
 const err69 = {instancePath:instancePath+"/delegation/authority_reference",schemaPath:"#/$defs/absoluteUri/pattern",keyword:"pattern",params:{pattern: "^[A-Za-z][A-Za-z0-9+.-]*:"},message:"must match pattern \""+"^[A-Za-z][A-Za-z0-9+.-]*:"+"\""};
 if(vErrors === null){
 vErrors = [err69];
@@ -4944,8 +5628,8 @@ errors++;
 }
 }
 for(const key6 in data30){
-if(!(validate34(data30[key6], {instancePath:instancePath+"/extensions/" + key6.replace(/~/g, "~0").replace(/\//g, "~1"),parentData:data30,parentDataProperty:key6,rootData,dynamicAnchors}))){
-vErrors = vErrors === null ? validate34.errors : vErrors.concat(validate34.errors);
+if(!(validate36(data30[key6], {instancePath:instancePath+"/extensions/" + key6.replace(/~/g, "~0").replace(/\//g, "~1"),parentData:data30,parentDataProperty:key6,rootData,dynamicAnchors}))){
+vErrors = vErrors === null ? validate36.errors : vErrors.concat(validate36.errors);
 errors = vErrors.length;
 }
 }
@@ -4977,19 +5661,19 @@ return errors === 0;
 }
 validate25.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
-const schema74 = {"type":"object","additionalProperties":false,"required":["spec_version","kind","execution_id","status","identity","timing","finish_reason","warnings"],"properties":{"spec_version":{"const":"1.0.0"},"kind":{"const":"execution-result"},"execution_id":{"$ref":"#/$defs/safeId"},"correlation_id":{"$ref":"#/$defs/safeId"},"provider_request_id":{"type":"string","minLength":1,"maxLength":200},"status":{"enum":["succeeded","failed","cancelled","timed-out"]},"identity":{"type":"object","additionalProperties":false,"required":["adapter_id","adapter_version","provider_id","model_id"],"properties":{"adapter_id":{"$ref":"#/$defs/namespace"},"adapter_version":{"$ref":"#/$defs/semver"},"provider_id":{"$ref":"#/$defs/safeId"},"model_id":{"$ref":"#/$defs/safeId"},"model_revision":{"type":"string","minLength":1,"maxLength":128}}},"timing":{"type":"object","additionalProperties":false,"required":["started_at","completed_at","duration_ms"],"properties":{"started_at":{"$ref":"#/$defs/timestamp"},"completed_at":{"$ref":"#/$defs/timestamp"},"duration_ms":{"type":"integer","minimum":0}}},"finish_reason":{"enum":["stop","length","content-filter","cancelled","error","unknown"]},"usage":{"$ref":"#/$defs/normalizedUsage"},"warnings":{"type":"array","items":{"$ref":"#/$defs/resultWarning"}},"output":{"$ref":"#/$defs/executionOutput"},"error":{"$ref":"#/$defs/executionError"}},"allOf":[{"if":{"properties":{"status":{"const":"succeeded"}},"required":["status"]},"then":{"required":["output"],"not":{"required":["error"]},"properties":{"finish_reason":{"enum":["stop","length","content-filter","unknown"]}}},"else":{"required":["error"],"not":{"required":["output"]}}},{"if":{"properties":{"status":{"const":"failed"}},"required":["status"]},"then":{"properties":{"finish_reason":{"const":"error"}}}},{"if":{"properties":{"status":{"const":"cancelled"}},"required":["status"]},"then":{"properties":{"finish_reason":{"const":"cancelled"},"error":{"properties":{"category":{"const":"cancelled"}}}}}},{"if":{"properties":{"status":{"const":"timed-out"}},"required":["status"]},"then":{"properties":{"finish_reason":{"const":"error"},"error":{"properties":{"category":{"const":"timeout"}}}}}}]};
-const schema81 = {"type":"string","format":"date-time"};
-const schema83 = {"type":"object","additionalProperties":false,"required":["provider_reported"],"properties":{"provider_reported":{"type":"boolean"},"input_tokens":{"type":"integer","minimum":0},"output_tokens":{"type":"integer","minimum":0},"total_tokens":{"type":"integer","minimum":0}}};
-const schema84 = {"type":"object","additionalProperties":false,"required":["code","message"],"properties":{"code":{"type":"string","pattern":"^[A-Z][A-Z0-9_]{0,127}$"},"message":{"type":"string","minLength":1,"maxLength":1000},"details":{"type":"object"}}};
-const pattern48 = new RegExp("^[A-Z][A-Z0-9_]{0,127}$", "u");
-const formats6 = require("ajv-formats/dist/formats").fullFormats["date-time"];
-const schema85 = {"type":"object","additionalProperties":false,"required":["kind","media_type","delivery","classification","byte_size","sha256"],"properties":{"kind":{"enum":["text","json"]},"media_type":{"enum":["text/plain","application/json"]},"delivery":{"enum":["inline","reference"]},"classification":{"$ref":"#/$defs/classification"},"byte_size":{"type":"integer","minimum":0},"sha256":{"$ref":"#/$defs/sha256"},"content":{"type":"string"},"reference":{"$ref":"#/$defs/artifactReference"}},"allOf":[{"if":{"properties":{"kind":{"const":"text"}},"required":["kind"]},"then":{"properties":{"media_type":{"const":"text/plain"}}},"else":{"properties":{"media_type":{"const":"application/json"}}}},{"if":{"properties":{"delivery":{"const":"inline"}},"required":["delivery"]},"then":{"required":["content"],"not":{"required":["reference"]}},"else":{"required":["reference"],"not":{"required":["content"]}}}]};
-const schema88 = {"type":"object","additionalProperties":false,"required":["artifact_uri","media_type","byte_size","sha256"],"properties":{"artifact_uri":{"$ref":"#/$defs/absoluteUri"},"media_type":{"type":"string","pattern":"^[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+$"},"byte_size":{"type":"integer","minimum":0},"sha256":{"$ref":"#/$defs/sha256"}}};
+const schema84 = {"type":"object","additionalProperties":false,"required":["spec_version","kind","execution_id","status","identity","timing","finish_reason","warnings"],"properties":{"spec_version":{"const":"1.0.0"},"kind":{"const":"execution-result"},"execution_id":{"$ref":"#/$defs/safeId"},"correlation_id":{"$ref":"#/$defs/safeId"},"provider_request_id":{"type":"string","minLength":1,"maxLength":200},"status":{"enum":["succeeded","failed","cancelled","timed-out"]},"identity":{"type":"object","additionalProperties":false,"required":["adapter_id","adapter_version","provider_id","model_id"],"properties":{"adapter_id":{"$ref":"#/$defs/namespace"},"adapter_version":{"$ref":"#/$defs/semver"},"provider_id":{"$ref":"#/$defs/safeId"},"model_id":{"$ref":"#/$defs/safeId"},"model_revision":{"type":"string","minLength":1,"maxLength":128}}},"timing":{"type":"object","additionalProperties":false,"required":["started_at","completed_at","duration_ms"],"properties":{"started_at":{"$ref":"#/$defs/timestamp"},"completed_at":{"$ref":"#/$defs/timestamp"},"duration_ms":{"type":"integer","minimum":0}}},"finish_reason":{"enum":["stop","length","content-filter","cancelled","error","unknown"]},"usage":{"$ref":"#/$defs/normalizedUsage"},"warnings":{"type":"array","items":{"$ref":"#/$defs/resultWarning"}},"output":{"$ref":"#/$defs/executionOutput"},"error":{"$ref":"#/$defs/executionError"}},"allOf":[{"if":{"properties":{"status":{"const":"succeeded"}},"required":["status"]},"then":{"required":["output"],"not":{"required":["error"]},"properties":{"finish_reason":{"enum":["stop","length","content-filter","unknown"]}}},"else":{"required":["error"],"not":{"required":["output"]}}},{"if":{"properties":{"status":{"const":"failed"}},"required":["status"]},"then":{"properties":{"finish_reason":{"const":"error"}}}},{"if":{"properties":{"status":{"const":"cancelled"}},"required":["status"]},"then":{"properties":{"finish_reason":{"const":"cancelled"},"error":{"properties":{"category":{"const":"cancelled"}}}}}},{"if":{"properties":{"status":{"const":"timed-out"}},"required":["status"]},"then":{"properties":{"finish_reason":{"const":"error"},"error":{"properties":{"category":{"const":"timeout"}}}}}}]};
+const schema91 = {"type":"string","format":"date-time"};
+const schema93 = {"type":"object","additionalProperties":false,"required":["provider_reported"],"properties":{"provider_reported":{"type":"boolean"},"input_tokens":{"type":"integer","minimum":0},"output_tokens":{"type":"integer","minimum":0},"total_tokens":{"type":"integer","minimum":0}}};
+const schema94 = {"type":"object","additionalProperties":false,"required":["code","message"],"properties":{"code":{"type":"string","pattern":"^[A-Z][A-Z0-9_]{0,127}$"},"message":{"type":"string","minLength":1,"maxLength":1000},"details":{"type":"object"}}};
+const pattern57 = new RegExp("^[A-Z][A-Z0-9_]{0,127}$", "u");
+const formats8 = require("ajv-formats/dist/formats").fullFormats["date-time"];
+const schema95 = {"type":"object","additionalProperties":false,"required":["kind","media_type","delivery","classification","byte_size","sha256"],"properties":{"kind":{"enum":["text","json"]},"media_type":{"enum":["text/plain","application/json"]},"delivery":{"enum":["inline","reference"]},"classification":{"$ref":"#/$defs/classification"},"byte_size":{"type":"integer","minimum":0},"sha256":{"$ref":"#/$defs/sha256"},"content":{"type":"string"},"reference":{"$ref":"#/$defs/artifactReference"}},"allOf":[{"if":{"properties":{"kind":{"const":"text"}},"required":["kind"]},"then":{"properties":{"media_type":{"const":"text/plain"}}},"else":{"properties":{"media_type":{"const":"application/json"}}}},{"if":{"properties":{"delivery":{"const":"inline"}},"required":["delivery"]},"then":{"required":["content"],"not":{"required":["reference"]}},"else":{"required":["reference"],"not":{"required":["content"]}}}]};
+const schema98 = {"type":"object","additionalProperties":false,"required":["artifact_uri","media_type","byte_size","sha256"],"properties":{"artifact_uri":{"$ref":"#/$defs/absoluteUri"},"media_type":{"type":"string","pattern":"^[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+$"},"byte_size":{"type":"integer","minimum":0},"sha256":{"$ref":"#/$defs/sha256"}}};
 
-function validate39(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+function validate41(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 let vErrors = null;
 let errors = 0;
-const evaluated0 = validate39.evaluated;
+const evaluated0 = validate41.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -5052,7 +5736,7 @@ errors++;
 if(data.artifact_uri !== undefined){
 let data0 = data.artifact_uri;
 if(typeof data0 === "string"){
-if(!pattern34.test(data0)){
+if(!pattern31.test(data0)){
 const err5 = {instancePath:instancePath+"/artifact_uri",schemaPath:"#/$defs/absoluteUri/pattern",keyword:"pattern",params:{pattern: "^[A-Za-z][A-Za-z0-9+.-]*:"},message:"must match pattern \""+"^[A-Za-z][A-Za-z0-9+.-]*:"+"\""};
 if(vErrors === null){
 vErrors = [err5];
@@ -5137,7 +5821,7 @@ errors++;
 if(data.sha256 !== undefined){
 let data3 = data.sha256;
 if(typeof data3 === "string"){
-if(!pattern23.test(data3)){
+if(!pattern26.test(data3)){
 const err12 = {instancePath:instancePath+"/sha256",schemaPath:"#/$defs/sha256/pattern",keyword:"pattern",params:{pattern: "^sha256:[0-9a-f]{64}$"},message:"must match pattern \""+"^sha256:[0-9a-f]{64}$"+"\""};
 if(vErrors === null){
 vErrors = [err12];
@@ -5170,16 +5854,16 @@ vErrors.push(err14);
 }
 errors++;
 }
-validate39.errors = vErrors;
+validate41.errors = vErrors;
 return errors === 0;
 }
-validate39.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+validate41.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
 
-function validate38(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+function validate40(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 let vErrors = null;
 let errors = 0;
-const evaluated0 = validate38.evaluated;
+const evaluated0 = validate40.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -5529,7 +6213,7 @@ errors++;
 if(data.kind !== undefined){
 let data4 = data.kind;
 if(!((data4 === "text") || (data4 === "json"))){
-const err21 = {instancePath:instancePath+"/kind",schemaPath:"#/properties/kind/enum",keyword:"enum",params:{allowedValues: schema85.properties.kind.enum},message:"must be equal to one of the allowed values"};
+const err21 = {instancePath:instancePath+"/kind",schemaPath:"#/properties/kind/enum",keyword:"enum",params:{allowedValues: schema95.properties.kind.enum},message:"must be equal to one of the allowed values"};
 if(vErrors === null){
 vErrors = [err21];
 }
@@ -5542,7 +6226,7 @@ errors++;
 if(data.media_type !== undefined){
 let data5 = data.media_type;
 if(!((data5 === "text/plain") || (data5 === "application/json"))){
-const err22 = {instancePath:instancePath+"/media_type",schemaPath:"#/properties/media_type/enum",keyword:"enum",params:{allowedValues: schema85.properties.media_type.enum},message:"must be equal to one of the allowed values"};
+const err22 = {instancePath:instancePath+"/media_type",schemaPath:"#/properties/media_type/enum",keyword:"enum",params:{allowedValues: schema95.properties.media_type.enum},message:"must be equal to one of the allowed values"};
 if(vErrors === null){
 vErrors = [err22];
 }
@@ -5555,7 +6239,7 @@ errors++;
 if(data.delivery !== undefined){
 let data6 = data.delivery;
 if(!((data6 === "inline") || (data6 === "reference"))){
-const err23 = {instancePath:instancePath+"/delivery",schemaPath:"#/properties/delivery/enum",keyword:"enum",params:{allowedValues: schema85.properties.delivery.enum},message:"must be equal to one of the allowed values"};
+const err23 = {instancePath:instancePath+"/delivery",schemaPath:"#/properties/delivery/enum",keyword:"enum",params:{allowedValues: schema95.properties.delivery.enum},message:"must be equal to one of the allowed values"};
 if(vErrors === null){
 vErrors = [err23];
 }
@@ -5606,7 +6290,7 @@ errors++;
 if(data.sha256 !== undefined){
 let data9 = data.sha256;
 if(typeof data9 === "string"){
-if(!pattern23.test(data9)){
+if(!pattern26.test(data9)){
 const err27 = {instancePath:instancePath+"/sha256",schemaPath:"#/$defs/sha256/pattern",keyword:"pattern",params:{pattern: "^sha256:[0-9a-f]{64}$"},message:"must match pattern \""+"^sha256:[0-9a-f]{64}$"+"\""};
 if(vErrors === null){
 vErrors = [err27];
@@ -5641,8 +6325,8 @@ errors++;
 }
 }
 if(data.reference !== undefined){
-if(!(validate39(data.reference, {instancePath:instancePath+"/reference",parentData:data,parentDataProperty:"reference",rootData,dynamicAnchors}))){
-vErrors = vErrors === null ? validate39.errors : vErrors.concat(validate39.errors);
+if(!(validate41(data.reference, {instancePath:instancePath+"/reference",parentData:data,parentDataProperty:"reference",rootData,dynamicAnchors}))){
+vErrors = vErrors === null ? validate41.errors : vErrors.concat(validate41.errors);
 errors = vErrors.length;
 }
 }
@@ -5657,17 +6341,17 @@ vErrors.push(err30);
 }
 errors++;
 }
-validate38.errors = vErrors;
+validate40.errors = vErrors;
 return errors === 0;
 }
-validate38.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+validate40.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
-const schema91 = {"type":"object","additionalProperties":false,"required":["category","code","message","retryable","stage"],"properties":{"category":{"enum":["invalid-request","authentication","authorization","not-found","capability-mismatch","rate-limit","quota","content-policy","timeout","cancelled","provider-unavailable","transport","invalid-provider-response","output-validation","internal"]},"code":{"type":"string","pattern":"^[A-Z][A-Z0-9_]{0,127}$"},"message":{"type":"string","minLength":1,"maxLength":1000},"retryable":{"type":"boolean"},"stage":{"enum":["preflight","adapter","transport","provider","normalization","output-validation","provenance"]},"retry_after_ms":{"type":"integer","minimum":1,"maximum":86400000},"provider":{"type":"object","additionalProperties":false,"properties":{"code":{"type":"string","minLength":1,"maxLength":200},"http_status":{"type":"integer","minimum":100,"maximum":599},"request_id":{"type":"string","minLength":1,"maxLength":200},"details_reference":{"$ref":"#/$defs/absoluteUri"}}}}};
+const schema101 = {"type":"object","additionalProperties":false,"required":["category","code","message","retryable","stage"],"properties":{"category":{"enum":["invalid-request","authentication","authorization","not-found","capability-mismatch","rate-limit","quota","content-policy","timeout","cancelled","provider-unavailable","transport","invalid-provider-response","output-validation","internal"]},"code":{"type":"string","pattern":"^[A-Z][A-Z0-9_]{0,127}$"},"message":{"type":"string","minLength":1,"maxLength":1000},"retryable":{"type":"boolean"},"stage":{"enum":["preflight","adapter","transport","provider","normalization","output-validation","provenance"]},"retry_after_ms":{"type":"integer","minimum":1,"maximum":86400000},"provider":{"type":"object","additionalProperties":false,"properties":{"code":{"type":"string","minLength":1,"maxLength":200},"http_status":{"type":"integer","minimum":100,"maximum":599},"request_id":{"type":"string","minLength":1,"maxLength":200},"details_reference":{"$ref":"#/$defs/absoluteUri"}}}}};
 
-function validate42(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+function validate44(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 let vErrors = null;
 let errors = 0;
-const evaluated0 = validate42.evaluated;
+const evaluated0 = validate44.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -5740,7 +6424,7 @@ errors++;
 if(data.category !== undefined){
 let data0 = data.category;
 if(!(((((((((((((((data0 === "invalid-request") || (data0 === "authentication")) || (data0 === "authorization")) || (data0 === "not-found")) || (data0 === "capability-mismatch")) || (data0 === "rate-limit")) || (data0 === "quota")) || (data0 === "content-policy")) || (data0 === "timeout")) || (data0 === "cancelled")) || (data0 === "provider-unavailable")) || (data0 === "transport")) || (data0 === "invalid-provider-response")) || (data0 === "output-validation")) || (data0 === "internal"))){
-const err6 = {instancePath:instancePath+"/category",schemaPath:"#/properties/category/enum",keyword:"enum",params:{allowedValues: schema91.properties.category.enum},message:"must be equal to one of the allowed values"};
+const err6 = {instancePath:instancePath+"/category",schemaPath:"#/properties/category/enum",keyword:"enum",params:{allowedValues: schema101.properties.category.enum},message:"must be equal to one of the allowed values"};
 if(vErrors === null){
 vErrors = [err6];
 }
@@ -5753,7 +6437,7 @@ errors++;
 if(data.code !== undefined){
 let data1 = data.code;
 if(typeof data1 === "string"){
-if(!pattern48.test(data1)){
+if(!pattern57.test(data1)){
 const err7 = {instancePath:instancePath+"/code",schemaPath:"#/properties/code/pattern",keyword:"pattern",params:{pattern: "^[A-Z][A-Z0-9_]{0,127}$"},message:"must match pattern \""+"^[A-Z][A-Z0-9_]{0,127}$"+"\""};
 if(vErrors === null){
 vErrors = [err7];
@@ -5825,7 +6509,7 @@ errors++;
 if(data.stage !== undefined){
 let data4 = data.stage;
 if(!(((((((data4 === "preflight") || (data4 === "adapter")) || (data4 === "transport")) || (data4 === "provider")) || (data4 === "normalization")) || (data4 === "output-validation")) || (data4 === "provenance"))){
-const err13 = {instancePath:instancePath+"/stage",schemaPath:"#/properties/stage/enum",keyword:"enum",params:{allowedValues: schema91.properties.stage.enum},message:"must be equal to one of the allowed values"};
+const err13 = {instancePath:instancePath+"/stage",schemaPath:"#/properties/stage/enum",keyword:"enum",params:{allowedValues: schema101.properties.stage.enum},message:"must be equal to one of the allowed values"};
 if(vErrors === null){
 vErrors = [err13];
 }
@@ -5993,7 +6677,7 @@ errors++;
 if(data6.details_reference !== undefined){
 let data10 = data6.details_reference;
 if(typeof data10 === "string"){
-if(!pattern34.test(data10)){
+if(!pattern31.test(data10)){
 const err27 = {instancePath:instancePath+"/provider/details_reference",schemaPath:"#/$defs/absoluteUri/pattern",keyword:"pattern",params:{pattern: "^[A-Za-z][A-Za-z0-9+.-]*:"},message:"must match pattern \""+"^[A-Za-z][A-Za-z0-9+.-]*:"+"\""};
 if(vErrors === null){
 vErrors = [err27];
@@ -6048,16 +6732,16 @@ vErrors.push(err31);
 }
 errors++;
 }
-validate42.errors = vErrors;
+validate44.errors = vErrors;
 return errors === 0;
 }
-validate42.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+validate44.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
 
-function validate37(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+function validate39(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 let vErrors = null;
 let errors = 0;
-const evaluated0 = validate37.evaluated;
+const evaluated0 = validate39.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -6158,7 +6842,7 @@ errors++;
 if(data.finish_reason !== undefined){
 let data1 = data.finish_reason;
 if(!((((data1 === "stop") || (data1 === "length")) || (data1 === "content-filter")) || (data1 === "unknown"))){
-const err5 = {instancePath:instancePath+"/finish_reason",schemaPath:"#/allOf/0/then/properties/finish_reason/enum",keyword:"enum",params:{allowedValues: schema74.allOf[0].then.properties.finish_reason.enum},message:"must be equal to one of the allowed values"};
+const err5 = {instancePath:instancePath+"/finish_reason",schemaPath:"#/allOf/0/then/properties/finish_reason/enum",keyword:"enum",params:{allowedValues: schema84.allOf[0].then.properties.finish_reason.enum},message:"must be equal to one of the allowed values"};
 if(vErrors === null){
 vErrors = [err5];
 }
@@ -6610,7 +7294,7 @@ vErrors.push(err31);
 errors++;
 }
 for(const key0 in data){
-if(!(func1.call(schema74.properties, key0))){
+if(!(func1.call(schema84.properties, key0))){
 const err32 = {instancePath,schemaPath:"#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err32];
@@ -6733,7 +7417,7 @@ errors++;
 if(data.status !== undefined){
 let data17 = data.status;
 if(!((((data17 === "succeeded") || (data17 === "failed")) || (data17 === "cancelled")) || (data17 === "timed-out"))){
-const err42 = {instancePath:instancePath+"/status",schemaPath:"#/properties/status/enum",keyword:"enum",params:{allowedValues: schema74.properties.status.enum},message:"must be equal to one of the allowed values"};
+const err42 = {instancePath:instancePath+"/status",schemaPath:"#/properties/status/enum",keyword:"enum",params:{allowedValues: schema84.properties.status.enum},message:"must be equal to one of the allowed values"};
 if(vErrors === null){
 vErrors = [err42];
 }
@@ -7003,7 +7687,7 @@ errors++;
 if(data24.started_at !== undefined){
 let data25 = data24.started_at;
 if(typeof data25 === "string"){
-if(!(formats6.validate(data25))){
+if(!(formats8.validate(data25))){
 const err65 = {instancePath:instancePath+"/timing/started_at",schemaPath:"#/$defs/timestamp/format",keyword:"format",params:{format: "date-time"},message:"must match format \""+"date-time"+"\""};
 if(vErrors === null){
 vErrors = [err65];
@@ -7028,7 +7712,7 @@ errors++;
 if(data24.completed_at !== undefined){
 let data26 = data24.completed_at;
 if(typeof data26 === "string"){
-if(!(formats6.validate(data26))){
+if(!(formats8.validate(data26))){
 const err67 = {instancePath:instancePath+"/timing/completed_at",schemaPath:"#/$defs/timestamp/format",keyword:"format",params:{format: "date-time"},message:"must match format \""+"date-time"+"\""};
 if(vErrors === null){
 vErrors = [err67];
@@ -7090,7 +7774,7 @@ errors++;
 if(data.finish_reason !== undefined){
 let data28 = data.finish_reason;
 if(!((((((data28 === "stop") || (data28 === "length")) || (data28 === "content-filter")) || (data28 === "cancelled")) || (data28 === "error")) || (data28 === "unknown"))){
-const err72 = {instancePath:instancePath+"/finish_reason",schemaPath:"#/properties/finish_reason/enum",keyword:"enum",params:{allowedValues: schema74.properties.finish_reason.enum},message:"must be equal to one of the allowed values"};
+const err72 = {instancePath:instancePath+"/finish_reason",schemaPath:"#/properties/finish_reason/enum",keyword:"enum",params:{allowedValues: schema84.properties.finish_reason.enum},message:"must be equal to one of the allowed values"};
 if(vErrors === null){
 vErrors = [err72];
 }
@@ -7266,7 +7950,7 @@ errors++;
 if(data35.code !== undefined){
 let data36 = data35.code;
 if(typeof data36 === "string"){
-if(!pattern48.test(data36)){
+if(!pattern57.test(data36)){
 const err86 = {instancePath:instancePath+"/warnings/" + i0+"/code",schemaPath:"#/$defs/resultWarning/properties/code/pattern",keyword:"pattern",params:{pattern: "^[A-Z][A-Z0-9_]{0,127}$"},message:"must match pattern \""+"^[A-Z][A-Z0-9_]{0,127}$"+"\""};
 if(vErrors === null){
 vErrors = [err86];
@@ -7361,14 +8045,14 @@ errors++;
 }
 }
 if(data.output !== undefined){
-if(!(validate38(data.output, {instancePath:instancePath+"/output",parentData:data,parentDataProperty:"output",rootData,dynamicAnchors}))){
-vErrors = vErrors === null ? validate38.errors : vErrors.concat(validate38.errors);
+if(!(validate40(data.output, {instancePath:instancePath+"/output",parentData:data,parentDataProperty:"output",rootData,dynamicAnchors}))){
+vErrors = vErrors === null ? validate40.errors : vErrors.concat(validate40.errors);
 errors = vErrors.length;
 }
 }
 if(data.error !== undefined){
-if(!(validate42(data.error, {instancePath:instancePath+"/error",parentData:data,parentDataProperty:"error",rootData,dynamicAnchors}))){
-vErrors = vErrors === null ? validate42.errors : vErrors.concat(validate42.errors);
+if(!(validate44(data.error, {instancePath:instancePath+"/error",parentData:data,parentDataProperty:"error",rootData,dynamicAnchors}))){
+vErrors = vErrors === null ? validate44.errors : vErrors.concat(validate44.errors);
 errors = vErrors.length;
 }
 }
@@ -7383,10 +8067,10 @@ vErrors.push(err94);
 }
 errors++;
 }
-validate37.errors = vErrors;
+validate39.errors = vErrors;
 return errors === 0;
 }
-validate37.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+validate39.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
 
 function validate20(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
@@ -7433,8 +8117,8 @@ props0 = true;
 }
 }
 const _errs3 = errors;
-if(!(validate37(data, {instancePath,parentData,parentDataProperty,rootData,dynamicAnchors}))){
-vErrors = vErrors === null ? validate37.errors : vErrors.concat(validate37.errors);
+if(!(validate39(data, {instancePath,parentData,parentDataProperty,rootData,dynamicAnchors}))){
+vErrors = vErrors === null ? validate39.errors : vErrors.concat(validate39.errors);
 errors = vErrors.length;
 }
 var _valid0 = _errs3 === errors;

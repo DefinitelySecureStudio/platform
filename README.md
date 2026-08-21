@@ -67,6 +67,9 @@ provider-neutral synchronous adapter boundary with explicit capability
 negotiation, provenance, cancellation, and normalized failures. See the
 [validation](docs/prompt-validation.md), [rendering](docs/prompt-renderer.md),
 and [execution](docs/provider-execution.md) guides.
+Prepared, authorized packages use the explicit
+[Context Package v1 integration](docs/context-packages.md), without retrieval or
+selection inside the SDK.
 The [prompt registry](docs/prompt-registry.md) discovers validated definitions
 from approved filesystem/repository locations and resolves exact versions with
 explicit lifecycle behavior.
@@ -77,6 +80,7 @@ npm test
 npm run validate:prompt -- path/to/prompt.json
 node examples/prompt-renderer.mjs
 node examples/prompt-registry.mjs path/to/approved/prompts
+node examples/context-package.mjs
 ```
 
 ## Contributing and security

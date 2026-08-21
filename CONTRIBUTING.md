@@ -44,6 +44,10 @@ backends must preserve exact validation, atomic snapshot behavior, source
 identity, conflict rules, lifecycle warnings, and explicit non-exact selection;
 they must not combine discovery with execution or publication authority.
 
+Context consumers must use the documented prepared-package boundary. Do not add
+implicit retrieval, search, environment/time access, raw context logging, or
+authorization fallback to package binding.
+
 ## Pull requests
 
 Pull requests should explain what changed, why it belongs in `platform`, how it

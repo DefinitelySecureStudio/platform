@@ -1,10 +1,13 @@
 export { canonicalJson } from "./canonical-json.js";
-export { CONTRACT, EXECUTION_CONTRACT, PROMPT_DEFINITION_CONTRACT } from "./diagnostics.js";
+export { CONTEXT_PACKAGE_CONTRACT, CONTRACT, EXECUTION_CONTRACT, PROMPT_DEFINITION_CONTRACT } from "./diagnostics.js";
 export { AdapterExecutionError, ExecutionValidationError } from "./execution-errors.js";
+export { ContextPackageError } from "./context-errors.js";
+export { bindContextPackage, parseContextPackageJson, renderPromptWithContextPackage, validateContextBinding, validateContextDocument } from "./context-packages.js";
 export { createExecutionRequest } from "./execution-request.js";
 export { executePrompt } from "./execute.js";
 export { PromptRenderError } from "./errors.js";
 export { MockTextAdapter, mockTextAdapterDescriptor } from "./mock-adapter.js";
+export { createMockContextAuthorization, createMockContextPackage } from "./mock-context-package.js";
 export { parsePromptJson } from "./parse-json.js";
 export { FilesystemPromptRegistry, createFilesystemPromptRegistry } from "./registry.js";
 export { PromptRegistryError } from "./registry-errors.js";

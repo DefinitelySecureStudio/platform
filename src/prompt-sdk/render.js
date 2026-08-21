@@ -12,7 +12,7 @@ const RENDERER = Object.freeze({
   canonical_json: "studio-json-v1",
   contract: Object.freeze({
     repository: "DefinitelySecureStudio/codex",
-    commit: "bd31b6249e068d3317306afb857d68024f2929be",
+    commit: "dfd31a693674dc03dec4784dcdd1345f647cff1e",
     status: "provisional-unreleased"
   })
 });
@@ -134,7 +134,7 @@ function resolveInputs(inputMap, supplied) {
   return { values, provenance };
 }
 
-function resolveContexts(contextMap, supplied) {
+function resolveContexts(contextMap, supplied, packageProvenance = new Map()) {
   record(supplied, ["context_values"]);
   const unknown = Object.keys(supplied).filter((name) => !contextMap.has(name)).sort();
   if (unknown.length) fail("UNKNOWN_CONTEXT", `Unknown context slot: ${unknown[0]}.`, ["context_values", unknown[0]], { names: unknown });
@@ -165,7 +165,7 @@ function resolveContexts(contextMap, supplied) {
       fail("CONTEXT_TOO_LARGE", `Context ${name} exceeds its byte limit.`, ["context_values", name, "value"], { slot: name, byte_size: byteSize, max_bytes: declaration.max_bytes });
     }
     values.set(name, { ...context, media_type: mediaType });
-    provenance.push({ slot: name, classification, media_type: mediaType, byte_size: byteSize, ...(context.reference === undefined ? {} : { reference: context.reference }) });
+    provenance.push({ slot: name, classification, media_type: mediaType, byte_size: byteSize, ...(context.reference === undefined ? {} : { reference: context.reference }), ...(packageProvenance.has(name) ? { package: structuredClone(packageProvenance.get(name)) } : {}) });
   }
   return { values, provenance };
 }
@@ -205,7 +205,7 @@ function effectiveClassification(inputProvenance, contextProvenance) {
   return used.reduce((highest, value) => CLASSIFICATIONS.indexOf(value) > CLASSIFICATIONS.indexOf(highest) ? value : highest, "public");
 }
 
-export function renderPrompt(definition, { inputValues = {}, contextValues = {} } = {}) {
+function renderPromptCore(definition, { inputValues = {}, contextValues = {} } = {}, packageProvenance) {
   record(definition, []);
   if (definition.spec_version !== "1.0.0") fail("UNSUPPORTED_SPEC_VERSION", `Unsupported Prompt Definition version: ${definition.spec_version}.`, ["spec_version"], { supported: ["1.0.0"] });
   record(definition.template, ["template"]);
@@ -216,7 +216,7 @@ export function renderPrompt(definition, { inputValues = {}, contextValues = {} 
     if (inputMap.has(name)) fail("DUPLICATE_DECLARATION", `Context slot duplicates input name: ${name}.`, ["context_slots", index, "name"], { name, declaration: "cross-kind" });
   }
   const resolvedInputs = resolveInputs(inputMap, inputValues);
-  const resolvedContexts = resolveContexts(contextMap, contextValues);
+  const resolvedContexts = resolveContexts(contextMap, contextValues, packageProvenance);
   const messages = array(definition.template.messages, ["template", "messages"]).map((message, messageIndex) => {
     record(message, ["template", "messages", messageIndex]);
     if (!ROLES.has(message.role)) fail("INVALID_MESSAGE_ROLE", `Unsupported Studio message role: ${message.role}.`, ["template", "messages", messageIndex, "role"], { role: message.role });
@@ -242,6 +242,14 @@ export function renderPrompt(definition, { inputValues = {}, contextValues = {} 
     byteSize: Buffer.byteLength(canonical, "utf8"),
     sha256: `sha256:${createHash("sha256").update(canonical, "utf8").digest("hex")}`
   });
+}
+
+export function renderPrompt(definition, values) {
+  return renderPromptCore(definition, values);
+}
+
+export function renderPromptWithContextProvenance(definition, values, packageProvenance) {
+  return renderPromptCore(definition, values, packageProvenance);
 }
 
 export function tryRenderPrompt(definition, values) {

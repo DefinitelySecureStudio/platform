@@ -19,6 +19,10 @@ discovery, filters, exact and guarded range/latest resolution, SemVer ordering,
 deprecation/retirement, duplicate conflicts, atomic refresh, and symlink escape
 prevention.
 
+Context Package tests cover exact artifact references, canonical identities,
+source links, authorization scope, time windows, prompt compatibility,
+fail-closed binding, redaction, classification, and execution provenance.
+
 ```sh
 npm test
 ```

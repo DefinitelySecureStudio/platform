@@ -4,8 +4,8 @@ import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import standaloneCode from "ajv/dist/standalone/index.js";
 
-const CONTRACT_COMMIT = "8cf6297b5180ca201328f45681417c10771e4e1a";
-const SCHEMA_SHA256 = "7c0aaa6698c782e54779a0099cf13f8e163aa9559ae4765df58d3061b22e6334";
+const CONTRACT_COMMIT = "dfd31a693674dc03dec4784dcdd1345f647cff1e";
+const SCHEMA_SHA256 = "4366665b89d7633974c4be15cac74f754e722b41031f708ca2f825ead892cb8b";
 const sourcePath = process.argv[2];
 const outputPath = process.argv[3] ?? new URL("../src/prompt-sdk/generated/provider-execution-v1-schema.js", import.meta.url);
 
