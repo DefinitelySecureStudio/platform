@@ -21,6 +21,11 @@ Context Package v1 parsing, integrity and authorization validation, prompt-slot
 binding, and provenance propagation also live in the SDK. Context discovery,
 retrieval, selection, assembly, and approval remain outside it.
 
+Structured Output v1 processing verifies raw response and schema artifact
+identity, parses JSON once, validates independently, and preserves distinct raw
+and normalized provenance. Schema registries and provider-native SDK features
+remain outside the core implementation.
+
 Source code must remain content-neutral. Creative inputs enter through versioned
 contracts at runtime and must not be embedded in code, defaults, logs, fixtures,
 or generated build output.

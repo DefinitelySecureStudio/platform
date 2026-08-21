@@ -75,7 +75,7 @@ export function parseJsonDocument(source, { label = "JSON document" } = {}) {
     const position = /position (\d+)/u.exec(error.message)?.[1];
     return {
       value: undefined,
-      diagnostics: [diagnostic("error", "JSON_SYNTAX", "Prompt document is not valid JSON.", "", position === undefined ? {} : { position: Number(position) })]
+      diagnostics: [diagnostic("error", "JSON_SYNTAX", `${label} is not valid JSON.`, "", position === undefined ? {} : { position: Number(position) })]
     };
   }
 }

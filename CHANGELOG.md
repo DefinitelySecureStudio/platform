@@ -7,6 +7,9 @@ provenance strategy. See `docs/architecture.md`.
 
 ## Unreleased
 
+- Added Structured Output v1 exact schema/raw validation, parse-once JSON
+  normalization, explicit failures, retention policy, provider-constraint
+  provenance, adversarial tests, example, documentation, and ADR.
 - Added Context Package v1 parsing, integrity and authorization validation,
   prompt-slot binding, classification and provenance propagation, deterministic
   mocks, adversarial tests, an example, documentation, and an ADR.

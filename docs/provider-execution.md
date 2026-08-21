@@ -74,5 +74,11 @@ or supplied prompt values in normalized errors or warnings.
 integration testing. It supports configured outcomes, normalized failures,
 delay, cancellation, and call inspection without network access.
 
+JSON execution output remains the raw provider representation. Callers pass a
+successful result to the independent [Structured Output v1
+processor](structured-output.md) before treating it as parsed or schema-valid.
+Provider-native/emulated constraints can guide generation but never skip this
+post-execution check.
+
 Provider Execution v1 is pinned to an accepted provisional Codex commit and is
 release-blocking until Studio issue #72 publishes its immutable artifact tuple.

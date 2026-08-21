@@ -23,6 +23,11 @@ Context Package tests cover exact artifact references, canonical identities,
 source links, authorization scope, time windows, prompt compatibility,
 fail-closed binding, redaction, classification, and execution provenance.
 
+Structured-output tests cover exact schema/raw identities, syntax-only and
+schema validation, malformed/duplicate JSON, schema id/dialect/offline-ref
+failures, retention policy, provider-constraint provenance, redaction, and
+normalized identity corruption.
+
 ```sh
 npm test
 ```
