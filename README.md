@@ -2,6 +2,9 @@
 
 Production software for the Definitely Secure Studio creative toolchain.
 
+Use the [Prompt CLI](docs/prompt-cli.md) to validate, inspect, render, execute
+synthetic tests and validate structured outputs.
+
 > [!NOTE]
 > Platform uses Node.js ESM with repository-local architecture decisions for
 > runtime and dependency choices.

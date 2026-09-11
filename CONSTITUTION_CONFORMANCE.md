@@ -1,5 +1,28 @@
 # Constitution conformance record
 
+## Issue #70 assessment — 2026-09-11
+
+Scope: CLI inspection, explicit fixture rendering, mock/trusted-module execution,
+structured-output validation, lint alias, JSON/text output, synthetic fixtures,
+subprocess tests, CI examples and authoring/promotion documentation.
+Base: `8c485aeaaefbed25cd57dc86a1761bfab28af0f1`.
+Constitution v1.0.0 at `a9cc8a503aa30e17820edc62ac95f7cbe10e0564`
+remains the governing authority. Accountable owner: @andrewperis.
+Status: Conforming candidate pending owner review and merge.
+
+Evidence: 83 passing SDK/CLI tests, including offline rendering, exact registry
+selection, mock and module execution, structured processing, usage/exit codes,
+duplicate-key rejection and non-public stdout protection. No new dependencies,
+contract changes, publication or constitutional exceptions.
+
+Trusted adapter modules are executable local code, not a sandbox; callers own
+runtime credentials, provider cost/authorization and module log redaction.
+Body-emitting commands require explicit override for non-public classifications;
+labels alone cannot detect mislabeled secrets. CI uses synthetic fixtures.
+Existing dependency advisories and immutable publication (#72) remain separate.
+Review again before release or changes to credentials, classification or execution
+authority. Prior assessments below describe the merged implementation baseline.
+
 ## Issue #69 assessment — 2026-09-11
 
 This assessment extends and supersedes the prior issue #68 scope below for the

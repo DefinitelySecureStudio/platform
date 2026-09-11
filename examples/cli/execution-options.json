@@ -1,0 +1,12 @@
+{
+  "execution_id": "exec_cli_example",
+  "correlation_id": "build_cli_example",
+  "idempotency_key": "idem_cli_example",
+  "target": { "adapter_id": "studio.mock.text", "provider_id": "studio-mock", "model_id": "mock-text-v1" },
+  "capabilities": { "required": ["text-generation"], "optional": [] },
+  "parameters": {},
+  "timeout_ms": 5000,
+  "expected_output": { "kind": "text", "media_type": "text/plain", "validation": "none" },
+  "delegation": { "caller_id": "cli.example", "human_owner": "andrewperis", "purpose": "Synthetic local CLI example.", "authority_reference": "https://github.com/DefinitelySecureStudio/studio/issues/70" },
+  "observability": { "retention": "metadata-only", "capture_prompt": false, "capture_output": false }
+}
