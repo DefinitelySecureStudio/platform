@@ -1,5 +1,7 @@
 # Platform documentation
 
+- [Prompt SDK v1 API and release guide](prompt-sdk-v1.md) consolidates the supported surface and publication gates.
+
 - [Prompt CLI and authoring workflow](prompt-cli.md) covers local commands, CI and promotion.
 
 - [Execution provenance](execution-provenance.md) covers metadata policy and pluggable observers.

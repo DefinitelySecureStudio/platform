@@ -4,8 +4,8 @@ import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import standaloneCode from "ajv/dist/standalone/index.js";
 
-const CONTRACT_COMMIT = "dfd31a693674dc03dec4784dcdd1345f647cff1e";
-const SCHEMA_SHA256 = "a0915675a2036c8f929c53a212fcd14740e12fda0ef643fe13d727f0d62e9509";
+const CONTRACT_COMMIT = "cb76a9343312d0245b388381e318aa58463303cb";
+const SCHEMA_SHA256 = "d81e88780511c31099b2dd925f31aff26d6ba75e1173e953b98a37298764b617";
 const sourcePath = process.argv[2];
 const outputPath = process.argv[3] ?? new URL("../src/prompt-sdk/generated/context-package-v1-schema.js", import.meta.url);
 
