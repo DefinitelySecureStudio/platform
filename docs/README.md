@@ -1,5 +1,8 @@
 # Platform documentation
 
+- [Context Builder implementation outline](context-builder-architecture.md) and
+  [ADR 0008](adr/0008-context-builder-pipeline.md) propose the separate producer boundary.
+
 - [Prompt SDK v1 API and release guide](prompt-sdk-v1.md) consolidates the supported surface and publication gates.
 
 - [Prompt CLI and authoring workflow](prompt-cli.md) covers local commands, CI and promotion.

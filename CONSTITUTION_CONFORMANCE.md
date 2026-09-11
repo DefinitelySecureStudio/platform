@@ -1,5 +1,21 @@
 # Constitution conformance record
 
+## Issue #75 architecture candidate — 2026-09-11
+
+Owner: @andrewperis. Baseline:
+`e5fb340bdddd631f8d873e5feab9ef4a4e4b0b31`.
+Constitution/checklist: v1.0.0 at
+`a9cc8a503aa30e17820edc62ac95f7cbe10e0564`.
+Scope: proposed separate Context Builder capability and explicit adapter/pure-core
+seams, authority and failure boundaries, contract-gap inventory and test plan.
+Profiles: universal, ADR/specification, repository/production system, automated
+workflow. Evidence: ADR 0008, implementation outline, Studio ADR 0017 and the
+coordinated PRs. No runtime, schema, dependency or permission changes.
+Status: design assessment proposed, pending owner review and Studio acceptance.
+Runtime controls, real-source trust/access and publication are not assessed or
+approved here. No exception requested. Review before #76 acceptance and on any
+source/trust/classification/persistence/provider/downstream boundary change.
+
 ## Issue #72 stable adoption — 2026-09-11
 
 Owner: @andrewperis; Constitution v1.0.0 at

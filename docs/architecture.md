@@ -44,6 +44,10 @@ records exact source identity, and returns definitions to callers without
 rendering, executing, publishing, or granting lifecycle authority.
 
 Prepared context is another separate boundary. Platform accepts an explicit
+prepared package through its **Prompt SDK** consumer. The separate proposed
+[Context Builder capability](context-builder-architecture.md) owns authorized
+source resolution, selection and assembly; it does not grant itself approval.
+The Prompt SDK accepts an explicit
 Context Package v1 artifact and authorization, validates and binds declared
 sections, and never searches, retrieves, selects, or assembles context. Package
 and section identities, source versions, classification, and authorization
