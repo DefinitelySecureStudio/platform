@@ -9,7 +9,10 @@ Accountable owner: @andrewperis; status: Conforming candidate pending owner merg
 Base revision: `07abeef7bd02ae63c5bc1505a0d02a20f680a0bc`.
 
 Scope: Execution provenance builder/validator, compiled pinned schema, optional executor observer, bounded local observer, docs, ADR 0007 and synthetic example.
-Evidence: npm test: 74 passing tests. Codex valid/invalid provenance fixtures and deterministic validator generation checked.
+Evidence: npm test: 77 passing tests. Codex valid/invalid provenance fixtures and deterministic validator generation checked.
+PR #12 review hardening adds request/result target, classification and output
+contract checks, including all classification downgrade pairs and fail-closed
+observer behavior for a target-mismatch preflight result.
 No new constitutional exceptions. Public fixtures are synthetic. Body content,
 authorization and diagnostic strings are omitted; non-public content identities
 are suppressed. Sinks cannot change the provider result or trigger retries.

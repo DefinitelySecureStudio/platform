@@ -32,6 +32,14 @@ export function validateExecutionProvenance(document) {
 export function createExecutionProvenance(request, result, { effectiveParameters, validation, structuredOutput, contentIdentities = 'public-only' } = {}) {
   if (!validateExecutionDocument(request).valid || request.kind !== 'execution-request' || !validateExecutionDocument(result).valid || result.kind !== 'execution-result') throw new Error('Invalid execution provenance inputs');
   if (request.execution_id !== result.execution_id || request.correlation_id !== result.correlation_id) throw new Error('Execution provenance correlation mismatch');
+  for (const field of ['adapter_id', 'provider_id', 'model_id']) {
+    if (request.target[field] !== result.identity[field]) throw new Error('Execution provenance target mismatch');
+  }
+  if (result.output) {
+    const classifications = ['public', 'internal', 'confidential', 'restricted'];
+    if (classifications.indexOf(result.output.classification) < classifications.indexOf(request.rendered_prompt.classification)) throw new Error('Execution provenance classification downgrade');
+    if (result.output.kind !== request.expected_output.kind || result.output.media_type !== request.expected_output.media_type) throw new Error('Execution provenance output contract mismatch');
+  }
   if (!['public-only', 'omit'].includes(contentIdentities)) throw new Error('Invalid provenance identity policy');
   let structured = { status: 'not-run' };
   if (structuredOutput !== undefined) {

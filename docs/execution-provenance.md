@@ -5,7 +5,7 @@ to later build manifests. Enable it with `executePrompt(request, { adapter,
 observer: new LocalExecutionObserver() })`. No observer means no record storage.
 
 Observers implement `async observe(record)`. The executor passes one frozen
-record after any accepted execution finishes, including preflight failure,
+record after an accepted execution with matching request/result identity finishes, including preflight failure,
 cancellation and timeout. Observer rejection, mutation attempts and deadline
 expiry add `OBSERVATION_DELIVERY_FAILED` to the result. Provider status is
 preserved and no execution is retried. The default observer deadline is 1000 ms;
@@ -22,6 +22,13 @@ construction and later structured-output evidence. Options are
 `contentIdentities` (`public-only`, default, or `omit`). Effective parameters are
 captured automatically by the executor after negotiation. Manual callers must
 provide the resolved values or the record states `not-resolved`.
+
+Manual construction rejects mismatched execution/correlation ids, target
+adapter/provider/model ids, output kind/media type, and any output classification
+below the rendered prompt. A matching id alone is not proof of origin; callers
+still own the authenticity of the supplied evidence. Target-mismatch preflight
+failures retain their original execution error, but cannot produce a matching
+provenance record: the executor adds its static delivery warning instead.
 
 Pass prompt validation/lint evidence as `provenance: { validation: report }` to
 the executor. Only outcome/counts survive; absent evidence is `not-run`.

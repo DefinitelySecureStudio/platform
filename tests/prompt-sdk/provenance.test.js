@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { canonicalJson, createMockContextPackage, createMockContextAuthorization, renderPromptWithContextPackage } from '../../src/prompt-sdk/index.js';
+import { canonicalJson, createMockContextPackage, createMockContextAuthorization, renderPromptWithContextPackage, validateExecutionDocument } from '../../src/prompt-sdk/index.js';
 import { createExecutionRequest, renderPrompt, executePrompt, MockTextAdapter, LocalExecutionObserver, createExecutionProvenance, validateExecutionProvenance, processStructuredOutput } from '../../src/prompt-sdk/index.js';
 const definition = JSON.parse(await readFile(new URL('../fixtures/prompt-definition.json', import.meta.url)));
 test('public context package/source versions survive; non-public packages are counted only', async () => {
@@ -78,6 +78,50 @@ test('non-public and omit policies suppress content hashes', async () => {
   const publicResult = await executePrompt(publicInput, { adapter: new MockTextAdapter() });
   assert.equal(createExecutionProvenance(publicInput, publicResult, { contentIdentities: 'omit' }).record.rendered, undefined);
   assert.equal(createExecutionProvenance(input, result).record.validation.status, 'not-run');
+});
+test('manual provenance rejects unrelated target identities despite matching correlation ids', async () => {
+  const input = request();
+  const result = await executePrompt(input, { adapter: new MockTextAdapter() });
+  for (const field of ['adapter_id', 'provider_id', 'model_id']) {
+    const unrelated = structuredClone(result);
+    unrelated.identity[field] = 'studio.unrelated.target';
+    assert.equal(validateExecutionDocument(unrelated).valid, true);
+    assert.throws(() => createExecutionProvenance(input, unrelated), /target mismatch/);
+  }
+});
+test('manual provenance rejects classification downgrades and mismatched output contracts', async () => {
+  const classifications = ['public', 'internal', 'confidential', 'restricted'];
+  for (const classification of classifications) {
+    const input = request({}, classification);
+    const result = await executePrompt(input, { adapter: new MockTextAdapter() });
+    for (const outputClassification of classifications) {
+      const candidate = structuredClone(result);
+      candidate.output.classification = outputClassification;
+      assert.equal(validateExecutionDocument(candidate).valid, true);
+      if (classifications.indexOf(outputClassification) < classifications.indexOf(classification)) {
+        assert.throws(() => createExecutionProvenance(input, candidate), /classification downgrade/);
+      } else {
+        const record = createExecutionProvenance(input, candidate).record;
+        assert.equal(record.output !== undefined, outputClassification === 'public');
+      }
+    }
+    const candidate = structuredClone(result);
+    Object.assign(candidate.output, { kind: 'json', media_type: 'application/json' });
+    assert.equal(validateExecutionDocument(candidate).valid, true);
+    assert.throws(() => createExecutionProvenance(input, candidate), /output contract mismatch/);
+  }
+});
+test('target-mismatch preflight preserves failure and warns instead of recording unrelated identity', async () => {
+  const input = request({ target: { adapter_id: 'studio.other.adapter', provider_id: 'studio-mock', model_id: 'mock-text-v1' } });
+  const adapter = new MockTextAdapter();
+  const observer = new LocalExecutionObserver();
+  const result = await executePrompt(input, { adapter, observer });
+  assert.equal(result.status, 'failed');
+  assert.equal(result.error.code, 'EXECUTION_PREFLIGHT_REJECTED');
+  assert.equal(adapter.calls.length, 0);
+  assert.deepEqual(observer.snapshot(), []);
+  assert.ok(result.warnings.some(warning => warning.code === 'OBSERVATION_DELIVERY_FAILED'));
+  assert.throws(() => createExecutionProvenance(input, result), /target mismatch/);
 });
 test('observer records preflight, cancellation, timeout, and provider failures once', async () => {
   const cancelled = new AbortController(); cancelled.abort();
