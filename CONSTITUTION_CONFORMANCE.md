@@ -1,5 +1,23 @@
 # Constitution conformance record
 
+## Issue #69 assessment — 2026-09-11
+
+This assessment extends and supersedes the prior issue #68 scope below for the
+current candidate. Constitution v1.0.0 at
+`a9cc8a503aa30e17820edc62ac95f7cbe10e0564` remains the authority.
+Accountable owner: @andrewperis; status: Conforming candidate pending owner merge.
+Base revision: `07abeef7bd02ae63c5bc1505a0d02a20f680a0bc`.
+
+Scope: Execution provenance builder/validator, compiled pinned schema, optional executor observer, bounded local observer, docs, ADR 0007 and synthetic example.
+Evidence: npm test: 74 passing tests. Codex valid/invalid provenance fixtures and deterministic validator generation checked.
+No new constitutional exceptions. Public fixtures are synthetic. Body content,
+authorization and diagnostic strings are omitted; non-public content identities
+are suppressed. Sinks cannot change the provider result or trigger retries.
+Caller-owned opaque identifiers, production sink retention/access controls and
+immutable contract publication (#72) remain outside this candidate.
+The existing lockfile has a high-severity fast-uri advisory reported by npm audit; dependency remediation remains separate, with no dependency changes in this diff.
+Next review: before release or any security-boundary/dependency change.
+
 ## Constitutional alignment
 
 - Constitution: [Definitely Secure Studio Constitution v1.0.0](https://github.com/DefinitelySecureStudio/studio/tree/constitution/v1.0.0)
