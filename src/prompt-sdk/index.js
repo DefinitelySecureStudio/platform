@@ -1,4 +1,5 @@
 export { canonicalJson } from "./canonical-json.js";
+export { createExecutionProvenance, validateExecutionProvenance, LocalExecutionObserver, deliverExecutionProvenance } from './provenance.js';
 export { CONTEXT_PACKAGE_CONTRACT, CONTRACT, EXECUTION_CONTRACT, PROMPT_DEFINITION_CONTRACT, STRUCTURED_OUTPUT_CONTRACT } from "./diagnostics.js";
 export { AdapterExecutionError, ExecutionValidationError } from "./execution-errors.js";
 export { ContextPackageError } from "./context-errors.js";

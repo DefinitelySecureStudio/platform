@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { AdapterExecutionError, ExecutionValidationError } from "./execution-errors.js";
 import { validateExecutionCompatibility, validateExecutionDocument, validateExecutionResult } from "./validate-execution.js";
+import { createExecutionProvenance, deliverExecutionProvenance } from './provenance.js';
 
 function identity(descriptor, request) {
   return descriptor ? {
@@ -52,7 +53,7 @@ function normalizeThrown(error) {
   return { category: "internal", code: "ADAPTER_UNEXPECTED_ERROR", message: "The adapter failed without a normalized error.", retryable: false, stage: "adapter" };
 }
 
-export async function executePrompt(request, { adapter, signal, clock = Date.now } = {}) {
+async function executePromptCore(request, { adapter, signal, clock = Date.now } = {}, observation = {}) {
   if (!adapter || typeof adapter.describe !== "function" || typeof adapter.execute !== "function") throw new TypeError("adapter must implement describe() and execute().");
   const requestValidation = validateExecutionDocument(request);
   if (!requestValidation.valid) throw new ExecutionValidationError("Execution request does not satisfy the provider-neutral contract.", requestValidation);
@@ -66,6 +67,7 @@ export async function executePrompt(request, { adapter, signal, clock = Date.now
   const compatibility = validateExecutionCompatibility(request, descriptor);
   const preflightWarnings = compatibility.diagnostics.filter(({ severity }) => severity === "warning").map(warning);
   if (!compatibility.valid) return failure(request, descriptor, started, clock(), compatibilityError(), preflightWarnings);
+  observation.effectiveParameters = structuredClone(compatibility.effectiveParameters);
   if (signal?.aborted) return failure(request, descriptor, started, clock(), { category: "cancelled", code: "EXECUTION_CANCELLED", message: "Execution was cancelled before provider invocation.", retryable: false, stage: "preflight" }, preflightWarnings);
 
   const controller = new AbortController();
@@ -115,4 +117,22 @@ export async function executePrompt(request, { adapter, signal, clock = Date.now
     if (timeout) clearTimeout(timeout);
     signal?.removeEventListener("abort", abort);
   }
+}
+
+export async function executePrompt(request, options = {}) {
+  const { observer, observerTimeoutMs = 1000, provenance = {} } = options;
+  if (observer === undefined) return executePromptCore(request, options);
+  if (typeof observer?.observe !== 'function' || !Number.isSafeInteger(observerTimeoutMs) || observerTimeoutMs < 1 || observerTimeoutMs > 60000) throw new TypeError('Invalid observer or observer timeout');
+  const requestValidation = validateExecutionDocument(request);
+  if (!requestValidation.valid) throw new ExecutionValidationError('Execution request does not satisfy the provider-neutral contract.', requestValidation);
+  const snapshot = structuredClone(request);
+  const observation = {};
+  const result = await executePromptCore(structuredClone(snapshot), options, observation);
+  let delivered = false;
+  try {
+    const document = createExecutionProvenance(snapshot, result, { ...provenance, effectiveParameters: observation.effectiveParameters });
+    delivered = await deliverExecutionProvenance(observer, document, observerTimeoutMs);
+  } catch { /* Observer failures must not obscure the provider outcome. */ }
+  if (!delivered) return { ...result, warnings: [...result.warnings, { code: 'OBSERVATION_DELIVERY_FAILED', message: 'Execution provenance could not be delivered.' }] };
+  return result;
 }
