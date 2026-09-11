@@ -89,6 +89,28 @@ test('manual provenance rejects unrelated target identities despite matching cor
     assert.throws(() => createExecutionProvenance(input, unrelated), /target mismatch/);
   }
 });
+test('compiled provenance schema rejects policy and execution contradictions with valid digests', async () => {
+  const input = request();
+  const result = await executePrompt(input, { adapter: new MockTextAdapter() });
+  const valid = createExecutionProvenance(input, result);
+  for (const mutate of [
+    record => { record.policy.content_identities = 'omit'; },
+    record => { record.contexts = [{ slot: 'private', classification: 'restricted' }]; },
+    record => { record.parameters.max_output_tokens = -1.5; },
+    record => { record.finish_reason = 'error'; },
+    record => { record.structured_output = { status: 'validated' }; },
+    record => { record.structured_output.processing_id = 'spurious'; },
+    record => { record.timing.started_at = 'later'; },
+    record => { record.timing.completed_at = '2026-02-30T00:00:00Z'; }
+  ]) {
+    const candidate = structuredClone(valid);
+    mutate(candidate.record);
+    const bytes = canonicalJson(candidate.record);
+    candidate.identity = { byte_size: Buffer.byteLength(bytes), sha256: 'sha256:' + createHash('sha256').update(bytes).digest('hex') };
+    assert.equal(validateExecutionProvenance(candidate), false);
+    await assert.rejects(new LocalExecutionObserver().observe(candidate), /Invalid observer record/);
+  }
+});
 test('manual provenance rejects classification downgrades and mismatched output contracts', async () => {
   const classifications = ['public', 'internal', 'confidential', 'restricted'];
   for (const classification of classifications) {

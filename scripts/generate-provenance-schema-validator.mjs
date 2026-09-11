@@ -1,11 +1,13 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import Ajv from 'ajv/dist/2020.js';
+import addFormats from 'ajv-formats';
 import standaloneCode from 'ajv/dist/standalone/index.js';
 const bytes = await readFile(process.argv[2]);
-const commit = '901543a367664e9f1b6822304a74e37471104ee1';
-const hash = '0d3c4ab43dab1f05042613751e5238525f56aed8021b1b4f4d16e0797c5619cb';
-if (bytes.length !== 9617 || createHash('sha256').update(bytes).digest('hex') !== hash) throw new Error('Provenance schema identity mismatch');
-const ajv = new Ajv({ allErrors: true, strict: true, code: { source: true, esm: true } });
+const commit = '416f0493d5b7932b818387ea23030f6d0f89c395';
+const hash = 'd1f897fdd40c8a513f2f3dc9c44728ec124e53a57977a1b11b04e00953020118';
+if (bytes.length !== 13143 || createHash('sha256').update(bytes).digest('hex') !== hash) throw new Error('Provenance schema identity mismatch');
+const ajv = new Ajv({ allErrors: true, strict: true, strictRequired: false, code: { source: true, esm: true } });
+addFormats(ajv);
 const code = standaloneCode(ajv, ajv.compile(JSON.parse(bytes)));
-await writeFile(new URL('../src/prompt-sdk/generated/provenance-v1-schema.js', import.meta.url), `// Generated from DefinitelySecureStudio/codex@${commit}; SHA256 ${hash}\n${code}`);
+await writeFile(new URL('../src/prompt-sdk/generated/provenance-v1-schema.js', import.meta.url), `// Generated from DefinitelySecureStudio/codex@${commit}; SHA256 ${hash}\nimport { createRequire } from 'node:module';\nconst require = createRequire(import.meta.url);\n${code}`);

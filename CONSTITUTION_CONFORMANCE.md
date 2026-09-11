@@ -9,7 +9,10 @@ Accountable owner: @andrewperis; status: Conforming candidate pending owner merg
 Base revision: `07abeef7bd02ae63c5bc1505a0d02a20f680a0bc`.
 
 Scope: Execution provenance builder/validator, compiled pinned schema, optional executor observer, bounded local observer, docs, ADR 0007 and synthetic example.
-Evidence: npm test: 77 passing tests. Codex valid/invalid provenance fixtures and deterministic validator generation checked.
+Evidence: npm test: 78 passing tests. Codex valid/invalid provenance fixtures and deterministic validator generation checked.
+Codex PR #9 review constraints are consumed from commit
+`416f0493d5b7932b818387ea23030f6d0f89c395`; compiled validation enables RFC 3339
+format assertions and rejects contradictory records even with recomputed digests.
 PR #12 review hardening adds request/result target, classification and output
 contract checks, including all classification downgrade pairs and fail-closed
 observer behavior for a target-mismatch preflight result.
