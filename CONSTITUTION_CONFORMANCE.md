@@ -1,5 +1,24 @@
 # Constitution conformance record
 
+## Issue #71 assessment — 2026-09-11
+
+Scope: reusable offline adapter conformance suite; text, structured and context
+reference prompts; deterministic integration goldens and failure cases; CI
+matrix and coverage documentation. Builds on the merged issue #70 baseline.
+Constitution v1.0.0 at `a9cc8a503aa30e17820edc62ac95f7cbe10e0564`
+remains the authority. Accountable owner: @andrewperis; status: Conforming
+candidate pending owner review and merge.
+
+Evidence: 100 passing local tests, including 12 common adapter cases across two
+implementations and five end-to-end reference cases. Goldens use fixed clocks
+and synthetic inputs; non-public context bodies and identities are excluded.
+CI configuration uses immutable action pins, read-only permissions and no
+provider secrets. No new contracts, dependencies or constitutional exceptions.
+Optional live-provider mappings, unsupported image/multimodal execution and
+immutable publication (#72) are outside scope. Existing dependency advisories
+remain separate. Review before release or any fixture/privacy/adapter boundary
+change. The CI matrix must also pass remotely before merge.
+
 ## Issue #70 assessment — 2026-09-11
 
 Scope: CLI inspection, explicit fixture rendering, mock/trusted-module execution,

@@ -1,5 +1,57 @@
 # Tests
 
+## Prompt SDK v1 conformance map
+
+| Contract/behavior | Automated coverage |
+| --- | --- |
+| Prompt schema, semantic validation, lint and CLI | `validate.test.js`, `cli-authoring.test.js` |
+| Rendering, variable types/defaults and canonical identity | `render.test.js`, `reference-prompts.test.js` |
+| Adapter/request/result contracts and failures | `execution.test.js`, `adapter-conformance.test.js` |
+| Registry exact/range resolution and lifecycle | `registry.test.js` |
+| Context package/reference/authorization | `context-packages.test.js`, context reference |
+| Structured output, schema identity, raw/normalized results | `structured-output.test.js`, structured reference |
+| Provenance policy/schema, content redaction and sink isolation | `provenance.test.js`, all references |
+
+The suite includes failure cases throughout; the reference flows additionally
+reject expired context and schema-invalid structured output. Reviewed goldens
+live in `fixtures/golden/`; see the
+[reference library](../examples/reference-prompts/README.md) for review policy.
+
+## Reusable adapter suite
+
+Import `adapterConformance(name, createCase)` from
+`tests/support/adapter-conformance.js` in a Node test file. Each invocation of
+`createCase(mode)` must return a fresh `{ adapter, request, calls }`: the actual
+adapter under test, a mutable clone of a valid portable text request targeting
+its descriptor, and a function returning transport invocation count.
+
+Configure an injected **offline fake transport** for each mode:
+
+- `success`: return a valid text outcome.
+- `slow`: delay completion beyond the request deadline (the reference uses 30 ms).
+- `error`: throw an unexpected Error containing `CONFORMANCE_SECRET`.
+- `invalid`: return an invalid outcome such as missing/non-string content.
+
+The common cases assert descriptor validity/stability, result normalization,
+request immutability, preflight rejection, cancellation, bounded timeout,
+redaction and no retries. Both MockTextAdapter and an independently implemented
+fake run the same suite. The mock error case injects a throw at execute because
+the mock normally normalizes configured errors.
+
+This is boundary conformance, not certification of all provider-specific
+behavior. Adapter authors must additionally test their HTTP/SDK mapping and
+declared optional capabilities with stubbed transports. Never wire paid/live
+credentials into the default test suite. Live-provider tests require a separate
+explicitly authorized job; no such job is added here.
+
+## CI
+
+`.github/workflows/prompt-sdk-tests.yml` runs `npm ci` and `npm test` on Node
+22 and 24 for PRs and pushes to main. Actions are pinned to exact commits and
+permissions are read-only. Tests do not call paid providers or require provider
+secrets; dependency installation still requires package-registry access.
+The workflow does not change branch rules or make its checks required.
+
 Automated tests and fixtures belong here.
 
 All fixtures must be synthetic or derived from already-public material. Never

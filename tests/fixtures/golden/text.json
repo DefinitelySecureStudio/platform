@@ -1,0 +1,132 @@
+{
+  "prompt": {
+    "id": "prompt.reference.text",
+    "version": "1.0.0"
+  },
+  "rendered": {
+    "renderedPrompt": {
+      "format": "studio-rendered-messages-v1",
+      "definition": {
+        "id": "prompt.reference.text",
+        "version": "1.0.0",
+        "spec_version": "1.0.0"
+      },
+      "renderer": {
+        "name": "@definitely-secure-studio/platform/prompt-sdk",
+        "version": "0.1.0",
+        "algorithm": "typed-parts-v1",
+        "canonical_json": "studio-json-v1",
+        "contract": {
+          "repository": "DefinitelySecureStudio/codex",
+          "commit": "dfd31a693674dc03dec4784dcdd1345f647cff1e",
+          "status": "provisional-unreleased"
+        }
+      },
+      "classification": "public",
+      "messages": [
+        {
+          "role": "instruction",
+          "content": "Describe only the supplied synthetic item."
+        },
+        {
+          "role": "user",
+          "content": "Item: blue cube\nAttributes: {\"color\":\"blue\"}\nConcise: true\nNotes: "
+        }
+      ],
+      "inputs": [
+        {
+          "name": "item",
+          "source": "provided",
+          "classification": "public"
+        },
+        {
+          "name": "attributes",
+          "source": "provided",
+          "classification": "public"
+        },
+        {
+          "name": "concise",
+          "source": "default",
+          "classification": "public"
+        }
+      ],
+      "contexts": []
+    },
+    "canonical": "{\"classification\":\"public\",\"contexts\":[],\"definition\":{\"id\":\"prompt.reference.text\",\"spec_version\":\"1.0.0\",\"version\":\"1.0.0\"},\"format\":\"studio-rendered-messages-v1\",\"inputs\":[{\"classification\":\"public\",\"name\":\"item\",\"source\":\"provided\"},{\"classification\":\"public\",\"name\":\"attributes\",\"source\":\"provided\"},{\"classification\":\"public\",\"name\":\"concise\",\"source\":\"default\"}],\"messages\":[{\"content\":\"Describe only the supplied synthetic item.\",\"role\":\"instruction\"},{\"content\":\"Item: blue cube\\nAttributes: {\\\"color\\\":\\\"blue\\\"}\\nConcise: true\\nNotes: \",\"role\":\"user\"}],\"renderer\":{\"algorithm\":\"typed-parts-v1\",\"canonical_json\":\"studio-json-v1\",\"contract\":{\"commit\":\"dfd31a693674dc03dec4784dcdd1345f647cff1e\",\"repository\":\"DefinitelySecureStudio/codex\",\"status\":\"provisional-unreleased\"},\"name\":\"@definitely-secure-studio/platform/prompt-sdk\",\"version\":\"0.1.0\"}}",
+    "byteSize": 855,
+    "sha256": "sha256:d9367251a4b481a4c365f09d6293ca4c8d14d0b461adcc6ff7c1bbdc3f2020a2"
+  },
+  "provenance": [
+    {
+      "spec_version": "1.0.0",
+      "kind": "execution-provenance",
+      "record": {
+        "execution_id": "exec_reference_text",
+        "correlation_id": "build_reference",
+        "prompt": {
+          "id": "prompt.reference.text",
+          "version": "1.0.0",
+          "spec_version": "1.0.0"
+        },
+        "contexts": [],
+        "redacted_context_count": 0,
+        "target": {
+          "adapter_id": "studio.mock.text",
+          "provider_id": "studio-mock",
+          "model_id": "mock-text-v1"
+        },
+        "identity": {
+          "adapter_id": "studio.mock.text",
+          "adapter_version": "1.0.0",
+          "provider_id": "studio-mock",
+          "model_id": "mock-text-v1",
+          "model_revision": "synthetic-1"
+        },
+        "parameters": {
+          "max_output_tokens": 256,
+          "temperature": 1,
+          "top_p": 1
+        },
+        "parameters_status": "resolved",
+        "stop_sequence_count": 0,
+        "timing": {
+          "started_at": "1970-01-01T00:00:00.000Z",
+          "completed_at": "1970-01-01T00:00:00.000Z",
+          "duration_ms": 0
+        },
+        "status": "succeeded",
+        "finish_reason": "stop",
+        "validation": {
+          "status": "passed",
+          "errors": 0,
+          "warnings": 0
+        },
+        "structured_output": {
+          "status": "not-run"
+        },
+        "policy": {
+          "content_identities": "public-only",
+          "bodies": "omitted"
+        },
+        "usage": {
+          "provider_reported": true,
+          "input_tokens": 18,
+          "output_tokens": 4,
+          "total_tokens": 22
+        },
+        "rendered": {
+          "byte_size": 855,
+          "sha256": "sha256:d9367251a4b481a4c365f09d6293ca4c8d14d0b461adcc6ff7c1bbdc3f2020a2"
+        },
+        "output": {
+          "byte_size": 22,
+          "sha256": "sha256:b09ee7e844efcfecaca99b0dfa06f1fc1e58b318af8b88c309306d6822039235"
+        }
+      },
+      "identity": {
+        "byte_size": 1194,
+        "sha256": "sha256:62891e191cf45921384993c58e57e8198a3d402d9ef31d86eaba32a32c97a65c"
+      }
+    }
+  ]
+}
