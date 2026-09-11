@@ -1,40 +1,9 @@
-export const CONTRACT = Object.freeze({
-  repository: "DefinitelySecureStudio/codex",
-  commit: "bd31b6249e068d3317306afb857d68024f2929be",
-  spec_version: "1.0.0",
-  schema_sha256: "sha256:6ac345956582d25c2db9c81b85cab9c73b2cbcfc79b8aac7a43d847c07173cb9",
-  schema_byte_size: 18384,
-  status: "provisional-unreleased"
-});
-
+import { RELEASE_CONTRACTS } from './release-contracts.js';
+export const CONTRACT = RELEASE_CONTRACTS['prompt-definition'];
 export const PROMPT_DEFINITION_CONTRACT = CONTRACT;
-
-export const EXECUTION_CONTRACT = Object.freeze({
-  repository: "DefinitelySecureStudio/codex",
-  commit: "dfd31a693674dc03dec4784dcdd1345f647cff1e",
-  spec_version: "1.0.0",
-  schema_sha256: "sha256:4366665b89d7633974c4be15cac74f754e722b41031f708ca2f825ead892cb8b",
-  schema_byte_size: 25285,
-  status: "provisional-unreleased"
-});
-
-export const CONTEXT_PACKAGE_CONTRACT = Object.freeze({
-  repository: "DefinitelySecureStudio/codex",
-  commit: "cb76a9343312d0245b388381e318aa58463303cb",
-  spec_version: "1.0.0",
-  schema_sha256: "sha256:d81e88780511c31099b2dd925f31aff26d6ba75e1173e953b98a37298764b617",
-  schema_byte_size: 8390,
-  status: "provisional-unreleased"
-});
-
-export const STRUCTURED_OUTPUT_CONTRACT = Object.freeze({
-  repository: "DefinitelySecureStudio/codex",
-  commit: "275e0cda2e699fbcb1cdd56323a4d58e3f65e507",
-  spec_version: "1.0.0",
-  schema_sha256: "sha256:6ea2c5d4804b92bbca386d2b64063d72980ca1d294d23338be6adc057caaeeb2",
-  schema_byte_size: 8427,
-  status: "provisional-unreleased"
-});
+export const EXECUTION_CONTRACT = RELEASE_CONTRACTS['provider-execution'];
+export const CONTEXT_PACKAGE_CONTRACT = RELEASE_CONTRACTS['context-package'];
+export const STRUCTURED_OUTPUT_CONTRACT = RELEASE_CONTRACTS['structured-output'];
 
 export function pointer(segments) {
   if (typeof segments === "string") return segments || "";

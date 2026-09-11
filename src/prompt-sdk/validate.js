@@ -1,6 +1,6 @@
 import validateSchema from "./generated/prompt-definition-v1-schema.js";
 import { canonicalJson } from "./canonical-json.js";
-import { diagnostic, pointer, report } from "./diagnostics.js";
+import { CONTRACT, diagnostic, pointer, report } from "./diagnostics.js";
 
 const CORE_CAPABILITIES = Object.freeze(["text-generation", "structured-output"]);
 const CONSTRAINTS = Object.freeze({
@@ -167,7 +167,7 @@ function semanticDiagnostics(definition, options) {
     const supportUntil = Date.parse(deprecation.support_until);
     if (Number.isFinite(deprecatedAt) && Number.isFinite(supportUntil) && supportUntil < deprecatedAt) diagnostics.push(diagnostic("error", "INVALID_SUPPORT_WINDOW", "Deprecation support_until must not precede deprecated_at.", ["lifecycle", "deprecation", "support_until"]));
   }
-  if (definition.lifecycle?.status === "stable") diagnostics.push(diagnostic("error", "UNRELEASED_CONTRACT_STABLE_LIFECYCLE", "A prompt cannot be stable while Prompt Definition v1 remains unreleased.", ["lifecycle", "status"], { contract_status: "provisional-unreleased" }));
+  if (definition.lifecycle?.status === "stable" && CONTRACT.status !== "released") diagnostics.push(diagnostic("error", "UNRELEASED_CONTRACT_STABLE_LIFECYCLE", "A prompt cannot be stable while Prompt Definition v1 remains unreleased.", ["lifecycle", "status"], { contract_status: CONTRACT.status }));
 
   const requiredCapabilities = Array.isArray(definition.capabilities?.required) ? definition.capabilities.required : [];
   const optionalCapabilities = Array.isArray(definition.capabilities?.optional) ? definition.capabilities.optional : [];

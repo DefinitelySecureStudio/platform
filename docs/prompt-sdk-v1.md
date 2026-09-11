@@ -1,9 +1,11 @@
 # Prompt SDK v1 release guide
 
-This is the v1 release candidate documentation, not a claim of publication.
-Package/runtime version stays 0.1.0 and contract pins remain visibly provisional
-until Codex immutable artifacts and owner release approval are verified.
-Studio #72 and Epic #4 must remain open until the actual releases exist.
+The five Codex v1.0.0 contracts are published immutably at commit
+`62e78b606986988518b9dc502c25ae1cd189684a`; their verified manifests are in
+[contract-lock.json](../release/contract-lock.json). This adoption candidate
+updates package/renderer/processor to 1.0.0 and permits stable prompt lifecycle.
+The Platform artifact itself remains pending owner merge and publication:
+Studio #72 and Epic #4 stay open until that final release is verified.
 
 ## Quick start
 

@@ -8,7 +8,7 @@ import { parseJsonDocument } from "./parse-json.js";
 import { StructuredOutputError } from "./structured-output-errors.js";
 import { validateExecutionDocument } from "./validate-execution.js";
 
-const VALIDATOR = Object.freeze({ name: "studio.prompt-sdk", version: "0.1.0", algorithm: "parse-once-validate-v1", json_schema_draft: "2020-12" });
+const VALIDATOR = Object.freeze({ name: "studio.prompt-sdk", version: "1.0.0", algorithm: "parse-once-validate-v1", json_schema_draft: "2020-12" });
 const CLASSIFICATIONS = ["public", "internal", "confidential", "restricted"];
 
 function sha256(value) { return `sha256:${createHash("sha256").update(value).digest("hex")}`; }

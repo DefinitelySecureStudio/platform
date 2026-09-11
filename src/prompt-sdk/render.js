@@ -7,13 +7,13 @@ const ROLES = new Set(["instruction", "user", "assistant-example"]);
 const TYPES = new Set(["string", "integer", "number", "boolean", "object", "array"]);
 const RENDERER = Object.freeze({
   name: "@definitely-secure-studio/platform/prompt-sdk",
-  version: "0.1.0",
+  version: "1.0.0",
   algorithm: "typed-parts-v1",
   canonical_json: "studio-json-v1",
   contract: Object.freeze({
     repository: "DefinitelySecureStudio/codex",
-    commit: "dfd31a693674dc03dec4784dcdd1345f647cff1e",
-    status: "provisional-unreleased"
+    commit: "62e78b606986988518b9dc502c25ae1cd189684a",
+    status: "released"
   })
 });
 

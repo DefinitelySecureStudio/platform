@@ -4,7 +4,7 @@ import Ajv from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import standaloneCode from 'ajv/dist/standalone/index.js';
 const bytes = await readFile(process.argv[2]);
-const commit = '416f0493d5b7932b818387ea23030f6d0f89c395';
+const commit = '62e78b606986988518b9dc502c25ae1cd189684a';
 const hash = 'd1f897fdd40c8a513f2f3dc9c44728ec124e53a57977a1b11b04e00953020118';
 if (bytes.length !== 13143 || createHash('sha256').update(bytes).digest('hex') !== hash) throw new Error('Provenance schema identity mismatch');
 const ajv = new Ajv({ allErrors: true, strict: true, strictRequired: false, code: { source: true, esm: true } });

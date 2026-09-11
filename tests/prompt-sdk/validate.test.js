@@ -17,7 +17,7 @@ test("accepts a schema-conformant, semantically complete prompt", () => {
   const result = validatePromptDefinition(valid);
   assert.equal(result.valid, true);
   assert.deepEqual(result.summary, { errors: 0, warnings: 0 });
-  assert.equal(result.contract.commit, "bd31b6249e068d3317306afb857d68024f2929be");
+  assert.equal(result.contract.commit, "62e78b606986988518b9dc502c25ae1cd189684a");
   assert.equal(result.contract.schema_byte_size, 18384);
 });
 
@@ -139,14 +139,16 @@ test("checks capability and extension compatibility", () => {
   assert.ok(codes(result).includes("UNSUPPORTED_OPTIONAL_EXTENSION"));
 });
 
-test("requires structured-output for JSON output and blocks stable use before contract release", () => {
+test("requires structured-output for JSON output while permitting stable released contracts", () => {
   const definition = clone();
   definition.output = { kind: "json", media_type: "application/json", description: "Synthetic JSON output." };
   definition.lifecycle.status = "stable";
   const result = validatePromptDefinition(definition);
   assert.equal(result.valid, false);
   assert.ok(codes(result).includes("JSON_OUTPUT_MISSING_CAPABILITY"));
-  assert.ok(codes(result).includes("UNRELEASED_CONTRACT_STABLE_LIFECYCLE"));
+  assert.ok(!codes(result).includes("UNRELEASED_CONTRACT_STABLE_LIFECYCLE"));
+  definition.capabilities.required.push("structured-output");
+  assert.equal(validatePromptDefinition(definition).valid, true);
 });
 
 test("detects exact duplicate prompt identity/version across a set", () => {
