@@ -1,5 +1,20 @@
 # Constitution conformance record
 
+## Issue #72 stable adoption — 2026-09-11
+
+Owner: @andrewperis; Constitution v1.0.0 at
+`a9cc8a503aa30e17820edc62ac95f7cbe10e0564`.
+Five Codex contracts are now published with immutable releases at approved
+commit `62e78b606986988518b9dc502c25ae1cd189684a`. GitHub immutability and tag
+targets were checked; all 15 published assets match verified build bytes.
+The dependency lock records release URLs, timestamps, complete asset tuples.
+This candidate adopts those releases, regenerates validators, enables stable
+prompt lifecycle and aligns SDK/runtime versions. Golden updates reflect only
+version/contract metadata and resulting canonical identities.
+Owner merge, CI and final Platform artifact publication remain outstanding;
+dependency readiness does not itself approve the implementation release.
+No new dependencies, visibility changes, provider calls or exceptions.
+
 ## Issue #72 release preparation — 2026-09-11
 
 Owner: @andrewperis. Constitution v1.0.0 at

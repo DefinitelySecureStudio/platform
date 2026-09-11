@@ -1,4 +1,4 @@
-// Generated from DefinitelySecureStudio/codex@bd31b6249e068d3317306afb857d68024f2929be
+// Generated from DefinitelySecureStudio/codex@62e78b606986988518b9dc502c25ae1cd189684a
 // Source SHA-256: 6ac345956582d25c2db9c81b85cab9c73b2cbcfc79b8aac7a43d847c07173cb9
 // Rebuild with scripts/generate-prompt-schema-validator.mjs; do not edit manually.
 import { createRequire } from "node:module";

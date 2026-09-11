@@ -4,7 +4,7 @@ import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import standaloneCode from "ajv/dist/standalone/index.js";
 
-const CONTRACT_COMMIT = "275e0cda2e699fbcb1cdd56323a4d58e3f65e507";
+const CONTRACT_COMMIT = "62e78b606986988518b9dc502c25ae1cd189684a";
 const SCHEMA_SHA256 = "6ea2c5d4804b92bbca386d2b64063d72980ca1d294d23338be6adc057caaeeb2";
 const sourcePath = process.argv[2];
 const outputPath = process.argv[3] ?? new URL("../src/prompt-sdk/generated/structured-output-v1-schema.js", import.meta.url);

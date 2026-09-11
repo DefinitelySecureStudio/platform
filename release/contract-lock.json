@@ -1,0 +1,154 @@
+{
+  "contracts": [
+    {
+      "repository": "DefinitelySecureStudio/codex",
+      "contract": "context-package",
+      "version": "1.0.0",
+      "tag": "contract/context-package/v1.0.0",
+      "commit": "62e78b606986988518b9dc502c25ae1cd189684a",
+      "constitution_commit": "a9cc8a503aa30e17820edc62ac95f7cbe10e0564",
+      "schema_id": "urn:definitely-secure:contract:context-package:1.0.0:context-package",
+      "assets": [
+        {
+          "filename": "context-package-v1.0.0.schema.json",
+          "artifact_uri": "https://github.com/DefinitelySecureStudio/codex/releases/download/contract%2Fcontext-package%2Fv1.0.0/context-package-v1.0.0.schema.json",
+          "media_type": "application/schema+json",
+          "byte_size": 8390,
+          "sha256": "sha256:d81e88780511c31099b2dd925f31aff26d6ba75e1173e953b98a37298764b617"
+        },
+        {
+          "filename": "context-package-v1.0.0.bundle.json",
+          "artifact_uri": "https://github.com/DefinitelySecureStudio/codex/releases/download/contract%2Fcontext-package%2Fv1.0.0/context-package-v1.0.0.bundle.json",
+          "media_type": "application/json",
+          "byte_size": 459899,
+          "sha256": "sha256:cb56c6c048e9af95e59c7053c9ce5cef2fecd74e864d828c3cc2482bd5f00c93"
+        }
+      ],
+      "publication": {
+        "immutable": true,
+        "verified_at": "2026-09-11T14:56:35.243Z",
+        "release_url": "https://github.com/DefinitelySecureStudio/codex/releases/tag/contract/context-package/v1.0.0"
+      }
+    },
+    {
+      "repository": "DefinitelySecureStudio/codex",
+      "contract": "execution-provenance",
+      "version": "1.0.0",
+      "tag": "contract/execution-provenance/v1.0.0",
+      "commit": "62e78b606986988518b9dc502c25ae1cd189684a",
+      "constitution_commit": "a9cc8a503aa30e17820edc62ac95f7cbe10e0564",
+      "schema_id": "urn:definitely-secure:contract:execution-provenance:1.0.0:record",
+      "assets": [
+        {
+          "filename": "execution-provenance-v1.0.0.schema.json",
+          "artifact_uri": "https://github.com/DefinitelySecureStudio/codex/releases/download/contract%2Fexecution-provenance%2Fv1.0.0/execution-provenance-v1.0.0.schema.json",
+          "media_type": "application/schema+json",
+          "byte_size": 13143,
+          "sha256": "sha256:d1f897fdd40c8a513f2f3dc9c44728ec124e53a57977a1b11b04e00953020118"
+        },
+        {
+          "filename": "execution-provenance-v1.0.0.bundle.json",
+          "artifact_uri": "https://github.com/DefinitelySecureStudio/codex/releases/download/contract%2Fexecution-provenance%2Fv1.0.0/execution-provenance-v1.0.0.bundle.json",
+          "media_type": "application/json",
+          "byte_size": 459904,
+          "sha256": "sha256:2bef0c6c87844ec94835b2b3ae2b8d4a16a531c54953b86e306a6307fab5abf2"
+        }
+      ],
+      "publication": {
+        "immutable": true,
+        "verified_at": "2026-09-11T14:56:35.252Z",
+        "release_url": "https://github.com/DefinitelySecureStudio/codex/releases/tag/contract/execution-provenance/v1.0.0"
+      }
+    },
+    {
+      "repository": "DefinitelySecureStudio/codex",
+      "contract": "prompt-definition",
+      "version": "1.0.0",
+      "tag": "contract/prompt-definition/v1.0.0",
+      "commit": "62e78b606986988518b9dc502c25ae1cd189684a",
+      "constitution_commit": "a9cc8a503aa30e17820edc62ac95f7cbe10e0564",
+      "schema_id": "urn:definitely-secure:contract:prompt-definition:1.0.0:prompt-definition",
+      "assets": [
+        {
+          "filename": "prompt-definition-v1.0.0.schema.json",
+          "artifact_uri": "https://github.com/DefinitelySecureStudio/codex/releases/download/contract%2Fprompt-definition%2Fv1.0.0/prompt-definition-v1.0.0.schema.json",
+          "media_type": "application/schema+json",
+          "byte_size": 18384,
+          "sha256": "sha256:6ac345956582d25c2db9c81b85cab9c73b2cbcfc79b8aac7a43d847c07173cb9"
+        },
+        {
+          "filename": "prompt-definition-v1.0.0.bundle.json",
+          "artifact_uri": "https://github.com/DefinitelySecureStudio/codex/releases/download/contract%2Fprompt-definition%2Fv1.0.0/prompt-definition-v1.0.0.bundle.json",
+          "media_type": "application/json",
+          "byte_size": 459901,
+          "sha256": "sha256:cd6577df588d50a8575910c398ce619dd84a6425ae199b480d94e68466b52800"
+        }
+      ],
+      "publication": {
+        "immutable": true,
+        "verified_at": "2026-09-11T14:56:35.253Z",
+        "release_url": "https://github.com/DefinitelySecureStudio/codex/releases/tag/contract/prompt-definition/v1.0.0"
+      }
+    },
+    {
+      "repository": "DefinitelySecureStudio/codex",
+      "contract": "provider-execution",
+      "version": "1.0.0",
+      "tag": "contract/provider-execution/v1.0.0",
+      "commit": "62e78b606986988518b9dc502c25ae1cd189684a",
+      "constitution_commit": "a9cc8a503aa30e17820edc62ac95f7cbe10e0564",
+      "schema_id": "urn:definitely-secure:contract:provider-execution:1.0.0:provider-execution",
+      "assets": [
+        {
+          "filename": "provider-execution-v1.0.0.schema.json",
+          "artifact_uri": "https://github.com/DefinitelySecureStudio/codex/releases/download/contract%2Fprovider-execution%2Fv1.0.0/provider-execution-v1.0.0.schema.json",
+          "media_type": "application/schema+json",
+          "byte_size": 25285,
+          "sha256": "sha256:4366665b89d7633974c4be15cac74f754e722b41031f708ca2f825ead892cb8b"
+        },
+        {
+          "filename": "provider-execution-v1.0.0.bundle.json",
+          "artifact_uri": "https://github.com/DefinitelySecureStudio/codex/releases/download/contract%2Fprovider-execution%2Fv1.0.0/provider-execution-v1.0.0.bundle.json",
+          "media_type": "application/json",
+          "byte_size": 459902,
+          "sha256": "sha256:765902129220eec8440be3f7e9b3f6dc6c9ad162642200637bd3fcaae48ac9c9"
+        }
+      ],
+      "publication": {
+        "immutable": true,
+        "verified_at": "2026-09-11T14:56:35.254Z",
+        "release_url": "https://github.com/DefinitelySecureStudio/codex/releases/tag/contract/provider-execution/v1.0.0"
+      }
+    },
+    {
+      "repository": "DefinitelySecureStudio/codex",
+      "contract": "structured-output",
+      "version": "1.0.0",
+      "tag": "contract/structured-output/v1.0.0",
+      "commit": "62e78b606986988518b9dc502c25ae1cd189684a",
+      "constitution_commit": "a9cc8a503aa30e17820edc62ac95f7cbe10e0564",
+      "schema_id": "urn:definitely-secure:contract:structured-output:1.0.0:processing",
+      "assets": [
+        {
+          "filename": "structured-output-v1.0.0.schema.json",
+          "artifact_uri": "https://github.com/DefinitelySecureStudio/codex/releases/download/contract%2Fstructured-output%2Fv1.0.0/structured-output-v1.0.0.schema.json",
+          "media_type": "application/schema+json",
+          "byte_size": 8427,
+          "sha256": "sha256:6ea2c5d4804b92bbca386d2b64063d72980ca1d294d23338be6adc057caaeeb2"
+        },
+        {
+          "filename": "structured-output-v1.0.0.bundle.json",
+          "artifact_uri": "https://github.com/DefinitelySecureStudio/codex/releases/download/contract%2Fstructured-output%2Fv1.0.0/structured-output-v1.0.0.bundle.json",
+          "media_type": "application/json",
+          "byte_size": 459901,
+          "sha256": "sha256:e0d91fc5c5b01d33bd665165306c1d0de6cc9cc9598e94831e9748cc450e562c"
+        }
+      ],
+      "publication": {
+        "immutable": true,
+        "verified_at": "2026-09-11T14:56:35.255Z",
+        "release_url": "https://github.com/DefinitelySecureStudio/codex/releases/tag/contract/structured-output/v1.0.0"
+      }
+    }
+  ]
+}

@@ -13,13 +13,13 @@
       },
       "renderer": {
         "name": "@definitely-secure-studio/platform/prompt-sdk",
-        "version": "0.1.0",
+        "version": "1.0.0",
         "algorithm": "typed-parts-v1",
         "canonical_json": "studio-json-v1",
         "contract": {
           "repository": "DefinitelySecureStudio/codex",
-          "commit": "dfd31a693674dc03dec4784dcdd1345f647cff1e",
-          "status": "provisional-unreleased"
+          "commit": "62e78b606986988518b9dc502c25ae1cd189684a",
+          "status": "released"
         }
       },
       "classification": "public",
@@ -52,9 +52,9 @@
       ],
       "contexts": []
     },
-    "canonical": "{\"classification\":\"public\",\"contexts\":[],\"definition\":{\"id\":\"prompt.reference.structured\",\"spec_version\":\"1.0.0\",\"version\":\"1.0.0\"},\"format\":\"studio-rendered-messages-v1\",\"inputs\":[{\"classification\":\"public\",\"name\":\"item\",\"source\":\"provided\"},{\"classification\":\"public\",\"name\":\"attributes\",\"source\":\"provided\"},{\"classification\":\"public\",\"name\":\"concise\",\"source\":\"default\"}],\"messages\":[{\"content\":\"Describe only the supplied synthetic item.\",\"role\":\"instruction\"},{\"content\":\"Item: blue cube\\nAttributes: {\\\"color\\\":\\\"blue\\\"}\\nConcise: true\\nNotes: \",\"role\":\"user\"}],\"renderer\":{\"algorithm\":\"typed-parts-v1\",\"canonical_json\":\"studio-json-v1\",\"contract\":{\"commit\":\"dfd31a693674dc03dec4784dcdd1345f647cff1e\",\"repository\":\"DefinitelySecureStudio/codex\",\"status\":\"provisional-unreleased\"},\"name\":\"@definitely-secure-studio/platform/prompt-sdk\",\"version\":\"0.1.0\"}}",
-    "byteSize": 861,
-    "sha256": "sha256:44f8e51b9400f966145091d66feed3f96eab772989d0b4186154f3fbd25dde14"
+    "canonical": "{\"classification\":\"public\",\"contexts\":[],\"definition\":{\"id\":\"prompt.reference.structured\",\"spec_version\":\"1.0.0\",\"version\":\"1.0.0\"},\"format\":\"studio-rendered-messages-v1\",\"inputs\":[{\"classification\":\"public\",\"name\":\"item\",\"source\":\"provided\"},{\"classification\":\"public\",\"name\":\"attributes\",\"source\":\"provided\"},{\"classification\":\"public\",\"name\":\"concise\",\"source\":\"default\"}],\"messages\":[{\"content\":\"Describe only the supplied synthetic item.\",\"role\":\"instruction\"},{\"content\":\"Item: blue cube\\nAttributes: {\\\"color\\\":\\\"blue\\\"}\\nConcise: true\\nNotes: \",\"role\":\"user\"}],\"renderer\":{\"algorithm\":\"typed-parts-v1\",\"canonical_json\":\"studio-json-v1\",\"contract\":{\"commit\":\"62e78b606986988518b9dc502c25ae1cd189684a\",\"repository\":\"DefinitelySecureStudio/codex\",\"status\":\"released\"},\"name\":\"@definitely-secure-studio/platform/prompt-sdk\",\"version\":\"1.0.0\"}}",
+    "byteSize": 847,
+    "sha256": "sha256:c1955b96e6523d8509294bf9b0655fb55578b9eb440b964703c2752a8243cda8"
   },
   "structured": {
     "spec_version": "1.0.0",
@@ -86,7 +86,7 @@
     },
     "validator": {
       "name": "studio.prompt-sdk",
-      "version": "0.1.0",
+      "version": "1.0.0",
       "algorithm": "parse-once-validate-v1",
       "json_schema_draft": "2020-12"
     },
@@ -173,8 +173,8 @@
           "total_tokens": 22
         },
         "rendered": {
-          "byte_size": 861,
-          "sha256": "sha256:44f8e51b9400f966145091d66feed3f96eab772989d0b4186154f3fbd25dde14"
+          "byte_size": 847,
+          "sha256": "sha256:c1955b96e6523d8509294bf9b0655fb55578b9eb440b964703c2752a8243cda8"
         },
         "output": {
           "byte_size": 64,
@@ -183,7 +183,7 @@
       },
       "identity": {
         "byte_size": 1206,
-        "sha256": "sha256:8bf58936a678d8cc548934b44e61640760f22fba8480818efd4175657f50c82f"
+        "sha256": "sha256:797abf26dfb6c0bc4b6ae4200fde5c0c152d56d1de0a8e871aa426040a8859f7"
       }
     },
     {
@@ -241,8 +241,8 @@
           "total_tokens": 22
         },
         "rendered": {
-          "byte_size": 861,
-          "sha256": "sha256:44f8e51b9400f966145091d66feed3f96eab772989d0b4186154f3fbd25dde14"
+          "byte_size": 847,
+          "sha256": "sha256:c1955b96e6523d8509294bf9b0655fb55578b9eb440b964703c2752a8243cda8"
         },
         "output": {
           "byte_size": 64,
@@ -251,7 +251,7 @@
       },
       "identity": {
         "byte_size": 1202,
-        "sha256": "sha256:3364efe9c95b91ef44885fe791f7e90047593ca8c104a63d7846fab14c6bc569"
+        "sha256": "sha256:e2a2960d86d18523558b002c03f4647f6e5b7e2d2be3091de206107b13869863"
       }
     }
   ]
