@@ -1,5 +1,7 @@
 # Platform documentation
 
+- [Prompt CLI and authoring workflow](prompt-cli.md) covers local commands, CI and promotion.
+
 - [Execution provenance](execution-provenance.md) covers metadata policy and pluggable observers.
 - [Observer decision](adr/0007-execution-observers.md) records the failure-isolated boundary.
 

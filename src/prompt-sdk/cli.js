@@ -4,6 +4,7 @@ import { stdin } from "node:process";
 import { CONTRACT } from "./diagnostics.js";
 import { parsePromptJson } from "./parse-json.js";
 import { validatePromptDefinitions } from "./validate.js";
+import { runAuthoringCommand } from "./cli-authoring.js";
 
 function usage() {
   console.error("Usage: studio-prompt validate [--format json|text] [--warnings-as-errors] [--supported-capability NAME] [--supported-extension NAME] <file.json|-> [...]");
@@ -41,10 +42,14 @@ function stripDocumentIndex(path) {
 }
 
 async function main() {
-  if (process.argv[2] !== "validate") { usage(); return 2; }
+  if (!["validate", "lint"].includes(process.argv[2])) return runAuthoringCommand(process.argv.slice(2));
   let options;
   try { options = parseArguments(process.argv.slice(3)); }
-  catch (error) { console.error(error.message); usage(); return 2; }
+  catch (error) {
+    if (process.argv.includes("--format") && process.argv[process.argv.indexOf("--format") + 1] === "json") console.log(JSON.stringify({ valid: false, error: { code: "CLI_USAGE", message: "Invalid validation arguments; use studio-prompt --help." } }));
+    else { console.error(error.message); usage(); }
+    return 2;
+  }
 
   const documents = [];
   const parsedDefinitions = [];
