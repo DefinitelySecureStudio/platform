@@ -1,5 +1,19 @@
 # Constitution conformance record
 
+## Issue #72 release preparation — 2026-09-11
+
+Owner: @andrewperis. Constitution v1.0.0 at
+`a9cc8a503aa30e17820edc62ac95f7cbe10e0564` remains authoritative.
+Scope: consolidated public API inventory/reference, quick start, compatibility
+and deprecation policy, limitations, release checklist, conservative readiness
+report and corrected Context Package candidate schema pin.
+Evidence: full offline test suite and exact export-inventory check; npm audit
+reported zero vulnerabilities on 2026-09-11. No new dependencies or exceptions.
+Owner approval, five immutable Codex releases, reviewed stable dependency lock,
+runtime/version transition and Platform artifact publication remain required.
+Current package and runtime status deliberately remain provisional; this is
+not completed constitutional approval for a published v1 release.
+
 ## Issue #71 assessment — 2026-09-11
 
 Scope: reusable offline adapter conformance suite; text, structured and context

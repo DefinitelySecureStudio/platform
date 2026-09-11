@@ -2,6 +2,9 @@
 
 Production software for the Definitely Secure Studio creative toolchain.
 
+See the [Prompt SDK v1 API/release guide](docs/prompt-sdk-v1.md) for quick start,
+compatibility, limitations and release readiness.
+
 The [reference prompt library](examples/reference-prompts/README.md) demonstrates
 offline end-to-end v1 flows with reviewed golden fixtures.
 

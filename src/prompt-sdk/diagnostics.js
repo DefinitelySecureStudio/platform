@@ -20,10 +20,10 @@ export const EXECUTION_CONTRACT = Object.freeze({
 
 export const CONTEXT_PACKAGE_CONTRACT = Object.freeze({
   repository: "DefinitelySecureStudio/codex",
-  commit: "dfd31a693674dc03dec4784dcdd1345f647cff1e",
+  commit: "cb76a9343312d0245b388381e318aa58463303cb",
   spec_version: "1.0.0",
-  schema_sha256: "sha256:a0915675a2036c8f929c53a212fcd14740e12fda0ef643fe13d727f0d62e9509",
-  schema_byte_size: 8409,
+  schema_sha256: "sha256:d81e88780511c31099b2dd925f31aff26d6ba75e1173e953b98a37298764b617",
+  schema_byte_size: 8390,
   status: "provisional-unreleased"
 });
 
