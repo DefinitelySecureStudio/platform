@@ -2,6 +2,9 @@
 
 Production software for the Definitely Secure Studio creative toolchain.
 
+The [reference prompt library](examples/reference-prompts/README.md) demonstrates
+offline end-to-end v1 flows with reviewed golden fixtures.
+
 Use the [Prompt CLI](docs/prompt-cli.md) to validate, inspect, render, execute
 synthetic tests and validate structured outputs.
 

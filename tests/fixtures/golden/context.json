@@ -1,0 +1,71 @@
+{
+  "prompt": {
+    "id": "prompt.reference.context-package",
+    "version": "1.0.0"
+  },
+  "provenance": [
+    {
+      "spec_version": "1.0.0",
+      "kind": "execution-provenance",
+      "record": {
+        "execution_id": "exec_reference_context",
+        "correlation_id": "build_reference",
+        "prompt": {
+          "id": "prompt.reference.context-package",
+          "version": "1.0.0",
+          "spec_version": "1.0.0"
+        },
+        "contexts": [],
+        "redacted_context_count": 2,
+        "target": {
+          "adapter_id": "studio.mock.text",
+          "provider_id": "studio-mock",
+          "model_id": "mock-text-v1"
+        },
+        "identity": {
+          "adapter_id": "studio.mock.text",
+          "adapter_version": "1.0.0",
+          "provider_id": "studio-mock",
+          "model_id": "mock-text-v1",
+          "model_revision": "synthetic-1"
+        },
+        "parameters": {
+          "max_output_tokens": 256,
+          "temperature": 1,
+          "top_p": 1
+        },
+        "parameters_status": "resolved",
+        "stop_sequence_count": 0,
+        "timing": {
+          "started_at": "1970-01-01T00:00:00.000Z",
+          "completed_at": "1970-01-01T00:00:00.000Z",
+          "duration_ms": 0
+        },
+        "status": "succeeded",
+        "finish_reason": "stop",
+        "validation": {
+          "status": "passed",
+          "errors": 0,
+          "warnings": 0
+        },
+        "structured_output": {
+          "status": "not-run"
+        },
+        "policy": {
+          "content_identities": "public-only",
+          "bodies": "omitted"
+        },
+        "usage": {
+          "provider_reported": true,
+          "input_tokens": 18,
+          "output_tokens": 4,
+          "total_tokens": 22
+        }
+      },
+      "identity": {
+        "byte_size": 987,
+        "sha256": "sha256:4f8af4b7a3cda0cf2fa7346b6f20ad6a277a4e994e2b0376a7cb61ab613cb65a"
+      }
+    }
+  ]
+}

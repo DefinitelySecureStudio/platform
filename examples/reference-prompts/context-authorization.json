@@ -1,0 +1,25 @@
+{
+  "spec_version": "1.0.0",
+  "kind": "context-authorization",
+  "decision_id": "context_auth_reference_0001",
+  "decision": "allow",
+  "package": {
+    "id": "context-package.reference.synthetic",
+    "version": "1.0.0",
+    "instance_id": "ctxpkg_reference_0001"
+  },
+  "prompt": {
+    "id": "prompt.reference.context-package",
+    "version": "1.0.0"
+  },
+  "sections": [
+    "approved_notes",
+    "context_facts"
+  ],
+  "max_classification": "internal",
+  "purpose": "Render synthetic approved context for issue #67 integration testing.",
+  "decided_by": "@andrewperis",
+  "decided_at": "2026-08-20T00:00:00Z",
+  "expires_at": "2026-08-21T00:00:00Z",
+  "authority_reference": "https://github.com/DefinitelySecureStudio/studio/issues/67"
+}
