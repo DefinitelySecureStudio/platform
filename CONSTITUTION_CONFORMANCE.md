@@ -1,5 +1,24 @@
 # Constitution conformance record
 
+## Issue #78 verified sources candidate — 2026-09-15
+
+Owner: @andrewperis. Assessed base: `38d4ee134431016d6a91a41fd2ddeff85987daea`
+plus this diff. Constitution/checklist: 1.0.0 at
+`a9cc8a503aa30e17820edc62ac95f7cbe10e0564`. Profiles: universal,
+repository/production system, ADR/specification, automated workflow.
+Evidence: ADR 0010, source/normalization guide, digest-pinned generated validators,
+synthetic source tests and existing preparation/SDK regressions. Findings: exact
+inventory/source identity, bounded verified bytes before parsing, deterministic
+metadata-preserving fragments, no source-inferred policy and final authority recheck.
+Public examples use only synthetic private-export data; real Lore is never accessed.
+No normative Codex changes, new dependencies, release or constitutional exception.
+Status: proposed, effective on owner review/merge. Exclusions: production trust and
+private source onboarding, hostile directory-tree replacement, uncooperative
+injected transports, persistent version tracking, selection/assembly and audit.
+Host-controlled snapshot roots/ancestors and transport bounds are explicit residual
+requirements, not controls inferred from hashes. Review before production reader
+onboarding/#86 or any path, trust, parser, limits, identity or classification change.
+
 ## Issue #77 preparation policy candidate — 2026-09-15
 
 Owner: @andrewperis. Assessment base: `30192c525e80f9cd9f9dc413d5294c43f72a3b96`
