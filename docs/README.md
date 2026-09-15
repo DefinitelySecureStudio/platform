@@ -1,5 +1,8 @@
 # Platform documentation
 
+- [Context Builder preparation gate](context-builder-preparation.md) documents
+  explicit authorization, trusted source bindings and the synthetic verifier.
+
 - [Context Builder contract compatibility](context-builder-contracts.md) records
   the issue #76 test-only candidate pins and unchanged Prompt SDK v1 handoff.
 

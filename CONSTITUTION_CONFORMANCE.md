@@ -1,5 +1,25 @@
 # Constitution conformance record
 
+## Issue #77 preparation policy candidate — 2026-09-15
+
+Owner: @andrewperis. Assessment base: `30192c525e80f9cd9f9dc413d5294c43f72a3b96`
+plus this diff. Constitution/checklist: 1.0.0 at
+`a9cc8a503aa30e17820edc62ac95f7cbe10e0564`. Profiles: universal,
+repository/production system, ADR/specification and automated workflow.
+Evidence: ADR 0009, preparation interface documentation, pinned generated schema
+validation and synthetic policy/read-spy tests. The scope is authorization and
+registered byte handoff only: exact request/caller/owner binding, fresh revocation,
+time and classification checks, separate preparation/use authority, bounded source
+inventory, safe errors and no approval cache. Source instructions never grant trust.
+No constitutional exception, new dependency, production release or real-source
+access is requested. Assessment is proposed, effective after owner review/merge.
+Excluded: production verifier/trust deployment, real filesystem/remote adapters,
+raw ingress parsing, normalization/assembly, durable audit and private storage.
+Boundary-sampled revocation and cooperative cancellation require trusted adapter
+support; they do not establish atomic revocation or terminate foreign code.
+Review before source-adapter onboarding (#78), immutable release (#86), and any
+trust, caller, source, classification, caching or lifecycle change.
+
 ## Issue #76 contract compatibility candidate — 2026-09-15
 
 Owner: @andrewperis. Assessed base: `ba31f5a3171e3d79d6a8f15f7c8bad96e08f604b`

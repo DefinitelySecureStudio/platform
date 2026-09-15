@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — Context Builder preparation (#77)
+
+- Add a development-only preparation gate with exact scope/caller/prompt/owner
+  verification, bounded registered reads, revocation/lifecycle rechecks and
+  value-free diagnostics. Add deterministic synthetic authority and read-spy tests.
+- Generate request validation from the reviewed Codex candidate; no released
+  Prompt SDK interface, immutable schema or dependency lock changes.
+
 ## 1.0.0 — stable adoption candidate, artifact publication pending
 
 - Adopt all five published immutable Codex contracts with complete verified
