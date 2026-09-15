@@ -1,5 +1,8 @@
 # Context Builder preparation gate
 
+The [source/normalization guide](context-builder-sources.md) adds concrete #78
+bindings and the gate's `normalizeSources` method without changing preparation authority.
+
 Studio #77 implements the **unreleased development** authorization boundary in
 `src/context-builder/`. It has no package export and is not a production release.
 It uses the accepted-but-unreleased Codex Context Builder 1.0.0 candidate; #86
@@ -132,7 +135,7 @@ cannot claim required-audit completion or successful package assembly.
 
 Preparation is distinct from separate exact-instance Context Package use
 authorization. Nothing here grants permission to render, execute, publish or
-establish canon. Source normalization (#78), selection (#79), assembly (#80),
+establish canon. Source normalization is documented in the guide above; selection (#79), assembly (#80),
 lifecycle (#81), audit (#82) and SDK integration (#83) remain separate tasks.
 
 ## Pinned schema generation and verification

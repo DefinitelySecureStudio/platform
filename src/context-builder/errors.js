@@ -5,15 +5,17 @@ const codes = Object.freeze({
   STALE_AUTHORITY: ['authorization', 'rebuild'],
   SOURCE_UNAVAILABLE: ['source', 'repair-source'],
   SOURCE_INTEGRITY: ['source', 'repair-source'],
+  INVALID_SOURCE: ['normalization', 'repair-source'],
   BUDGET_EXCEEDED: ['source', 'increase-budget'],
   CANCELLED: ['authorization', 'none']
 });
 
 export class PreparationError extends Error {
-  constructor(code) {
+  constructor(code, stageOverride) {
     super('Context preparation failed.');
     this.name = 'PreparationError';
-    const [stage, action] = codes[code];
+    const [defaultStage, action] = codes[code];
+    const stage = code === 'BUDGET_EXCEEDED' && stageOverride === 'normalization' ? stageOverride : defaultStage;
     this.diagnostic = Object.freeze({ stage, code, action });
   }
   toJSON() { return { diagnostic: this.diagnostic }; }

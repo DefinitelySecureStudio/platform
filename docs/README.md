@@ -1,5 +1,8 @@
 # Platform documentation
 
+- [Context Builder sources and normalization](context-builder-sources.md) covers
+  pinned byte readers, contained local snapshots and deterministic fragments.
+
 - [Context Builder preparation gate](context-builder-preparation.md) documents
   explicit authorization, trusted source bindings and the synthetic verifier.
 

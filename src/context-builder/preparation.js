@@ -1,5 +1,7 @@
 import { PreparationError, fail, requireCondition as need } from './errors.js';
 import { digest, equal, rank, snapshot, time, uuid, validateInputs } from './request.js';
+import { normalizeVerifiedSources } from './normalize.js';
+import { MAX_ARTIFACT_BYTES, MAX_NORMALIZATION_BYTES } from './source-readers.js';
 
 const decisionFields = ['authority_mode', 'verifier_id', 'decision_id', 'decision', 'owner_id',
   'preparation_reference', 'request_identity', 'caller_id', 'target', 'purpose',
@@ -19,6 +21,7 @@ export function createPreparationGate({ mode, verifier, decisionOwners, sourceBi
   need(Array.isArray(owners) && owners.length > 0 && owners.every(x => typeof x === 'string' && uuid.test(x)), 'AUTHORITY_UNVERIFIABLE');
   need(Array.isArray(sourceBindings), 'AUTHORITY_UNVERIFIABLE');
   const bindings = new Map();
+  const references = new Map();
   for (const binding of sourceBindings) {
     const source = snapshot(binding.source, 'AUTHORITY_UNVERIFIABLE');
     const artifact = snapshot(binding.artifact, 'AUTHORITY_UNVERIFIABLE');
@@ -26,6 +29,12 @@ export function createPreparationGate({ mode, verifier, decisionOwners, sourceBi
     need(exactKeys(artifact, ['byte_size', 'sha256', 'media_type']) && Number.isSafeInteger(artifact.byte_size) && artifact.byte_size > 0
       && /^sha256:[0-9a-f]{64}$/.test(artifact.sha256) && artifact.media_type === source.media_type, 'AUTHORITY_UNVERIFIABLE');
     need(typeof binding.read === 'function', 'AUTHORITY_UNVERIFIABLE');
+    const locator = source.reference?.kind === 'public-artifact' ? source.reference.artifact.artifact_uri : source.reference?.handle;
+    need(typeof locator === 'string', 'AUTHORITY_UNVERIFIABLE');
+    const immutable = { version: source.version, artifact, kind: source.kind, classification: source.classification,
+      authority_id: source.authority_id, continuity_id: source.continuity_id };
+    need(!references.has(locator) || equal(references.get(locator), immutable), 'SOURCE_INTEGRITY');
+    references.set(locator, immutable);
     // Never forward caller URIs, file paths, handles or reader options to a reader.
     bindings.set(source.source_id, { source, artifact, read: binding.read.bind(binding) });
   }
@@ -98,9 +107,7 @@ export function createPreparationGate({ mode, verifier, decisionOwners, sourceBi
       expires_at: [r.expires_at, decision.expires_at, ...r.sources.map(s => s.expires_at)].sort()[0] });
   }
 
-  async function readSources(input) {
-    // Snapshot before the first await, including trusted caller binding. No approval cache.
-    const context = prepare(input), signal = input.signal;
+  async function readApproved(context, signal) {
     abort(signal);
     const sources = [];
     let bounds;
@@ -114,7 +121,12 @@ export function createPreparationGate({ mode, verifier, decisionOwners, sourceBi
       abort(signal);
       let result;
       try { result = await binding.read(Object.freeze({ maxBytes: binding.artifact.byte_size, signal })); }
-      catch { abort(signal); fail('SOURCE_UNAVAILABLE'); }
+      catch (error) {
+        abort(signal);
+        // Reconstruct known adapter failures; never forward arbitrary reader errors/evidence.
+        if (error instanceof PreparationError && ['SOURCE_INTEGRITY', 'BUDGET_EXCEEDED', 'SOURCE_UNAVAILABLE', 'CANCELLED'].includes(error.diagnostic?.code)) fail(error.diagnostic.code);
+        fail('SOURCE_UNAVAILABLE');
+      }
       abort(signal);
       let bytes;
       try {
@@ -141,8 +153,25 @@ export function createPreparationGate({ mode, verifier, decisionOwners, sourceBi
       } catch (error) { if (error instanceof PreparationError) throw error; fail('AUTHORITY_UNVERIFIABLE'); }
     },
     readSources: async input => {
-      try { return await readSources(input); }
+      try { return await readApproved(prepare(input), input.signal); }
       catch (error) { if (error instanceof PreparationError) throw error; fail('AUTHORITY_UNVERIFIABLE'); }
+    },
+    normalizeSources: async input => {
+      try {
+        // Snapshot and reject resource excess before any source read, not after parsing.
+        const context = prepare(input), signal = input.signal;
+        need(context.selected.every(b => b.artifact.byte_size <= MAX_ARTIFACT_BYTES)
+          && context.selected.reduce((n, b) => n + b.artifact.byte_size, 0) <= MAX_NORMALIZATION_BYTES, 'BUDGET_EXCEEDED');
+        const loaded = await readApproved(context, signal);
+        abort(signal);
+        const normalizedSources = normalizeVerifiedSources(context, loaded.sources);
+        const finalBounds = await authorize(context, signal);
+        const preparation = Object.freeze({ review_after: [loaded.preparation.review_after, finalBounds.review_after].sort()[0],
+          expires_at: [loaded.preparation.expires_at, finalBounds.expires_at].sort()[0] });
+        need(time(context.lastTime) < time(preparation.review_after) && time(context.lastTime) < time(preparation.expires_at), 'STALE_AUTHORITY');
+        abort(signal);
+        return Object.freeze({ authority_mode: mode, preparation, normalizedSources, audit });
+      } catch (error) { if (error instanceof PreparationError) throw error; fail('INVALID_SOURCE'); }
     }
   });
 }

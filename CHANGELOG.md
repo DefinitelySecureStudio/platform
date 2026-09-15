@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Context Builder sources and normalization (#78)
+
+- Add explicit memory, local public snapshot and injected private-export readers
+  with immutable byte checks, resource bounds and safe failure projections.
+- Add authorized normalization into exact Codex candidates with stable fragment
+  IDs, strict UTF-8/JSON handling, metadata preservation and final policy recheck.
+- Reject contradictory immutable references and traversal/symlink-shaped access;
+  document trusted-directory and transport assumptions. No release or package export.
+
 ## Unreleased — Context Builder preparation (#77)
 
 - Add a development-only preparation gate with exact scope/caller/prompt/owner
