@@ -1,0 +1,632 @@
+{
+  "request": {
+    "spec_version": "1.0.0",
+    "kind": "context-build-request",
+    "build_id": "urn:uuid:00000000-0000-4000-8000-000000000060",
+    "correlation_id": "urn:uuid:00000000-0000-4000-8000-000000000061",
+    "caller_id": "urn:uuid:00000000-0000-4000-8000-000000000062",
+    "purpose": "Prepare synthetic context for contract conformance.",
+    "preparation_reference": "urn:uuid:00000000-0000-4000-8000-000000000063",
+    "target": {
+      "id": "prompt.reference.context-builder",
+      "version": "1.0.0",
+      "identity": {
+        "canonicalization": "studio-json-v1",
+        "byte_size": 2629,
+        "sha256": "sha256:7d127a76b06a3db563f2935dc0f0d03efa2fcb5d8fe4a13492860497ee6b9064"
+      }
+    },
+    "builder": {
+      "id": "studio.reference.context-builder",
+      "version": "1.0.0"
+    },
+    "package": {
+      "id": "context-package.reference.builder",
+      "version": "1.0.0",
+      "instance_id": "urn:uuid:00000000-0000-4000-8000-000000000064"
+    },
+    "evaluation_time": "2026-09-15T12:00:00Z",
+    "review_after": "2026-09-16T00:00:00Z",
+    "expires_at": "2026-09-17T00:00:00Z",
+    "max_classification": "internal",
+    "sources": [
+      {
+        "source_id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+        "kind": "synthetic",
+        "version": "urn:uuid:00000000-0000-4000-8000-000000000010",
+        "classification": "public",
+        "evidence_reference": "urn:uuid:00000000-0000-4000-8000-000000000020",
+        "authority_id": "urn:uuid:00000000-0000-4000-8000-000000000030",
+        "continuity_id": "urn:uuid:00000000-0000-4000-8000-000000000031",
+        "not_before": "2026-09-15T00:00:00Z",
+        "review_after": "2026-09-16T00:00:00Z",
+        "expires_at": "2026-09-17T00:00:00Z",
+        "media_type": "text/plain",
+        "reference": {
+          "kind": "public-artifact",
+          "artifact": {
+            "artifact_uri": "urn:uuid:00000000-0000-4000-8000-000000000041",
+            "media_type": "text/plain",
+            "byte_size": 24,
+            "sha256": "sha256:c847bf684b5aabe0ea2d290978d299a6060a8132a01bd03fd606d6bdbb465384"
+          }
+        },
+        "fragments": [
+          {
+            "candidate_id": "urn:uuid:00000000-0000-4000-8000-000000000050",
+            "fragment": {
+              "unit": "utf8-byte-range",
+              "start": 0,
+              "end": 24
+            }
+          }
+        ]
+      },
+      {
+        "source_id": "urn:uuid:00000000-0000-4000-8000-000000000002",
+        "kind": "approved-private",
+        "version": "urn:uuid:00000000-0000-4000-8000-000000000011",
+        "classification": "internal",
+        "evidence_reference": "urn:uuid:00000000-0000-4000-8000-000000000021",
+        "authority_id": "urn:uuid:00000000-0000-4000-8000-000000000030",
+        "continuity_id": "urn:uuid:00000000-0000-4000-8000-000000000031",
+        "not_before": "2026-09-15T00:00:00Z",
+        "review_after": "2026-09-16T00:00:00Z",
+        "expires_at": "2026-09-17T00:00:00Z",
+        "media_type": "application/json",
+        "reference": {
+          "kind": "opaque-artifact",
+          "handle": "urn:uuid:00000000-0000-4000-8000-000000000040"
+        },
+        "fragments": [
+          {
+            "candidate_id": "urn:uuid:00000000-0000-4000-8000-000000000051",
+            "fragment": {
+              "unit": "json-pointer",
+              "pointer": ""
+            }
+          }
+        ]
+      }
+    ],
+    "authority_ids": [
+      "urn:uuid:00000000-0000-4000-8000-000000000030"
+    ],
+    "continuity_id": "urn:uuid:00000000-0000-4000-8000-000000000031",
+    "slots": [
+      {
+        "name": "approved_notes",
+        "required": true,
+        "accepted_classifications": [
+          "public",
+          "internal"
+        ],
+        "media_type": "text/plain",
+        "max_bytes": 100,
+        "selection": {
+          "mode": "explicit-v1",
+          "candidates": [
+            {
+              "source_id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+              "candidate_id": "urn:uuid:00000000-0000-4000-8000-000000000050"
+            }
+          ]
+        }
+      },
+      {
+        "name": "context_facts",
+        "required": true,
+        "accepted_classifications": [
+          "internal"
+        ],
+        "media_type": "application/json",
+        "max_bytes": 100,
+        "selection": {
+          "mode": "explicit-v1",
+          "candidates": [
+            {
+              "source_id": "urn:uuid:00000000-0000-4000-8000-000000000002",
+              "candidate_id": "urn:uuid:00000000-0000-4000-8000-000000000051"
+            }
+          ]
+        }
+      },
+      {
+        "name": "optional_footer",
+        "required": false,
+        "accepted_classifications": [
+          "public"
+        ],
+        "media_type": "text/plain",
+        "max_bytes": 100,
+        "selection": {
+          "mode": "explicit-v1",
+          "candidates": []
+        }
+      }
+    ],
+    "policy": {
+      "normalization": "utf8-json-v1",
+      "selection": "explicit-v1",
+      "assembly": "whole-candidate-v1",
+      "conflicts": "fail",
+      "audit": "required"
+    },
+    "limits": {
+      "total_content_bytes": 200,
+      "total_source_bytes": 1000,
+      "max_candidates": 10
+    }
+  },
+  "normalized": [
+    {
+      "spec_version": "1.0.0",
+      "kind": "context-normalized-source",
+      "build_id": "urn:uuid:00000000-0000-4000-8000-000000000060",
+      "request_identity": {
+        "canonicalization": "studio-json-v1",
+        "byte_size": 3710,
+        "sha256": "sha256:e04bb0c9f31328500ad57dc63641eaa32676ffb4f207065490e00ebd7d245101"
+      },
+      "source": {
+        "source_id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+        "kind": "synthetic",
+        "version": "urn:uuid:00000000-0000-4000-8000-000000000010",
+        "classification": "public",
+        "evidence_reference": "urn:uuid:00000000-0000-4000-8000-000000000020",
+        "authority_id": "urn:uuid:00000000-0000-4000-8000-000000000030",
+        "continuity_id": "urn:uuid:00000000-0000-4000-8000-000000000031",
+        "not_before": "2026-09-15T00:00:00Z",
+        "review_after": "2026-09-16T00:00:00Z",
+        "expires_at": "2026-09-17T00:00:00Z",
+        "media_type": "text/plain",
+        "reference": {
+          "kind": "public-artifact",
+          "artifact": {
+            "artifact_uri": "urn:uuid:00000000-0000-4000-8000-000000000041",
+            "media_type": "text/plain",
+            "byte_size": 24,
+            "sha256": "sha256:c847bf684b5aabe0ea2d290978d299a6060a8132a01bd03fd606d6bdbb465384"
+          }
+        },
+        "fragments": [
+          {
+            "candidate_id": "urn:uuid:00000000-0000-4000-8000-000000000050",
+            "fragment": {
+              "unit": "utf8-byte-range",
+              "start": 0,
+              "end": 24
+            }
+          }
+        ]
+      },
+      "normalization": "utf8-json-v1",
+      "candidates": [
+        {
+          "candidate_id": "urn:uuid:00000000-0000-4000-8000-000000000050",
+          "fragment": {
+            "unit": "utf8-byte-range",
+            "start": 0,
+            "end": 24
+          },
+          "classification": "public",
+          "content": "Synthetic approved note.",
+          "byte_size": 24,
+          "sha256": "sha256:c847bf684b5aabe0ea2d290978d299a6060a8132a01bd03fd606d6bdbb465384"
+        }
+      ]
+    },
+    {
+      "spec_version": "1.0.0",
+      "kind": "context-normalized-source",
+      "build_id": "urn:uuid:00000000-0000-4000-8000-000000000060",
+      "request_identity": {
+        "canonicalization": "studio-json-v1",
+        "byte_size": 3710,
+        "sha256": "sha256:e04bb0c9f31328500ad57dc63641eaa32676ffb4f207065490e00ebd7d245101"
+      },
+      "source": {
+        "source_id": "urn:uuid:00000000-0000-4000-8000-000000000002",
+        "kind": "approved-private",
+        "version": "urn:uuid:00000000-0000-4000-8000-000000000011",
+        "classification": "internal",
+        "evidence_reference": "urn:uuid:00000000-0000-4000-8000-000000000021",
+        "authority_id": "urn:uuid:00000000-0000-4000-8000-000000000030",
+        "continuity_id": "urn:uuid:00000000-0000-4000-8000-000000000031",
+        "not_before": "2026-09-15T00:00:00Z",
+        "review_after": "2026-09-16T00:00:00Z",
+        "expires_at": "2026-09-17T00:00:00Z",
+        "media_type": "application/json",
+        "reference": {
+          "kind": "opaque-artifact",
+          "handle": "urn:uuid:00000000-0000-4000-8000-000000000040"
+        },
+        "fragments": [
+          {
+            "candidate_id": "urn:uuid:00000000-0000-4000-8000-000000000051",
+            "fragment": {
+              "unit": "json-pointer",
+              "pointer": ""
+            }
+          }
+        ]
+      },
+      "normalization": "utf8-json-v1",
+      "candidates": [
+        {
+          "candidate_id": "urn:uuid:00000000-0000-4000-8000-000000000051",
+          "fragment": {
+            "unit": "json-pointer",
+            "pointer": ""
+          },
+          "classification": "internal",
+          "content": {
+            "count": 1,
+            "facts": [
+              "synthetic"
+            ]
+          },
+          "byte_size": 33,
+          "sha256": "sha256:086a926808322e2c933c498209d220850d84c1366dc967ddd502417d1f33560f"
+        }
+      ]
+    }
+  ],
+  "result": {
+    "spec_version": "1.0.0",
+    "kind": "context-build-result",
+    "build_id": "urn:uuid:00000000-0000-4000-8000-000000000060",
+    "correlation_id": "urn:uuid:00000000-0000-4000-8000-000000000061",
+    "request_identity": {
+      "canonicalization": "studio-json-v1",
+      "byte_size": 3710,
+      "sha256": "sha256:e04bb0c9f31328500ad57dc63641eaa32676ffb4f207065490e00ebd7d245101"
+    },
+    "status": "prepared",
+    "diagnostics": [],
+    "package": {
+      "spec_version": "1.0.0",
+      "kind": "context-package",
+      "manifest": {
+        "package": {
+          "id": "context-package.reference.builder",
+          "version": "1.0.0",
+          "instance_id": "urn:uuid:00000000-0000-4000-8000-000000000064"
+        },
+        "builder": {
+          "id": "studio.reference.context-builder",
+          "version": "1.0.0"
+        },
+        "created_at": "2026-09-15T12:00:00Z",
+        "review_after": "2026-09-16T00:00:00Z",
+        "expires_at": "2026-09-17T00:00:00Z",
+        "purpose": "Prepare synthetic context for contract conformance.",
+        "authority_reference": "urn:uuid:00000000-0000-4000-8000-000000000063",
+        "classification": "internal",
+        "total_content_bytes": 57,
+        "sources": [
+          {
+            "source_id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+            "kind": "synthetic",
+            "version": "urn:uuid:00000000-0000-4000-8000-000000000010",
+            "classification": "public",
+            "evidence_reference": "urn:uuid:00000000-0000-4000-8000-000000000020",
+            "artifact": {
+              "artifact_uri": "urn:uuid:00000000-0000-4000-8000-000000000041",
+              "media_type": "text/plain",
+              "byte_size": 24,
+              "sha256": "sha256:c847bf684b5aabe0ea2d290978d299a6060a8132a01bd03fd606d6bdbb465384"
+            }
+          },
+          {
+            "source_id": "urn:uuid:00000000-0000-4000-8000-000000000002",
+            "kind": "approved-private",
+            "version": "urn:uuid:00000000-0000-4000-8000-000000000011",
+            "classification": "internal",
+            "evidence_reference": "urn:uuid:00000000-0000-4000-8000-000000000021"
+          }
+        ],
+        "sections": [
+          {
+            "slot": "approved_notes",
+            "classification": "public",
+            "media_type": "text/plain",
+            "content": "Synthetic approved note.",
+            "byte_size": 24,
+            "sha256": "sha256:c847bf684b5aabe0ea2d290978d299a6060a8132a01bd03fd606d6bdbb465384",
+            "source_ids": [
+              "urn:uuid:00000000-0000-4000-8000-000000000001"
+            ]
+          },
+          {
+            "slot": "context_facts",
+            "classification": "internal",
+            "media_type": "application/json",
+            "content": {
+              "count": 1,
+              "facts": [
+                "synthetic"
+              ]
+            },
+            "byte_size": 33,
+            "sha256": "sha256:086a926808322e2c933c498209d220850d84c1366dc967ddd502417d1f33560f",
+            "source_ids": [
+              "urn:uuid:00000000-0000-4000-8000-000000000002"
+            ]
+          }
+        ]
+      },
+      "manifest_identity": {
+        "canonicalization": "studio-json-v1",
+        "byte_size": 1769,
+        "sha256": "sha256:a287bcbe601550c2a4df68b296c64d622591fc91aa5713e8ea6e2e6119f04eab"
+      }
+    },
+    "lineage": [
+      {
+        "slot": "approved_notes",
+        "candidates": [
+          {
+            "source_id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+            "candidate_id": "urn:uuid:00000000-0000-4000-8000-000000000050"
+          }
+        ]
+      },
+      {
+        "slot": "context_facts",
+        "candidates": [
+          {
+            "source_id": "urn:uuid:00000000-0000-4000-8000-000000000002",
+            "candidate_id": "urn:uuid:00000000-0000-4000-8000-000000000051"
+          }
+        ]
+      }
+    ],
+    "omissions": [
+      {
+        "slot": "optional_footer",
+        "code": "OPTIONAL_EMPTY"
+      }
+    ],
+    "evidence_reference": "urn:uuid:00000000-0000-4000-8000-000000000070"
+  },
+  "failed": {
+    "spec_version": "1.0.0",
+    "kind": "context-build-result",
+    "build_id": "urn:uuid:00000000-0000-4000-8000-000000000060",
+    "correlation_id": "urn:uuid:00000000-0000-4000-8000-000000000061",
+    "request_identity": {
+      "canonicalization": "studio-json-v1",
+      "byte_size": 3710,
+      "sha256": "sha256:e04bb0c9f31328500ad57dc63641eaa32676ffb4f207065490e00ebd7d245101"
+    },
+    "status": "failed",
+    "diagnostics": [
+      {
+        "stage": "authorization",
+        "code": "PREPARATION_DENIED",
+        "action": "obtain-authorization"
+      }
+    ]
+  },
+  "receipt": {
+    "spec_version": "1.0.0",
+    "kind": "context-build-public-receipt",
+    "attestation_reference": "urn:uuid:00000000-0000-4000-8000-000000000073"
+  },
+  "prompt": {
+    "spec_version": "1.0.0",
+    "id": "prompt.reference.context-builder",
+    "version": "1.0.0",
+    "name": "Describe a public item",
+    "description": "Synthetic renderer fixture for an explicitly supplied public item.",
+    "purpose": "Exercise provider-neutral rendering; it does not retrieve data, approve output, or establish Canon.",
+    "owners": [
+      "@andrewperis"
+    ],
+    "lifecycle": {
+      "status": "draft"
+    },
+    "inputs": [
+      {
+        "name": "item",
+        "description": "Synthetic public item name.",
+        "type": "string",
+        "required": true,
+        "classification": "public",
+        "constraints": {
+          "min_length": 1
+        }
+      },
+      {
+        "name": "attributes",
+        "description": "Synthetic attributes.",
+        "type": "object",
+        "required": true,
+        "classification": "public"
+      },
+      {
+        "name": "concise",
+        "description": "Request concise output.",
+        "type": "boolean",
+        "required": false,
+        "classification": "public",
+        "default": true
+      }
+    ],
+    "context_slots": [
+      {
+        "name": "approved_notes",
+        "description": "Explicit synthetic notes.",
+        "required": true,
+        "accepted_classifications": [
+          "public",
+          "internal"
+        ],
+        "accepted_media_types": [
+          "text/plain"
+        ],
+        "max_bytes": 100
+      },
+      {
+        "name": "context_facts",
+        "description": "Synthetic facts.",
+        "required": true,
+        "accepted_classifications": [
+          "internal"
+        ],
+        "accepted_media_types": [
+          "application/json"
+        ],
+        "max_bytes": 100
+      },
+      {
+        "name": "optional_footer",
+        "description": "Optional synthetic footer.",
+        "required": false,
+        "accepted_classifications": [
+          "public"
+        ],
+        "accepted_media_types": [
+          "text/plain"
+        ],
+        "max_bytes": 100
+      }
+    ],
+    "template": {
+      "format": "studio-messages-v1",
+      "messages": [
+        {
+          "role": "instruction",
+          "parts": [
+            {
+              "type": "text",
+              "text": "Describe the explicit item using only supplied inputs and context."
+            }
+          ]
+        },
+        {
+          "role": "user",
+          "parts": [
+            {
+              "type": "text",
+              "text": "Item: "
+            },
+            {
+              "type": "input",
+              "name": "item"
+            },
+            {
+              "type": "text",
+              "text": "\nAttributes: "
+            },
+            {
+              "type": "input",
+              "name": "attributes",
+              "format": "json"
+            },
+            {
+              "type": "text",
+              "text": "\nConcise: "
+            },
+            {
+              "type": "input",
+              "name": "concise",
+              "format": "text"
+            },
+            {
+              "type": "text",
+              "text": "\nNotes: "
+            },
+            {
+              "type": "context",
+              "slot": "approved_notes"
+            },
+            {
+              "type": "context",
+              "slot": "context_facts",
+              "format": "json"
+            },
+            {
+              "type": "context",
+              "slot": "optional_footer"
+            }
+          ]
+        }
+      ]
+    },
+    "capabilities": {
+      "required": [
+        "text-generation"
+      ],
+      "optional": []
+    },
+    "output": {
+      "kind": "text",
+      "media_type": "text/plain",
+      "description": "A synthetic plain-text description for human review."
+    },
+    "provenance": {
+      "origin": "studio-original",
+      "created_by": "@andrewperis",
+      "created_at": "2026-08-17T00:00:00Z",
+      "source_references": [],
+      "rights": {
+        "basis": "studio-original",
+        "reviewed_by": "@andrewperis",
+        "reviewed_at": "2026-08-17T00:00:00Z",
+        "notices": []
+      }
+    },
+    "governance": {
+      "constitution": {
+        "version": "1.0.0",
+        "tag": "constitution/v1.0.0",
+        "commit": "a9cc8a503aa30e17820edc62ac95f7cbe10e0564"
+      },
+      "decision_owner": "@andrewperis",
+      "evidence": [
+        "https://github.com/DefinitelySecureStudio/studio/issues/63"
+      ]
+    }
+  },
+  "authorization": {
+    "spec_version": "1.0.0",
+    "kind": "context-authorization",
+    "decision_id": "urn:uuid:00000000-0000-4000-8000-000000000071",
+    "decision": "allow",
+    "package": {
+      "id": "context-package.reference.builder",
+      "version": "1.0.0",
+      "instance_id": "urn:uuid:00000000-0000-4000-8000-000000000064"
+    },
+    "prompt": {
+      "id": "prompt.reference.context-builder",
+      "version": "1.0.0"
+    },
+    "sections": [
+      "approved_notes",
+      "context_facts"
+    ],
+    "max_classification": "internal",
+    "purpose": "Prepare synthetic context for contract conformance.",
+    "decided_by": "@andrewperis",
+    "decided_at": "2026-09-15T12:00:00Z",
+    "expires_at": "2026-09-17T00:00:00Z",
+    "authority_reference": "urn:uuid:00000000-0000-4000-8000-000000000072"
+  },
+  "raw_sources": [
+    {
+      "source_id": "urn:uuid:00000000-0000-4000-8000-000000000001",
+      "text": "Synthetic approved note."
+    },
+    {
+      "source_id": "urn:uuid:00000000-0000-4000-8000-000000000002",
+      "text": "{\"count\":1,\"facts\":[\"synthetic\"]}"
+    }
+  ],
+  "preparation_bounds": {
+    "review_after": "2026-09-16T00:00:00Z",
+    "expires_at": "2026-09-17T00:00:00Z"
+  }
+}

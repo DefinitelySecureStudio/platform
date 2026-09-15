@@ -1,5 +1,9 @@
 # Context Builder implementation outline
 
+The [issue #76 contract compatibility record](context-builder-contracts.md)
+links the concrete candidate contract that supersedes the illustrative field/API
+sketch below. Runtime APIs remain unimplemented.
+
 Issue #75 design candidate, not an implemented API. The governing cross-repository
 design is [Studio Context Builder architecture](https://github.com/DefinitelySecureStudio/studio/blob/main/context-builder/ARCHITECTURE.md);
 local decisions are in [ADR 0008](adr/0008-context-builder-pipeline.md).

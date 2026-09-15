@@ -1,5 +1,8 @@
 # Platform documentation
 
+- [Context Builder contract compatibility](context-builder-contracts.md) records
+  the issue #76 test-only candidate pins and unchanged Prompt SDK v1 handoff.
+
 - [Context Builder implementation outline](context-builder-architecture.md) and
   [ADR 0008](adr/0008-context-builder-pipeline.md) propose the separate producer boundary.
 

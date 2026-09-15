@@ -1,5 +1,22 @@
 # Constitution conformance record
 
+## Issue #76 contract compatibility candidate — 2026-09-15
+
+Owner: @andrewperis. Assessed base: `ba31f5a3171e3d79d6a8f15f7c8bad96e08f604b`
+plus this candidate diff. Constitution/checklist: 1.0.0 at
+`a9cc8a503aa30e17820edc62ac95f7cbe10e0564`. Profiles: universal,
+repository/production system, ADR/specification.
+Evidence: Context Builder contract compatibility record, exact synthetic fixture
+pins, consumer tests and coordinated Codex RFC/schema/specification PR.
+Scope: test-only consumption proves unchanged Context Package v1 binding and
+preserves the preparation/use/publication boundaries. No runtime exports, schema
+fork, new dependencies, release changes or data-access authority. All fixtures
+and approval objects are synthetic. No exception requested.
+Status: proposed, effective after owner review/merge and Codex acceptance.
+Excluded: runtime Builder/source readers, production trust/revocation, private
+storage, attestation issuance and immutable publication. Review before #77/#86
+and on source, classification, authority, identity or consumer-boundary changes.
+
 ## Issue #75 architecture candidate — 2026-09-11
 
 Owner: @andrewperis. Baseline:
