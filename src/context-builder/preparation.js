@@ -1,6 +1,7 @@
 import { PreparationError, fail, requireCondition as need } from './errors.js';
 import { digest, equal, rank, snapshot, time, uuid, validateInputs } from './request.js';
 import { normalizeVerifiedSources } from './normalize.js';
+import { selectNormalizedSources } from './selection.js';
 import { MAX_ARTIFACT_BYTES, MAX_NORMALIZATION_BYTES } from './source-readers.js';
 
 const decisionFields = ['authority_mode', 'verifier_id', 'decision_id', 'decision', 'owner_id',
@@ -156,22 +157,27 @@ export function createPreparationGate({ mode, verifier, decisionOwners, sourceBi
       try { return await readApproved(prepare(input), input.signal); }
       catch (error) { if (error instanceof PreparationError) throw error; fail('AUTHORITY_UNVERIFIABLE'); }
     },
-    normalizeSources: async input => {
-      try {
-        // Snapshot and reject resource excess before any source read, not after parsing.
-        const context = prepare(input), signal = input.signal;
-        need(context.selected.every(b => b.artifact.byte_size <= MAX_ARTIFACT_BYTES)
-          && context.selected.reduce((n, b) => n + b.artifact.byte_size, 0) <= MAX_NORMALIZATION_BYTES, 'BUDGET_EXCEEDED');
-        const loaded = await readApproved(context, signal);
-        abort(signal);
-        const normalizedSources = normalizeVerifiedSources(context, loaded.sources);
-        const finalBounds = await authorize(context, signal);
-        const preparation = Object.freeze({ review_after: [loaded.preparation.review_after, finalBounds.review_after].sort()[0],
-          expires_at: [loaded.preparation.expires_at, finalBounds.expires_at].sort()[0] });
-        need(time(context.lastTime) < time(preparation.review_after) && time(context.lastTime) < time(preparation.expires_at), 'STALE_AUTHORITY');
-        abort(signal);
-        return Object.freeze({ authority_mode: mode, preparation, normalizedSources, audit });
-      } catch (error) { if (error instanceof PreparationError) throw error; fail('INVALID_SOURCE'); }
-    }
+    normalizeSources: input => normalizeOrSelect(input, false),
+    selectSources: input => normalizeOrSelect(input, true)
   });
+
+  async function normalizeOrSelect(input, select) {
+    try {
+      // Snapshot and reject resource excess before any source read, not after parsing.
+      const context = prepare(input), signal = input.signal;
+      need(context.selected.every(b => b.artifact.byte_size <= MAX_ARTIFACT_BYTES)
+        && context.selected.reduce((n, b) => n + b.artifact.byte_size, 0) <= MAX_NORMALIZATION_BYTES, 'BUDGET_EXCEEDED');
+      const loaded = await readApproved(context, signal);
+      abort(signal);
+      const normalizedSources = normalizeVerifiedSources(context, loaded.sources);
+      const selection = select ? selectNormalizedSources(context, normalizedSources) : undefined;
+      const finalBounds = await authorize(context, signal);
+      const preparation = Object.freeze({ review_after: [loaded.preparation.review_after, finalBounds.review_after].sort()[0],
+        expires_at: [loaded.preparation.expires_at, finalBounds.expires_at].sort()[0] });
+      need(time(context.lastTime) < time(preparation.review_after) && time(context.lastTime) < time(preparation.expires_at), 'STALE_AUTHORITY');
+      abort(signal);
+      return Object.freeze({ authority_mode: mode, preparation,
+        ...(select ? { selection } : { normalizedSources }), audit });
+    } catch (error) { if (error instanceof PreparationError) throw error; fail('INVALID_SOURCE'); }
+  }
 }

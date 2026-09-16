@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Context Builder selection (#79)
+
+- Add authorized exact-reference and deterministic ASCII lexical selection,
+  with eligibility before ranking, fail-closed claim conflicts and stable ties.
+- Preserve complete source/fragment evidence, reject required no-match, report
+  optional omissions and revalidate preparation before protected selection handoff.
+- Document deduplication/supersession rules and future retrieval boundaries.
+  No package assembly, released API, contract or dependency changes.
+
 ## Unreleased — Context Builder sources and normalization (#78)
 
 - Add explicit memory, local public snapshot and injected private-export readers

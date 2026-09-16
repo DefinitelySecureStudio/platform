@@ -79,6 +79,10 @@ and [execution](docs/provider-execution.md) guides.
 Prepared, authorized packages use the explicit
 [Context Package v1 integration](docs/context-packages.md), without retrieval or
 selection inside the SDK.
+The unreleased Context Builder development pipeline provides
+[verified source normalization](docs/context-builder-sources.md) and
+[deterministic selection](docs/context-builder-selection.md) behind a separate
+preparation gate; package assembly and release are still pending.
 The [prompt registry](docs/prompt-registry.md) discovers validated definitions
 from approved filesystem/repository locations and resolves exact versions with
 explicit lifecycle behavior.
