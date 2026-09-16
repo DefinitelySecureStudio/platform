@@ -6,6 +6,9 @@ const codes = Object.freeze({
   SOURCE_UNAVAILABLE: ['source', 'repair-source'],
   SOURCE_INTEGRITY: ['source', 'repair-source'],
   INVALID_SOURCE: ['normalization', 'repair-source'],
+  CONFLICT: ['selection', 'resolve-conflict'],
+  INELIGIBLE: ['selection', 'repair-request'],
+  REQUIRED_CONTEXT_MISSING: ['assembly', 'repair-request'],
   BUDGET_EXCEEDED: ['source', 'increase-budget'],
   CANCELLED: ['authorization', 'none']
 });

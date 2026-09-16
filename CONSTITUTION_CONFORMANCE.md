@@ -1,5 +1,23 @@
 # Constitution conformance record
 
+## Issue #79 deterministic selection candidate — 2026-09-16
+
+Owner: @andrewperis. Assessed base: `604d267a5ca0790136a0ec066b4ed1f6dedc2688`
+plus this diff. Constitution/checklist: 1.0.0 at
+`a9cc8a503aa30e17820edc62ac95f7cbe10e0564`. Profiles: universal,
+repository/production system, ADR/specification, automated workflow.
+Evidence: ADR 0011, selection guide, synthetic selection tests and full preparation,
+source and released SDK regressions. Findings: explicit authority/continuity/time/
+classification eligibility, deterministic exact/lexical rules, conflicts before
+ranking, exact provenance and fresh authorization before delivery. No private
+preference, hidden supersession, source-inferred policy, paid service or real Lore.
+Protected intermediate output is not publication evidence or package-use authority.
+No normative Codex changes, dependencies, immutable release or constitutional
+exception. Status: proposed, effective on owner review/merge. Exclusions: semantic
+truth inference, production trust onboarding, workload isolation, package assembly,
+persistent lifecycle/audit and publication. Review before #86 or any selection,
+scoring, claim, scope, classification, trust or retrieval-service change.
+
 ## Issue #78 verified sources candidate — 2026-09-15
 
 Owner: @andrewperis. Assessed base: `38d4ee134431016d6a91a41fd2ddeff85987daea`
