@@ -1,8 +1,12 @@
 # Context Builder v1 release and integration guide
 
-Studio #86 **release preparation**, awaiting owner merge, Codex publication and
-verified adoption. The package API is a review candidate, not an assertion that
-production artifacts have been published. #86 and Epic #5 must remain open.
+Studio #86 **verified contract adoption candidate**. The Codex contract is now
+[published immutably](https://github.com/DefinitelySecureStudio/codex/releases/tag/contract/context-builder/v1.0.0)
+at `2301597014f6fefe8a3cf772e2e02527cda6a254`; the
+[dependency lock](../release/context-builder-contract-lock.json) and
+[verification record](../release/context-builder-verification.md) record downloaded
+identities and evidence. This adoption still needs owner merge and CI. Platform
+implementation publication remains pending; #86 and Epic #5 must remain open.
 
 The component version is Context Builder 1.0.0 (`context-builder/v1.0.0`); the
 containing private Platform package advances additively to 1.1.0. Prompt SDK
@@ -80,8 +84,8 @@ deadlines/cancellation cannot undo foreign effects. CLI build/replay is syntheti
 only. Package validity is not truth, quality, canon or publication approval.
 
 Historical #76–#85 guides describe the development stage they shipped. This guide
-defines the additive package export; their source pins remain provisional until
-the following release gates complete.
+defines the additive package export. Historical fixture source pins remain valid;
+runtime schema provenance now uses the verified immutable contract lock.
 
 ## Owner-reviewed publication sequence
 
@@ -102,8 +106,8 @@ the following release gates complete.
    three validators from downloaded verified schemas, never edit generated code.
    Preserve exact schema digests and the original SDK lock. Historical fixture
    pins remain valid historical evidence, not release provenance.
-4. `node scripts/check-builder-release.mjs` must pass (currently intentionally
-   blocked). This is an offline consistency check, not online publication proof
+4. `node scripts/check-builder-release.mjs` must pass (now passes with the verified
+   adoption). This is an offline consistency check, not online publication proof
    or a substitute for owner approval. Merge adoption and require CI before build.
 5. From clean merged main run `node scripts/build-builder-release.mjs /absolute/new/output`.
    Build twice, compare every byte, inspect source/package file lists and licenses,

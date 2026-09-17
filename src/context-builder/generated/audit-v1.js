@@ -1,4 +1,4 @@
-// Generated from Codex 291453e2a957fb83dedb0c209ed2cdd14ba90c0e; unreleased candidate.
+// Generated from Codex 2301597014f6fefe8a3cf772e2e02527cda6a254; released immutable contract.
 // SHA-256: 4adebedcef5a26e009e1d53ec9c480d372a31b73211fec1c53d6509ebc7929a3, d81e88780511c31099b2dd925f31aff26d6ba75e1173e953b98a37298764b617
 // Rebuild with scripts/generate-builder-audit-validator.mjs; do not edit.
 import { createRequire } from 'node:module';

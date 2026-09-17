@@ -17,4 +17,4 @@ addFormats(ajv); schemas.forEach(s => ajv.addSchema(s));
 const id = schemas[0].$id;
 const code = standaloneCode(ajv, { validateResult: id + '#/$defs/result', validateReceipt: id + '#/$defs/receipt' });
 await writeFile(process.argv[4] ?? new URL('../src/context-builder/generated/audit-v1.js', import.meta.url),
-  `// Generated from Codex 291453e2a957fb83dedb0c209ed2cdd14ba90c0e; unreleased candidate.\n// SHA-256: ${pins.join(', ')}\n// Rebuild with scripts/generate-builder-audit-validator.mjs; do not edit.\nimport { createRequire } from 'node:module';\nconst require = createRequire(import.meta.url);\n` + code);
+  `// Generated from Codex 2301597014f6fefe8a3cf772e2e02527cda6a254; released immutable contract.\n// SHA-256: ${pins.join(', ')}\n// Rebuild with scripts/generate-builder-audit-validator.mjs; do not edit.\nimport { createRequire } from 'node:module';\nconst require = createRequire(import.meta.url);\n` + code);

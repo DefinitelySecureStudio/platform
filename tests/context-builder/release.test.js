@@ -27,8 +27,8 @@ test('Builder package export matches reviewed v1 API inventory and CLI metadata'
   const lock = JSON.parse(await readFile(new URL('../../package-lock.json', import.meta.url)));
   assert.equal(lock.version, pkg.version); assert.equal(lock.packages[''].version, pkg.version);
 });
-test('actual candidate fails closed until immutable adoption; complete synthetic evidence passes offline shape check', async () => {
-  assert.equal((await builderReleaseReadiness()).ready, false);
+test('verified immutable adoption passes readiness; complete synthetic evidence passes offline shape check', async () => {
+  assert.deepEqual(await builderReleaseReadiness(), { ready: true, blockers: [] });
   assert.deepEqual(checkBuilderRelease(evidence()), { ready: true, blockers: [] });
 });
 test('release gate rejects missing, malformed, swapped, provisional and stale-generation evidence', () => {

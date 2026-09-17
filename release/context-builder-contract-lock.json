@@ -1,0 +1,30 @@
+{
+  "repository": "DefinitelySecureStudio/codex",
+  "contract": "context-builder",
+  "version": "1.0.0",
+  "tag": "contract/context-builder/v1.0.0",
+  "commit": "2301597014f6fefe8a3cf772e2e02527cda6a254",
+  "constitution_commit": "a9cc8a503aa30e17820edc62ac95f7cbe10e0564",
+  "schema_id": "urn:definitely-secure:contract:context-builder:1.0.0:context-builder",
+  "assets": [
+    {
+      "filename": "context-builder-v1.0.0.schema.json",
+      "artifact_uri": "https://github.com/DefinitelySecureStudio/codex/releases/download/contract%2Fcontext-builder%2Fv1.0.0/context-builder-v1.0.0.schema.json",
+      "media_type": "application/schema+json",
+      "byte_size": 20802,
+      "sha256": "sha256:4adebedcef5a26e009e1d53ec9c480d372a31b73211fec1c53d6509ebc7929a3"
+    },
+    {
+      "filename": "context-builder-v1.0.0.bundle.json",
+      "artifact_uri": "https://github.com/DefinitelySecureStudio/codex/releases/download/contract%2Fcontext-builder%2Fv1.0.0/context-builder-v1.0.0.bundle.json",
+      "media_type": "application/json",
+      "byte_size": 607530,
+      "sha256": "sha256:3bba06db5c2568c787a5352c15a12f4f736e5e5d4a44ff2bc028910a022aada7"
+    }
+  ],
+  "publication": {
+    "immutable": true,
+    "verified_at": "2026-09-17T02:17:14Z",
+    "release_url": "https://github.com/DefinitelySecureStudio/codex/releases/tag/contract/context-builder/v1.0.0"
+  }
+}
