@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Context Builder lifecycle (#81)
+
+- Add canonical immutable prepared artifacts and authorized cache-bypassing replay
+  with verified identity comparison.
+- Add optional exact-scope raw-byte caching with fresh preparation checks and
+  integrity validation; defaults remain memory-only with no shared cache.
+- Add access-controlled memory retention/history, expiry, bounded FIFO eviction
+  and explicit cleanup. No disk persistence, use grant, release or audit receipt.
+
 ## Unreleased — Context Builder assembly (#80)
 
 - Assemble unchanged Context Package v1 documents from authorized selected evidence,

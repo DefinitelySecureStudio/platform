@@ -1,5 +1,7 @@
 import { PreparationError, fail, requireCondition as need } from './errors.js';
-import { digest, equal, rank, snapshot, time, uuid, validateInputs } from './request.js';
+import { digest, equal, identity, rank, snapshot, time, uuid, validateInputs } from './request.js';
+import { canonicalJson } from '../prompt-sdk/index.js';
+import { preparedArtifact } from './lifecycle.js';
 import { normalizeVerifiedSources } from './normalize.js';
 import { selectNormalizedSources } from './selection.js';
 import { assembleSelection } from './assembly.js';
@@ -12,7 +14,8 @@ const exactKeys = (value, fields) => equal(Object.keys(value).sort(), [...fields
 const abort = signal => { if (signal?.aborted) fail('CANCELLED'); };
 
 /** Development-only gate. Host configuration and installed adapters are trusted code. */
-export function createPreparationGate({ mode, verifier, decisionOwners, sourceBindings, getTime }) {
+export function createPreparationGate({ mode, verifier, decisionOwners, sourceBindings, getTime, cache }) {
+  need(cache === undefined || (cache && typeof cache.get === 'function' && typeof cache.put === 'function'), 'AUTHORITY_UNVERIFIABLE');
   need(mode === 'production' || mode === 'synthetic', 'AUTHORITY_UNVERIFIABLE');
   need(verifier && verifier.mode === mode && typeof verifier.id === 'string' && typeof verifier.verify === 'function', 'AUTHORITY_UNVERIFIABLE');
   need(mode !== 'production' || !verifier.id.startsWith('studio.synthetic.'), 'AUTHORITY_UNVERIFIABLE');
@@ -109,7 +112,7 @@ export function createPreparationGate({ mode, verifier, decisionOwners, sourceBi
       expires_at: [r.expires_at, decision.expires_at, ...r.sources.map(s => s.expires_at)].sort()[0] });
   }
 
-  async function readApproved(context, signal) {
+  async function readFreshApproved(context, signal) {
     abort(signal);
     const sources = [];
     let bounds;
@@ -146,6 +149,55 @@ export function createPreparationGate({ mode, verifier, decisionOwners, sourceBi
     return Object.freeze({ authority_mode: mode, preparation: bounds, sources: Object.freeze(sources), audit });
   }
 
+  async function readApproved(context, signal) {
+    if (!cache || context.replay) return readFreshApproved(context, signal);
+    need(context.selected.every(b => b.artifact.byte_size <= MAX_ARTIFACT_BYTES)
+      && context.selected.reduce((n, b) => n + b.artifact.byte_size, 0) <= MAX_NORMALIZATION_BYTES, 'BUDGET_EXCEEDED');
+    const scope = Object.freeze(identity({ format: 'studio-source-cache-v1', request: context.request,
+      artifacts: context.selected.map(b => b.artifact), mode, verifier: verifierId, owners }));
+    const before = await authorize(context, signal);
+    let stored;
+    try { stored = await cache.get({ scope, at: context.lastTime }); }
+    catch { abort(signal); fail('SOURCE_UNAVAILABLE'); }
+    abort(signal);
+    let loaded;
+    if (stored !== undefined) {
+      try {
+        need(typeof stored === 'string' && Buffer.byteLength(stored) <= 48 * 1024 * 1024, 'SOURCE_INTEGRITY');
+        const entry = JSON.parse(stored);
+        need(canonicalJson(entry) === stored && equal(entry.scope, scope)
+          && entry.sources.length === context.selected.length, 'SOURCE_INTEGRITY');
+        need(exactKeys(entry, ['scope', 'sources', 'preparation'])
+          && exactKeys(entry.preparation, ['review_after', 'expires_at']), 'SOURCE_INTEGRITY');
+        time(entry.preparation.review_after, 'SOURCE_INTEGRITY'); time(entry.preparation.expires_at, 'SOURCE_INTEGRITY');
+        const sources = entry.sources.map((s, i) => {
+          const b = context.selected[i];
+          need(s.source_id === b.source.source_id && typeof s.base64 === 'string', 'SOURCE_INTEGRITY');
+          need(s.base64.length === 4 * Math.ceil(b.artifact.byte_size / 3), 'SOURCE_INTEGRITY');
+          const bytes = Buffer.from(s.base64, 'base64');
+          need(bytes.toString('base64') === s.base64 && bytes.length === b.artifact.byte_size && digest(bytes) === b.artifact.sha256, 'SOURCE_INTEGRITY');
+          return Object.freeze({ source_id: s.source_id, bytes });
+        });
+        loaded = { sources, preparation: entry.preparation };
+      } catch { fail('SOURCE_INTEGRITY'); }
+    } else {
+      loaded = await readFreshApproved(context, signal);
+      loaded = { ...loaded, preparation: Object.freeze({
+        review_after: [before.review_after, loaded.preparation.review_after].sort()[0],
+        expires_at: [before.expires_at, loaded.preparation.expires_at].sort()[0] }) };
+      const serialized = canonicalJson({ scope, preparation: loaded.preparation,
+        sources: loaded.sources.map(s => ({ source_id: s.source_id, base64: s.bytes.toString('base64') })) });
+      try { await cache.put({ scope, at: context.lastTime,
+        reuseUntil: [before.review_after, before.expires_at, loaded.preparation.review_after, loaded.preparation.expires_at].sort()[0], serialized }); }
+      catch { abort(signal); fail('SOURCE_UNAVAILABLE'); }
+    }
+    const after = await authorize(context, signal);
+    const preparation = Object.freeze({ review_after: [before.review_after, loaded.preparation.review_after, after.review_after].sort()[0],
+      expires_at: [before.expires_at, loaded.preparation.expires_at, after.expires_at].sort()[0] });
+    need(time(context.lastTime) < time(preparation.review_after) && time(context.lastTime) < time(preparation.expires_at), 'STALE_AUTHORITY');
+    return Object.freeze({ authority_mode: mode, preparation, sources: Object.freeze(loaded.sources), audit });
+  }
+
   return Object.freeze({
     // Informational check only: readSources never accepts its result as authority.
     async check(input) {
@@ -160,13 +212,16 @@ export function createPreparationGate({ mode, verifier, decisionOwners, sourceBi
     },
     normalizeSources: input => normalizeOrSelect(input, false),
     selectSources: input => normalizeOrSelect(input, true),
-    assemblePackage: input => normalizeOrSelect(input, 'assemble')
+    assemblePackage: input => normalizeOrSelect(input, 'assemble'),
+    prepareArtifact: input => normalizeOrSelect(input, 'assemble', false, true),
+    replay: input => normalizeOrSelect(input, 'assemble', true, true)
   });
 
-  async function normalizeOrSelect(input, select) {
+  async function normalizeOrSelect(input, select, replay = false, artifact = false) {
     try {
       // Snapshot and reject resource excess before any source read, not after parsing.
       const context = prepare(input), signal = input.signal;
+      context.replay = replay;
       need(context.selected.every(b => b.artifact.byte_size <= MAX_ARTIFACT_BYTES)
         && context.selected.reduce((n, b) => n + b.artifact.byte_size, 0) <= MAX_NORMALIZATION_BYTES, 'BUDGET_EXCEEDED');
       const loaded = await readApproved(context, signal);
@@ -180,9 +235,10 @@ export function createPreparationGate({ mode, verifier, decisionOwners, sourceBi
         expires_at: [loaded.preparation.expires_at, finalBounds.expires_at].sort()[0] });
       need(time(context.lastTime) < time(preparation.review_after) && time(context.lastTime) < time(preparation.expires_at), 'STALE_AUTHORITY');
       abort(signal);
-      return Object.freeze({ authority_mode: mode, preparation,
+      const result = Object.freeze({ authority_mode: mode, preparation,
         ...(select === 'assemble' ? equal(preparation, loaded.preparation) ? assembled : assembleSelection(context, selection, preparation)
           : select ? { selection } : { normalizedSources }), audit });
+      return artifact ? preparedArtifact(context, result) : result;
     } catch (error) { if (error instanceof PreparationError) throw error; fail('INVALID_SOURCE'); }
   }
 }
