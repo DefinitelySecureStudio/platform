@@ -1,0 +1,34 @@
+{
+  "mode": "synthetic",
+  "decisionOwners": [
+    "urn:uuid:00000000-0000-4000-8000-000000000080"
+  ],
+  "decisions": [
+    {
+      "decision_id": "urn:uuid:00000000-0000-4000-8000-000000000080",
+      "decision": "allow",
+      "owner_id": "urn:uuid:00000000-0000-4000-8000-000000000080",
+      "preparation_reference": "urn:uuid:00000000-0000-4000-8000-000000000063",
+      "request_identity": {
+        "canonicalization": "studio-json-v1",
+        "byte_size": 3710,
+        "sha256": "sha256:e04bb0c9f31328500ad57dc63641eaa32676ffb4f207065490e00ebd7d245101"
+      },
+      "caller_id": "urn:uuid:00000000-0000-4000-8000-000000000062",
+      "target": {
+        "id": "prompt.reference.context-builder",
+        "version": "1.0.0",
+        "identity": {
+          "canonicalization": "studio-json-v1",
+          "byte_size": 2629,
+          "sha256": "sha256:7d127a76b06a3db563f2935dc0f0d03efa2fcb5d8fe4a13492860497ee6b9064"
+        }
+      },
+      "purpose": "Prepare synthetic context for contract conformance.",
+      "max_classification": "internal",
+      "not_before": "2026-09-15T00:00:00Z",
+      "review_after": "2026-09-16T00:00:00Z",
+      "expires_at": "2026-09-17T00:00:00Z"
+    }
+  ]
+}

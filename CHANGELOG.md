@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Context Builder authoring CLI (#84)
+
+- Add offline validate, inspect/plan, build, verify and replay commands using
+  explicit synthetic fixtures, authority decisions and evaluation time.
+- Add stable human/JSON diagnostics and exits, bounded strict file ingress,
+  explicit owner-only exclusive artifact output and deterministic replay checks.
+- Document synthetic public/fake-private examples and independent runtime/use
+  review. No production credentials, provider calls, auto-approval or publication.
+
 ## Unreleased — Context Builder SDK handoff (#83)
 
 - Integrate audited builds with independently supplied exact-instance use grants,
