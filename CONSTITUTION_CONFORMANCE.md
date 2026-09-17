@@ -1,5 +1,23 @@
 # Constitution conformance record
 
+## Issue #80 budgeted assembly candidate — 2026-09-16
+
+Owner: @andrewperis. Assessed base: `5c61f2660f5ca65807b943aff8d9ca1ee90624c2`
+plus this diff. Constitution/checklist: 1.0.0 at
+`a9cc8a503aa30e17820edc62ac95f7cbe10e0564`. Profiles: universal,
+repository/production system, ADR/specification, automated workflow.
+Evidence: ADR 0012, assembly guide, synthetic golden/budget/lifecycle tests and
+full preparation/source/selection/SDK regressions. Findings: exact whole-candidate
+assembly, required-first byte budgets, explicit optional omissions, preserved source
+evidence/classification, published schema/semantic validation, narrowed lifetime and
+fresh preparation before handoff. No truncation, token-count claims, self-issued use
+authorization, real Lore, public private-data receipts or Canon promotion.
+No immutable contracts, dependencies or release changes; no exception requested.
+Status: proposed, effective on owner review/merge. Exclusions: versioned token
+estimators, production trust/workload isolation, persistent lifecycle/audit, consumer
+interfaces and release. Review before #86 or any budget, identity, classification,
+lifecycle, evidence or authority change.
+
 ## Issue #79 deterministic selection candidate — 2026-09-16
 
 Owner: @andrewperis. Assessed base: `604d267a5ca0790136a0ec066b4ed1f6dedc2688`

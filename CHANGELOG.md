@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Context Builder assembly (#80)
+
+- Assemble unchanged Context Package v1 documents from authorized selected evidence,
+  reserving required slots before whole optional-slot budget omissions.
+- Verify exact UTF-8/canonical JSON identities, contributing source links and maximum
+  classification; narrow lifecycle bounds at the final preparation recheck.
+- Add synthetic budget/lifecycle conformance tests and documentation. No token
+  estimates, use grants, final audited build-result, package export or release.
+
 ## Unreleased — Context Builder selection (#79)
 
 - Add authorized exact-reference and deterministic ASCII lexical selection,
