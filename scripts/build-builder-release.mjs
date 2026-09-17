@@ -22,7 +22,8 @@ export async function buildBuilderRelease(destination, { candidate = false } = {
     await writeFile(join(scratch, 'source.tar.gz'), source, { flag: 'wx' });
     execFileSync('tar', ['-xzf', join(scratch, 'source.tar.gz'), '-C', scratch]);
     const cwd = join(scratch, 'platform');
-    const packed = JSON.parse(execFileSync('npm', ['pack', '--ignore-scripts', '--json', '--pack-destination', scratch], { cwd, encoding: 'utf8' }));
+    const packed = JSON.parse(execFileSync('npm', ['pack', '--ignore-scripts', '--offline', '--cache', join(scratch, 'cache'),
+      '--json', '--pack-destination', scratch], { cwd, encoding: 'utf8' }));
     const archive = await readFile(join(scratch, packed[0].filename));
     const files = [
       ['context-builder-v1.0.0.source.tar.gz', source, 'application/gzip'],
