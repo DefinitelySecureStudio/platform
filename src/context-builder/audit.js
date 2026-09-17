@@ -31,7 +31,7 @@ export function createAuditedContextBuilder({ gate, mode, sink, getTime, timeout
   need(mode !== 'production' || (typeof sink.id === 'string' && sink.id.length > 0
     && !sink.id.startsWith('studio.synthetic.')), 'AUTHORITY_UNVERIFIABLE');
   const deliver = sink.deliver.bind(sink);
-  return Object.freeze({ async build(input) {
+  return Object.freeze({ authority_mode: mode, async build(input) {
     // Invalid transport/request data cannot be assigned fabricated build evidence.
     const context = validateInputs(input.request, input.prompt, input.callerId), r = context.request;
     const safeInput = Object.freeze({ request: r, prompt: context.prompt, callerId: r.caller_id, signal: input.signal });
