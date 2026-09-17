@@ -18,7 +18,7 @@ export class PreparationError extends Error {
     super('Context preparation failed.');
     this.name = 'PreparationError';
     const [defaultStage, action] = codes[code];
-    const stage = code === 'BUDGET_EXCEEDED' && stageOverride === 'normalization' ? stageOverride : defaultStage;
+    const stage = code === 'BUDGET_EXCEEDED' && ['normalization', 'assembly'].includes(stageOverride) ? stageOverride : defaultStage;
     this.diagnostic = Object.freeze({ stage, code, action });
   }
   toJSON() { return { diagnostic: this.diagnostic }; }

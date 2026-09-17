@@ -2,6 +2,7 @@ import { PreparationError, fail, requireCondition as need } from './errors.js';
 import { digest, equal, rank, snapshot, time, uuid, validateInputs } from './request.js';
 import { normalizeVerifiedSources } from './normalize.js';
 import { selectNormalizedSources } from './selection.js';
+import { assembleSelection } from './assembly.js';
 import { MAX_ARTIFACT_BYTES, MAX_NORMALIZATION_BYTES } from './source-readers.js';
 
 const decisionFields = ['authority_mode', 'verifier_id', 'decision_id', 'decision', 'owner_id',
@@ -158,7 +159,8 @@ export function createPreparationGate({ mode, verifier, decisionOwners, sourceBi
       catch (error) { if (error instanceof PreparationError) throw error; fail('AUTHORITY_UNVERIFIABLE'); }
     },
     normalizeSources: input => normalizeOrSelect(input, false),
-    selectSources: input => normalizeOrSelect(input, true)
+    selectSources: input => normalizeOrSelect(input, true),
+    assemblePackage: input => normalizeOrSelect(input, 'assemble')
   });
 
   async function normalizeOrSelect(input, select) {
@@ -171,13 +173,16 @@ export function createPreparationGate({ mode, verifier, decisionOwners, sourceBi
       abort(signal);
       const normalizedSources = normalizeVerifiedSources(context, loaded.sources);
       const selection = select ? selectNormalizedSources(context, normalizedSources) : undefined;
+      // Complete assembly before the final authorization check. Rebuild with narrowed bounds below.
+      const assembled = select === 'assemble' ? assembleSelection(context, selection, loaded.preparation) : undefined;
       const finalBounds = await authorize(context, signal);
       const preparation = Object.freeze({ review_after: [loaded.preparation.review_after, finalBounds.review_after].sort()[0],
         expires_at: [loaded.preparation.expires_at, finalBounds.expires_at].sort()[0] });
       need(time(context.lastTime) < time(preparation.review_after) && time(context.lastTime) < time(preparation.expires_at), 'STALE_AUTHORITY');
       abort(signal);
       return Object.freeze({ authority_mode: mode, preparation,
-        ...(select ? { selection } : { normalizedSources }), audit });
+        ...(select === 'assemble' ? equal(preparation, loaded.preparation) ? assembled : assembleSelection(context, selection, preparation)
+          : select ? { selection } : { normalizedSources }), audit });
     } catch (error) { if (error instanceof PreparationError) throw error; fail('INVALID_SOURCE'); }
   }
 }

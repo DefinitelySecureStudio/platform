@@ -81,8 +81,9 @@ Prepared, authorized packages use the explicit
 selection inside the SDK.
 The unreleased Context Builder development pipeline provides
 [verified source normalization](docs/context-builder-sources.md) and
-[deterministic selection](docs/context-builder-selection.md) behind a separate
-preparation gate; package assembly and release are still pending.
+[deterministic selection](docs/context-builder-selection.md), and
+[budgeted package assembly](docs/context-builder-assembly.md) behind a separate
+preparation gate; lifecycle/audit integration and release are still pending.
 The [prompt registry](docs/prompt-registry.md) discovers validated definitions
 from approved filesystem/repository locations and resolves exact versions with
 explicit lifecycle behavior.
