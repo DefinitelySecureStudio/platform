@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Platform 1.1.0 / Context Builder v1 preparation (#86)
+
+- Add the reviewed Builder package export and `studio-context` CLI entry, with
+  API inventory and integration/release guide. Prompt SDK identities stay v1.0.0.
+- Add fail-closed immutable adoption checks, deterministic candidate/final source
+  and package builders, and trusted-manifest download verification with tamper tests.
+- Preserve all released contracts and dependency versions. Actual release,
+  verified contract adoption and Epic #5 closeout await owner-reviewed publication.
+
 ## Unreleased — Context Builder conformance (#85)
 
 - Consolidate positive/negative coverage with reusable source/verifier factory suites,

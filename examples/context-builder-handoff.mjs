@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { createPreparationGate, createSyntheticPreparationVerifier, createMemorySourceBinding, createApprovedExportBinding,
   createAuditedContextBuilder, createSyntheticAuditSink, createContextHandoff,
-  createSyntheticUseAuthorizationProvider } from '../src/context-builder/index.js';
+  createSyntheticUseAuthorizationProvider } from '@definitely-secure-studio/platform/context-builder';
 import { identity, digest } from '../src/context-builder/request.js';
 import { MockTextAdapter } from '../src/prompt-sdk/index.js';
 

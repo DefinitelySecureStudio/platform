@@ -1,5 +1,19 @@
 # Constitution conformance record
 
+## Issue #86 release preparation — 2026-09-16
+
+Owner: @andrewperis. Constitution 1.0.0 at
+`a9cc8a503aa30e17820edc62ac95f7cbe10e0564`. Base: merged #85, Platform
+`cf47702` plus this diff. Profiles: universal, production repository, API/ADR,
+automated workflow. Evidence: ADR 0018, public API inventory, release-gate and
+download tamper tests, unchanged immutable SDK lock, offline suite and zero
+dependency audit findings. Package 1.1.0 adds Builder interfaces; released SDK
+renderer/processor semantics remain v1.0.0. All artifacts use public synthetic
+inputs and existing Apache-2.0/MIT licenses; no new dependency or private source.
+Status proposed until owner merge. No exception, npm publication, visibility
+change or self-approval. Contract publication, downloaded-byte adoption, final
+artifact approval/publication and Epic #5 closure remain explicitly gated steps.
+
 ## Issue #85 conformance candidate — 2026-09-16
 
 Owner: @andrewperis. Assessed base: `a844065119e2a0f6ae307ea3ec8aec2ce1af6135`

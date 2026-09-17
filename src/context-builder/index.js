@@ -1,4 +1,4 @@
-// Unreleased development API. No package export until reviewed immutable adoption (#86).
+// Context Builder v1 API candidate. Publication/adoption remains gated by #86.
 export { createPreparationGate } from './preparation.js';
 export { createSyntheticPreparationVerifier } from './synthetic-verifier.js';
 export { PreparationError } from './errors.js';

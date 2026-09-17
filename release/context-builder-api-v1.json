@@ -1,0 +1,22 @@
+[
+  "PreparationError",
+  "compareBuildArtifacts",
+  "comparePreparedArtifacts",
+  "createApprovedExportBinding",
+  "createAuditedContextBuilder",
+  "createBuildArtifact",
+  "createContextHandoff",
+  "createMemoryArtifactStore",
+  "createMemorySourceBinding",
+  "createPreparationGate",
+  "createPublicSnapshotBinding",
+  "createSyntheticAttestor",
+  "createSyntheticAuditSink",
+  "createSyntheticFixtureBuilder",
+  "createSyntheticPreparationVerifier",
+  "createSyntheticUseAuthorizationProvider",
+  "inspectBuildRequest",
+  "parseBuilderJson",
+  "serializeBuildArtifact",
+  "verifyBuildArtifact"
+]

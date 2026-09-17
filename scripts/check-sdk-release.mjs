@@ -4,7 +4,7 @@ import { RELEASE_CONTRACTS } from '../src/prompt-sdk/release-contracts.js';
 const names = ['prompt-definition', 'provider-execution', 'context-package', 'structured-output', 'execution-provenance'];
 export function checkReleaseInputs({ pkg, lock, pins = RELEASE_CONTRACTS }) {
   const blockers = [];
-  if (pkg?.version !== '1.0.0') blockers.push('SDK package is not version 1.0.0.');
+  if (!['1.0.0', '1.1.0'].includes(pkg?.version)) blockers.push('Platform package does not carry the reviewed SDK v1 implementation.');
   if (!Array.isArray(lock?.contracts) || lock.contracts.length !== names.length) blockers.push('Immutable contract lock must contain exactly five contracts.');
   for (const name of names) {
     const matches = Array.isArray(lock?.contracts) ? lock.contracts.filter(entry => entry?.contract === name) : [];
