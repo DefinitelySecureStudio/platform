@@ -40,7 +40,7 @@ not additional public Builder exports; consumers use the specified canonical ide
 
 | Interface | Responsibility / guide |
 | --- | --- |
-| `createPreparationGate(options)` | Trusted verifier, owner allowlist, reader inventory, explicit clock; check/read/normalize/select/build methods. [Preparation](context-builder-preparation.md) |
+| `createPreparationGate(options)` | Trusted verifier, owner allowlist, readers and clock; `check`, `readSources`, `normalizeSources`, `selectSources`, `assemblePackage`, `prepareArtifact`, `replay`. [Preparation](context-builder-preparation.md) |
 | `createMemorySourceBinding`, `createPublicSnapshotBinding`, `createApprovedExportBinding` | Exact byte identities; pre-bound safe readers. [Source adapter guide](context-builder-sources.md) |
 | `createAuditedContextBuilder(options)` | Package-producing `build(input)` with required audit acknowledgment. [Audit and receipt adapters](context-builder-audit.md) |
 | `createMemoryArtifactStore`, `comparePreparedArtifacts` | Explicit scoped retention and stable comparison; not authorization. [Lifecycle](context-builder-lifecycle.md) |
@@ -107,7 +107,8 @@ the following release gates complete.
    or a substitute for owner approval. Merge adoption and require CI before build.
 5. From clean merged main run `node scripts/build-builder-release.mjs /absolute/new/output`.
    Build twice, compare every byte, inspect source/package file lists and licenses,
-   install the package in a clean temporary directory, and run packaged tests,
+   install the package in a clean temporary directory (npm tarballs omit the npm
+   lock: copy the separately verified package-lock asset before `npm ci`), and run packaged tests,
    examples, public imports and CLI. Record source commit, audit/tests, approval
    and workflow links. `--candidate` supports rehearsal only: it marks artifacts
    nonpublishable and can omit the unavailable Builder lock. Never upload those
