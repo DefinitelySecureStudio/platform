@@ -1,5 +1,22 @@
 # Constitution conformance record
 
+## Issue #82 audit candidate — 2026-09-16
+
+Owner: @andrewperis. Assessed base: `4d87d34d9089ce3a1901d810c6b3727d2744781f`
+plus this diff. Constitution/checklist: 1.0.0 at
+`a9cc8a503aa30e17820edc62ac95f7cbe10e0564`. Profiles: universal,
+repository/production system, ADR/specification, automated workflow.
+Evidence: ADR 0014, audit guide, pinned generated validators, synthetic sink/public
+projection/denial tests and full regressions. Findings: protected body-free evidence,
+bounded required delivery, exact package correlation, post-audit authority recheck,
+independent publication allowlist and separately controlled receipt resolution.
+No private data/log publication, real Lore, self-issued use grants, released provenance
+change, production signer, new dependency or immutable release. No exception requested.
+Status: proposed, effective on owner review/merge. Exclusions: durable production
+sink/attestor trust, total-outage trace persistence, uncooperative adapter termination,
+client receipt guarantees and consumer interfaces. Review before #86 or any audit,
+redaction, retention, acknowledgment, resolver, publication or handoff-policy change.
+
 ## Issue #81 lifecycle candidate — 2026-09-16
 
 Owner: @andrewperis. Assessed base: `c26845aff1827ad421db7c45517d62dc933b7046`

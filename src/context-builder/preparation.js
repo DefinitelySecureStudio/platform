@@ -199,11 +199,13 @@ export function createPreparationGate({ mode, verifier, decisionOwners, sourceBi
   }
 
   return Object.freeze({
+    authority_mode: mode,
     // Informational check only: readSources never accepts its result as authority.
     async check(input) {
       try {
-        const bounds = await authorize(prepare(input), input.signal);
-        return Object.freeze({ authorized: true, authority_mode: mode, preparation: bounds, audit });
+        const context = prepare(input);
+        const bounds = await authorize(context, input.signal);
+        return Object.freeze({ authorized: true, authority_mode: mode, preparation: bounds, checked_at: context.lastTime, audit });
       } catch (error) { if (error instanceof PreparationError) throw error; fail('AUTHORITY_UNVERIFIABLE'); }
     },
     readSources: async input => {

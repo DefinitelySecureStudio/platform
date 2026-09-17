@@ -4,3 +4,4 @@ export { createSyntheticPreparationVerifier } from './synthetic-verifier.js';
 export { PreparationError } from './errors.js';
 export { createMemorySourceBinding, createPublicSnapshotBinding, createApprovedExportBinding } from './source-readers.js';
 export { createMemoryArtifactStore, comparePreparedArtifacts } from './lifecycle.js';
+export { createAuditedContextBuilder, createSyntheticAuditSink, createSyntheticAttestor } from './audit.js';

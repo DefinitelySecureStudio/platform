@@ -84,7 +84,8 @@ The unreleased Context Builder development pipeline provides
 [deterministic selection](docs/context-builder-selection.md), and
 [budgeted package assembly](docs/context-builder-assembly.md) behind a separate
 preparation gate, with [protected lifecycle and replay](docs/context-builder-lifecycle.md).
-Durable audit integration and release are still pending.
+[Required audit and independent synthetic attestations](docs/context-builder-audit.md)
+provide the development build-result boundary; consumer integration and release remain pending.
 The [prompt registry](docs/prompt-registry.md) discovers validated definitions
 from approved filesystem/repository locations and resolves exact versions with
 explicit lifecycle behavior.

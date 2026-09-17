@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Context Builder audit and attestations (#82)
+
+- Add audited prepared/failed build results with bounded required sink delivery,
+  exact acknowledgments and fresh authority checks before package handoff.
+- Separate protected operational identities from closed public receipts, with
+  independently approved synthetic issuance and access-controlled resolution.
+- Generate result/receipt validators from pinned candidate contracts. No immutable
+  SDK/schema changes, self-issued use grants, production signer or release.
+
 ## Unreleased — Context Builder lifecycle (#81)
 
 - Add canonical immutable prepared artifacts and authorized cache-bypassing replay
