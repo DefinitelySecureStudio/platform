@@ -1,0 +1,8 @@
+{
+  "status": "platform-synthetic-review-candidate",
+  "codex_commit": "291453e2a957fb83dedb0c209ed2cdd14ba90c0e",
+  "path": "tests/fixtures/context-builder-reference-golden.json",
+  "byte_size": 11262,
+  "sha256": "sha256:913c7a7e851db09e1e698fbf527b4d7ccee57faa342295436171cf433f66b3f4",
+  "review": "Owner approval through the Studio #85 pull request; never regenerate during tests."
+}

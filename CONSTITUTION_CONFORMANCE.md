@@ -1,5 +1,22 @@
 # Constitution conformance record
 
+## Issue #85 conformance candidate — 2026-09-16
+
+Owner: @andrewperis. Assessed base: `a844065119e2a0f6ae307ea3ec8aec2ce1af6135`
+plus this diff. Constitution/checklist: 1.0.0 at
+`a9cc8a503aa30e17820edc62ac95f7cbe10e0564`. Profiles: universal,
+repository/production system, ADR/specification, automated workflow.
+Evidence: ADR 0017, positive/negative coverage map, common reader/verifier harnesses,
+independent fake implementations, pinned full reference expectations, offline runner
+and Node 22/24 CI. Findings: exact baseline compatibility, source/authority failure
+non-invocation, deterministic replay, private/public evidence separation and explicit
+owner review of golden changes. No runtime modification, real Lore/private-network
+fixtures, paid models, new dependencies, immutable contract changes or publication.
+No exception requested. Status: proposed, effective on owner review/merge. Exclusions:
+production backend/signature certification, malicious test-code containment, branch
+protection enforcement and release authorization. Review before #86 or changes to
+goldens, normative baselines, live test backends, trust/visibility or CI network policy.
+
 ## Issue #84 authoring CLI candidate — 2026-09-16
 
 Owner: @andrewperis. Assessed base: `430ccc4450395b6da678c0f0498c973d5e0a3764`
