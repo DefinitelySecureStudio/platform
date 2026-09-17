@@ -1,5 +1,22 @@
 # Constitution conformance record
 
+## Issue #84 authoring CLI candidate — 2026-09-16
+
+Owner: @andrewperis. Assessed base: `430ccc4450395b6da678c0f0498c973d5e0a3764`
+plus this diff. Constitution/checklist: 1.0.0 at
+`a9cc8a503aa30e17820edc62ac95f7cbe10e0564`. Profiles: universal,
+repository/production system, ADR/specification, automated workflow.
+Evidence: ADR 0016, CLI guide, explicit synthetic authority examples, subprocess
+tests and full regressions. Findings: bounded input validation, declared plan reads,
+explicit synthetic authority, independent replay, safe routine diagnostics,
+consented private exclusive output and no use/publication approval. No real Lore,
+credential loading, paid provider, normative schema/dependency/released SDK change
+or immutable release. No exception requested. Status: proposed, effective on owner
+review/merge. Exclusions: production runtime trust, hostile ancestor-directory
+replacement, secure deletion/encryption and artifact authenticity from hashes alone.
+Review before #86 or any authority, file access, protected output, replay, credential
+injection or publication boundary change.
+
 ## Issue #83 SDK handoff candidate — 2026-09-16
 
 Owner: @andrewperis. Assessed base: `a1c330c298879b5ec212930994ff3f6c5be2f662`

@@ -6,3 +6,5 @@ export { createMemorySourceBinding, createPublicSnapshotBinding, createApprovedE
 export { createMemoryArtifactStore, comparePreparedArtifacts } from './lifecycle.js';
 export { createAuditedContextBuilder, createSyntheticAuditSink, createSyntheticAttestor } from './audit.js';
 export { createContextHandoff, createSyntheticUseAuthorizationProvider } from './handoff.js';
+export { parseBuilderJson, inspectBuildRequest, createSyntheticFixtureBuilder, createBuildArtifact,
+  verifyBuildArtifact, compareBuildArtifacts, serializeBuildArtifact } from './authoring.js';

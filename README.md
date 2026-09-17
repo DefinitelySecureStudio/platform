@@ -87,7 +87,8 @@ preparation gate, with [protected lifecycle and replay](docs/context-builder-lif
 [Required audit and independent synthetic attestations](docs/context-builder-audit.md)
 provide the development build-result boundary. The
 [SDK review/use handoff](docs/context-builder-handoff.md) supports offline text/JSON
-mock execution; CLI integration and release remain pending.
+mock execution. The [offline Builder authoring CLI](docs/context-builder-cli.md)
+adds explicit validate/plan/build/verify/replay workflows; immutable release remains pending.
 The [prompt registry](docs/prompt-registry.md) discovers validated definitions
 from approved filesystem/repository locations and resolves exact versions with
 explicit lifecycle behavior.
