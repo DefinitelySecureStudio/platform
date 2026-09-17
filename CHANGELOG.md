@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Context Builder conformance (#85)
+
+- Consolidate positive/negative coverage with reusable source/verifier factory suites,
+  independent offline fakes and pinned reviewed reference packages/failures.
+- Add a dedicated network-guarded runner and Node 22/24 CI step, including real
+  build-to-SDK examples, CLI fake-private flow and immutable baseline checks.
+- Require explicit golden review; tests never refresh expectations. No runtime,
+  Codex contract, released SDK, dependency or publication changes.
+
 ## Unreleased — Context Builder authoring CLI (#84)
 
 - Add offline validate, inspect/plan, build, verify and replay commands using

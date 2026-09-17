@@ -1,5 +1,14 @@
 # Tests
 
+## Context Builder conformance
+
+Run `node scripts/check-context-builder.mjs` for the reusable offline Builder suite,
+pinned reference matrix, contract/SDK binding tests, genuine text/JSON mock execution,
+CLI fake-private build and release-baseline check. See the
+[positive/negative coverage map and factory interfaces](../docs/context-builder-conformance.md).
+Goldens never update during tests; changes need explicit owner review. The dedicated
+runner installs an accidental-network guard, not a malicious-code sandbox.
+
 ## Prompt SDK v1 conformance map
 
 | Contract/behavior | Automated coverage |
@@ -47,7 +56,8 @@ explicitly authorized job; no such job is added here.
 ## CI
 
 `.github/workflows/prompt-sdk-tests.yml` runs `npm ci` and `npm test` on Node
-22 and 24 for PRs and pushes to main. Actions are pinned to exact commits and
+22 and 24 for PRs and pushes to main, followed by the dedicated offline Builder
+conformance runner. Actions are pinned to exact commits and
 permissions are read-only. Tests do not call paid providers or require provider
 secrets; dependency installation still requires package-registry access.
 The workflow does not change branch rules or make its checks required.

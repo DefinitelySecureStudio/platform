@@ -1,0 +1,5 @@
+# Context Builder golden/contract expectation changes require explicit owner review.
+# Repository branch rules determine whether requested owner approval is enforced.
+/tests/fixtures/context-builder*.json @andrewperis
+/tests/support/context-builder-reference-scenarios.js @andrewperis
+/.github/CODEOWNERS @andrewperis
