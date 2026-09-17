@@ -10,7 +10,8 @@ const codes = Object.freeze({
   INELIGIBLE: ['selection', 'repair-request'],
   REQUIRED_CONTEXT_MISSING: ['assembly', 'repair-request'],
   BUDGET_EXCEEDED: ['source', 'increase-budget'],
-  CANCELLED: ['authorization', 'none']
+  CANCELLED: ['authorization', 'none'],
+  AUDIT_REQUIRED: ['audit', 'retry-audit']
 });
 
 export class PreparationError extends Error {
