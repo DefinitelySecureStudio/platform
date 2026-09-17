@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — verified Context Builder contract adoption (#86)
+
+- Adopt immutable Codex Context Builder 1.0.0 at
+  `2301597014f6fefe8a3cf772e2e02527cda6a254`, with downloaded asset identities
+  and publication evidence. Regenerate validator provenance; validation code and
+  schema bytes are unchanged. Builder readiness now passes.
+- Implementation publication and epic closeout remain pending owner merge and
+  actual artifact verification. No SDK contract or fixture changes.
+
 ## Unreleased — Platform 1.1.0 / Context Builder v1 preparation (#86)
 
 - Add the reviewed Builder package export and `studio-context` CLI entry, with

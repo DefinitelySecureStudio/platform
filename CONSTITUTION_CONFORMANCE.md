@@ -1,5 +1,18 @@
 # Constitution conformance record
 
+## Issue #86 verified contract adoption — 2026-09-16
+
+Owner: @andrewperis. Constitution 1.0.0 at
+`a9cc8a503aa30e17820edc62ac95f7cbe10e0564`. Base:
+`363117bcda3d79c6b116e43a2462ef4099fbf05a`. Adopt exact downloaded immutable
+Codex release identities with evidence in release/context-builder-verification.md.
+Generated validator provenance changes only; SDK contracts, runtime behavior,
+schema/fixture bytes, licenses and dependencies are unchanged. Readiness checks
+verify the new lock against generator output; conformance remains offline.
+Adoption proposed until owner merge. Implementation publication and epic closure
+remain gated by subsequent approval and downloaded-byte verification. No exception,
+private data, production trust onboarding, npm publication or visibility change.
+
 ## Issue #86 release preparation — 2026-09-16
 
 Owner: @andrewperis. Constitution 1.0.0 at
