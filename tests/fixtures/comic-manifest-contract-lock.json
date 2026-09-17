@@ -1,0 +1,28 @@
+{
+  "repository": "DefinitelySecureStudio/codex",
+  "commit": "53e4bd7738ae33c928bf72864d69d413168cc5b4",
+  "status": "unreleased-test-only",
+  "artifacts": [
+    {
+      "source_path": "schemas/json/comic-manifest/v1/comic-manifest.schema.json",
+      "path": "tests/fixtures/comic-manifest-v1.schema.json",
+      "artifact_uri": "https://github.com/DefinitelySecureStudio/codex/blob/53e4bd7738ae33c928bf72864d69d413168cc5b4/schemas/json/comic-manifest/v1/comic-manifest.schema.json",
+      "byte_size": 29711,
+      "sha256": "sha256:c9e7d3ee3a9593ec7e85504f680d0cd9b5ece7a6c0db22f4a7152d08b6db2f5c"
+    },
+    {
+      "source_path": "fixtures/comic-manifest-v1.json",
+      "path": "tests/fixtures/comic-manifest-v1.json",
+      "artifact_uri": "https://github.com/DefinitelySecureStudio/codex/blob/53e4bd7738ae33c928bf72864d69d413168cc5b4/fixtures/comic-manifest-v1.json",
+      "byte_size": 27425,
+      "sha256": "sha256:bc0a33418a57446953d917ffab1f77c9f39911bef7ef27b70d108ffa32e8aca7"
+    },
+    {
+      "source_path": "fixtures/context-builder-v1.json",
+      "path": "tests/fixtures/context-builder-v1.json",
+      "artifact_uri": "https://github.com/DefinitelySecureStudio/codex/blob/53e4bd7738ae33c928bf72864d69d413168cc5b4/fixtures/context-builder-v1.json",
+      "byte_size": 19808,
+      "sha256": "sha256:b1fe9076bd0d9637bdc638436de1cbab0a9d11916a9eb5e279fe60191c2aa743"
+    }
+  ]
+}

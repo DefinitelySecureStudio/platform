@@ -1,0 +1,671 @@
+{
+  "production": {
+    "kind": "comic-production",
+    "spec_version": "1.0.0",
+    "production_id": "urn:uuid:10000000-0000-4000-8000-000000000001",
+    "revision": 1,
+    "previous": null,
+    "classification": "internal",
+    "title": "Synthetic Shapes",
+    "intent": "Offline conformance only; no Studio canon.",
+    "inputs": {
+      "canon": {
+        "repository": "synthetic/canon",
+        "version": "1.0.0",
+        "tag": "canon/v1.0.0",
+        "commit": "1111111111111111111111111111111111111111",
+        "artifact": {
+          "artifact_uri": "https://example.invalid/synthetic/canon",
+          "media_type": "application/json",
+          "byte_size": 18,
+          "sha256": "sha256:a8198524f58e72b56283ab71ebddada22840f108b46ef7165bb3fca9919c5558"
+        }
+      },
+      "dependencies": [
+        {
+          "repository": "synthetic/mock-tool",
+          "version": "1.0.0",
+          "tag": "mock-tool/v1.0.0",
+          "commit": "1111111111111111111111111111111111111111",
+          "artifact": {
+            "artifact_uri": "https://example.invalid/synthetic/mock-tool",
+            "media_type": "application/json",
+            "byte_size": 22,
+            "sha256": "sha256:b5b94381f12f81d18bc1fc6fed0b04254162f21361e4d999ab356cc14cc464cf"
+          }
+        },
+        {
+          "repository": "synthetic/comic-manifest",
+          "version": "1.0.0",
+          "tag": "comic-manifest/v1.0.0",
+          "commit": "1111111111111111111111111111111111111111",
+          "artifact": {
+            "artifact_uri": "https://example.invalid/synthetic/comic-manifest",
+            "media_type": "application/json",
+            "byte_size": 29,
+            "sha256": "sha256:836b922aa06e1e4759a9ee86412b96b8502bfe992092a10bfc08d97e390ffa47"
+          }
+        }
+      ],
+      "prompts": [
+        {
+          "binding_id": "description",
+          "definition": {
+            "repository": "synthetic/prompt",
+            "version": "1.0.0",
+            "tag": "prompt/v1.0.0",
+            "commit": "1111111111111111111111111111111111111111",
+            "artifact": {
+              "artifact_uri": "https://example.invalid/synthetic/prompt",
+              "media_type": "application/json",
+              "byte_size": 2629,
+              "sha256": "sha256:7d127a76b06a3db563f2935dc0f0d03efa2fcb5d8fe4a13492860497ee6b9064"
+            }
+          },
+          "prompt_id": "prompt.reference.context-builder",
+          "prompt_version": "1.0.0",
+          "identity": {
+            "canonicalization": "studio-json-v1",
+            "byte_size": 2629,
+            "sha256": "sha256:7d127a76b06a3db563f2935dc0f0d03efa2fcb5d8fe4a13492860497ee6b9064"
+          },
+          "context": {
+            "contract_version": "1.0.0",
+            "package_id": "context-package.reference.builder",
+            "package_version": "1.0.0",
+            "instance_id": "urn:uuid:00000000-0000-4000-8000-000000000064",
+            "manifest_identity": {
+              "canonicalization": "studio-json-v1",
+              "byte_size": 1769,
+              "sha256": "sha256:a287bcbe601550c2a4df68b296c64d622591fc91aa5713e8ea6e2e6119f04eab"
+            },
+            "classification": "internal",
+            "purpose": "Prepare synthetic context for contract conformance.",
+            "sections": [
+              "approved_notes",
+              "context_facts"
+            ],
+            "builder_result_identity": {
+              "canonicalization": "studio-json-v1",
+              "byte_size": 2848,
+              "sha256": "sha256:729ce7ad380821185cecb4166e6bdd681048097450aa9256505f18c3dafa48b4"
+            },
+            "preparation_reference": "urn:uuid:00000000-0000-4000-8000-000000000063",
+            "use_authorization_reference": "urn:uuid:00000000-0000-4000-8000-000000000071"
+          }
+        }
+      ],
+      "assets": []
+    },
+    "panels": [
+      {
+        "panel_id": "first",
+        "description": "A synthetic blue cube.",
+        "text": [
+          {
+            "text_id": "caption-one",
+            "kind": "caption",
+            "speaker": null,
+            "text": "A cube."
+          }
+        ],
+        "asset_ids": [],
+        "prompt_bindings": [
+          "description"
+        ]
+      },
+      {
+        "panel_id": "second",
+        "description": "A synthetic red sphere.",
+        "text": [
+          {
+            "text_id": "caption-two",
+            "kind": "caption",
+            "speaker": null,
+            "text": "A sphere."
+          }
+        ],
+        "asset_ids": [],
+        "prompt_bindings": []
+      }
+    ],
+    "renditions": [
+      {
+        "rendition_id": "transcript",
+        "required": true,
+        "media_type": "text/plain",
+        "dimensions": null,
+        "alt_text": "A blue cube, followed by a red sphere.",
+        "transcript": "Panel 1: A cube.\nPanel 2: A sphere.",
+        "rights_notice": "Synthetic conformance fixture; Apache-2.0."
+      }
+    ]
+  },
+  "result": {
+    "kind": "comic-build-result",
+    "spec_version": "1.0.0",
+    "result_id": "urn:uuid:10000000-0000-4000-8000-000000000002",
+    "attempt_id": "urn:uuid:10000000-0000-4000-8000-000000000003",
+    "production": {
+      "production_id": "urn:uuid:10000000-0000-4000-8000-000000000001",
+      "revision": 1,
+      "identity": {
+        "canonicalization": "studio-json-v1",
+        "byte_size": 3359,
+        "sha256": "sha256:9447b652a4ab121bf5355e5faa21a224b2d6d4259d403c005580b757511d1e19"
+      }
+    },
+    "classification": "internal",
+    "inputs": {
+      "canon": {
+        "repository": "synthetic/canon",
+        "version": "1.0.0",
+        "tag": "canon/v1.0.0",
+        "commit": "1111111111111111111111111111111111111111",
+        "artifact": {
+          "artifact_uri": "https://example.invalid/synthetic/canon",
+          "media_type": "application/json",
+          "byte_size": 18,
+          "sha256": "sha256:a8198524f58e72b56283ab71ebddada22840f108b46ef7165bb3fca9919c5558"
+        }
+      },
+      "dependencies": [
+        {
+          "repository": "synthetic/mock-tool",
+          "version": "1.0.0",
+          "tag": "mock-tool/v1.0.0",
+          "commit": "1111111111111111111111111111111111111111",
+          "artifact": {
+            "artifact_uri": "https://example.invalid/synthetic/mock-tool",
+            "media_type": "application/json",
+            "byte_size": 22,
+            "sha256": "sha256:b5b94381f12f81d18bc1fc6fed0b04254162f21361e4d999ab356cc14cc464cf"
+          }
+        },
+        {
+          "repository": "synthetic/comic-manifest",
+          "version": "1.0.0",
+          "tag": "comic-manifest/v1.0.0",
+          "commit": "1111111111111111111111111111111111111111",
+          "artifact": {
+            "artifact_uri": "https://example.invalid/synthetic/comic-manifest",
+            "media_type": "application/json",
+            "byte_size": 29,
+            "sha256": "sha256:836b922aa06e1e4759a9ee86412b96b8502bfe992092a10bfc08d97e390ffa47"
+          }
+        }
+      ],
+      "prompts": [
+        {
+          "binding_id": "description",
+          "definition": {
+            "repository": "synthetic/prompt",
+            "version": "1.0.0",
+            "tag": "prompt/v1.0.0",
+            "commit": "1111111111111111111111111111111111111111",
+            "artifact": {
+              "artifact_uri": "https://example.invalid/synthetic/prompt",
+              "media_type": "application/json",
+              "byte_size": 2629,
+              "sha256": "sha256:7d127a76b06a3db563f2935dc0f0d03efa2fcb5d8fe4a13492860497ee6b9064"
+            }
+          },
+          "prompt_id": "prompt.reference.context-builder",
+          "prompt_version": "1.0.0",
+          "identity": {
+            "canonicalization": "studio-json-v1",
+            "byte_size": 2629,
+            "sha256": "sha256:7d127a76b06a3db563f2935dc0f0d03efa2fcb5d8fe4a13492860497ee6b9064"
+          },
+          "context": {
+            "contract_version": "1.0.0",
+            "package_id": "context-package.reference.builder",
+            "package_version": "1.0.0",
+            "instance_id": "urn:uuid:00000000-0000-4000-8000-000000000064",
+            "manifest_identity": {
+              "canonicalization": "studio-json-v1",
+              "byte_size": 1769,
+              "sha256": "sha256:a287bcbe601550c2a4df68b296c64d622591fc91aa5713e8ea6e2e6119f04eab"
+            },
+            "classification": "internal",
+            "purpose": "Prepare synthetic context for contract conformance.",
+            "sections": [
+              "approved_notes",
+              "context_facts"
+            ],
+            "builder_result_identity": {
+              "canonicalization": "studio-json-v1",
+              "byte_size": 2848,
+              "sha256": "sha256:729ce7ad380821185cecb4166e6bdd681048097450aa9256505f18c3dafa48b4"
+            },
+            "preparation_reference": "urn:uuid:00000000-0000-4000-8000-000000000063",
+            "use_authorization_reference": "urn:uuid:00000000-0000-4000-8000-000000000071"
+          }
+        }
+      ],
+      "assets": []
+    },
+    "status": "complete",
+    "outputs": [
+      {
+        "rendition_id": "transcript",
+        "artifact": {
+          "artifact_uri": "urn:uuid:10000000-0000-4000-8000-000000000010",
+          "media_type": "text/plain",
+          "byte_size": 36,
+          "sha256": "sha256:5aa128a0dd0945b00ba3d71a5f7b5916e06f40c53048c31d74432eb03f4e764d"
+        },
+        "dimensions": null,
+        "rights_notice": "Synthetic conformance fixture; Apache-2.0.",
+        "alt_text": "A blue cube, followed by a red sphere.",
+        "transcript": "Panel 1: A cube.\nPanel 2: A sphere."
+      }
+    ],
+    "gates": [
+      {
+        "gate": "integrity",
+        "disposition": "pass",
+        "evidence_reference": "urn:uuid:10000000-0000-4000-8000-000000000020",
+        "rationale": "Synthetic bytes verified."
+      }
+    ],
+    "execution": {
+      "tool": {
+        "repository": "synthetic/mock-tool",
+        "version": "1.0.0",
+        "tag": "mock-tool/v1.0.0",
+        "commit": "1111111111111111111111111111111111111111",
+        "artifact": {
+          "artifact_uri": "https://example.invalid/synthetic/mock-tool",
+          "media_type": "application/json",
+          "byte_size": 22,
+          "sha256": "sha256:b5b94381f12f81d18bc1fc6fed0b04254162f21361e4d999ab356cc14cc464cf"
+        }
+      },
+      "workflow_id": "synthetic-offline",
+      "run_uri": null,
+      "started_at": "2026-09-15T12:00:00Z",
+      "finished_at": "2026-09-15T12:00:01Z",
+      "transformations": [
+        {
+          "step_id": "mock",
+          "input_digests": [
+            "sha256:a8198524f58e72b56283ab71ebddada22840f108b46ef7165bb3fca9919c5558",
+            "sha256:9447b652a4ab121bf5355e5faa21a224b2d6d4259d403c005580b757511d1e19"
+          ],
+          "output_digests": [
+            "sha256:5aa128a0dd0945b00ba3d71a5f7b5916e06f40c53048c31d74432eb03f4e764d"
+          ],
+          "private_inputs_withheld": false,
+          "private_outputs_withheld": false
+        }
+      ],
+      "generation": [],
+      "reproducibility": "exact",
+      "limitations": "Fixed synthetic text only; no external generation."
+    },
+    "diagnostics": []
+  },
+  "release": {
+    "kind": "comic-public-release",
+    "spec_version": "1.0.0",
+    "release_id": "urn:uuid:10000000-0000-4000-8000-000000000004",
+    "episode_id": "DS-0001",
+    "revision": 1,
+    "previous": null,
+    "classification": "public",
+    "title": "Synthetic Shapes",
+    "production_credit": "A Definitely Secure Studio production.",
+    "canon_scope": "None; synthetic test identity does not reserve a real publication number.",
+    "scope": {
+      "destination": "https://example.invalid/synthetic/archive",
+      "audience": "synthetic-test",
+      "purpose": "Offline conformance only.",
+      "publication_time": "2026-09-15T12:10:00Z"
+    },
+    "input_canon": {
+      "repository": "synthetic/canon",
+      "version": "1.0.0",
+      "tag": "canon/v1.0.0",
+      "commit": "1111111111111111111111111111111111111111",
+      "artifact": {
+        "artifact_uri": "https://example.invalid/synthetic/canon",
+        "media_type": "application/json",
+        "byte_size": 18,
+        "sha256": "sha256:a8198524f58e72b56283ab71ebddada22840f108b46ef7165bb3fca9919c5558"
+      }
+    },
+    "dependencies": [
+      {
+        "repository": "synthetic/mock-tool",
+        "version": "1.0.0",
+        "tag": "mock-tool/v1.0.0",
+        "commit": "1111111111111111111111111111111111111111",
+        "artifact": {
+          "artifact_uri": "https://example.invalid/synthetic/mock-tool",
+          "media_type": "application/json",
+          "byte_size": 22,
+          "sha256": "sha256:b5b94381f12f81d18bc1fc6fed0b04254162f21361e4d999ab356cc14cc464cf"
+        }
+      },
+      {
+        "repository": "synthetic/comic-manifest",
+        "version": "1.0.0",
+        "tag": "comic-manifest/v1.0.0",
+        "commit": "1111111111111111111111111111111111111111",
+        "artifact": {
+          "artifact_uri": "https://example.invalid/synthetic/comic-manifest",
+          "media_type": "application/json",
+          "byte_size": 29,
+          "sha256": "sha256:836b922aa06e1e4759a9ee86412b96b8502bfe992092a10bfc08d97e390ffa47"
+        }
+      },
+      {
+        "repository": "synthetic/prompt",
+        "version": "1.0.0",
+        "tag": "prompt/v1.0.0",
+        "commit": "1111111111111111111111111111111111111111",
+        "artifact": {
+          "artifact_uri": "https://example.invalid/synthetic/prompt",
+          "media_type": "application/json",
+          "byte_size": 2629,
+          "sha256": "sha256:7d127a76b06a3db563f2935dc0f0d03efa2fcb5d8fe4a13492860497ee6b9064"
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "rendition_id": "transcript",
+        "artifact": {
+          "artifact_uri": "https://example.invalid/synthetic/transcript.txt",
+          "media_type": "text/plain",
+          "byte_size": 36,
+          "sha256": "sha256:5aa128a0dd0945b00ba3d71a5f7b5916e06f40c53048c31d74432eb03f4e764d"
+        },
+        "dimensions": null,
+        "rights_notice": "Synthetic conformance fixture; Apache-2.0.",
+        "alt_text": "A blue cube, followed by a red sphere.",
+        "transcript": "Panel 1: A cube.\nPanel 2: A sphere."
+      }
+    ],
+    "gates": [
+      {
+        "gate": "editorial",
+        "disposition": "pass",
+        "evidence_reference": "urn:uuid:10000000-0000-4000-8000-000000000100",
+        "rationale": "Synthetic reviewed fixture only."
+      },
+      {
+        "gate": "canon-continuity",
+        "disposition": "pass",
+        "evidence_reference": "urn:uuid:10000000-0000-4000-8000-000000000101",
+        "rationale": "Synthetic reviewed fixture only."
+      },
+      {
+        "gate": "visual-text",
+        "disposition": "pass",
+        "evidence_reference": "urn:uuid:10000000-0000-4000-8000-000000000102",
+        "rationale": "Synthetic reviewed fixture only."
+      },
+      {
+        "gate": "integrity",
+        "disposition": "pass",
+        "evidence_reference": "urn:uuid:10000000-0000-4000-8000-000000000103",
+        "rationale": "Synthetic reviewed fixture only."
+      },
+      {
+        "gate": "provenance",
+        "disposition": "pass",
+        "evidence_reference": "urn:uuid:10000000-0000-4000-8000-000000000104",
+        "rationale": "Synthetic reviewed fixture only."
+      },
+      {
+        "gate": "security-privacy",
+        "disposition": "pass",
+        "evidence_reference": "urn:uuid:10000000-0000-4000-8000-000000000105",
+        "rationale": "Synthetic reviewed fixture only."
+      },
+      {
+        "gate": "rights",
+        "disposition": "pass",
+        "evidence_reference": "urn:uuid:10000000-0000-4000-8000-000000000106",
+        "rationale": "Synthetic reviewed fixture only."
+      },
+      {
+        "gate": "accessibility",
+        "disposition": "pass",
+        "evidence_reference": "urn:uuid:10000000-0000-4000-8000-000000000107",
+        "rationale": "Synthetic reviewed fixture only."
+      },
+      {
+        "gate": "packaging",
+        "disposition": "pass",
+        "evidence_reference": "urn:uuid:10000000-0000-4000-8000-000000000108",
+        "rationale": "Synthetic reviewed fixture only."
+      }
+    ],
+    "execution": {
+      "tool": {
+        "repository": "synthetic/mock-tool",
+        "version": "1.0.0",
+        "tag": "mock-tool/v1.0.0",
+        "commit": "1111111111111111111111111111111111111111",
+        "artifact": {
+          "artifact_uri": "https://example.invalid/synthetic/mock-tool",
+          "media_type": "application/json",
+          "byte_size": 22,
+          "sha256": "sha256:b5b94381f12f81d18bc1fc6fed0b04254162f21361e4d999ab356cc14cc464cf"
+        }
+      },
+      "workflow_id": "synthetic-offline",
+      "run_uri": null,
+      "started_at": "2026-09-15T12:00:00Z",
+      "finished_at": "2026-09-15T12:00:01Z",
+      "transformations": [
+        {
+          "step_id": "mock",
+          "input_digests": [
+            "sha256:a8198524f58e72b56283ab71ebddada22840f108b46ef7165bb3fca9919c5558"
+          ],
+          "output_digests": [
+            "sha256:5aa128a0dd0945b00ba3d71a5f7b5916e06f40c53048c31d74432eb03f4e764d"
+          ],
+          "private_inputs_withheld": true,
+          "private_outputs_withheld": false
+        }
+      ],
+      "generation": [],
+      "reproducibility": "exact",
+      "limitations": "Fixed synthetic text only; no external generation."
+    },
+    "approvers": [
+      {
+        "decision_id": "urn:uuid:10000000-0000-4000-8000-000000000200",
+        "role": "publisher",
+        "actor": "synthetic-publisher",
+        "decided_at": "2026-09-15T12:02:00Z"
+      },
+      {
+        "decision_id": "urn:uuid:10000000-0000-4000-8000-000000000201",
+        "role": "canon-editor",
+        "actor": "synthetic-canon-editor",
+        "decided_at": "2026-09-15T12:02:00Z"
+      },
+      {
+        "decision_id": "urn:uuid:10000000-0000-4000-8000-000000000202",
+        "role": "disclosure-reviewer",
+        "actor": "synthetic-disclosure-reviewer",
+        "decided_at": "2026-09-15T12:02:00Z"
+      }
+    ],
+    "private_context": {
+      "influenced": true,
+      "attestation_reference": "urn:uuid:10000000-0000-4000-8000-000000000300"
+    }
+  },
+  "approvals": [
+    {
+      "kind": "comic-approval-binding",
+      "spec_version": "1.0.0",
+      "decision_id": "urn:uuid:10000000-0000-4000-8000-000000000199",
+      "role": "production-reviewer",
+      "actor": "synthetic-production-reviewer",
+      "decided_at": "2026-09-15T12:02:00Z",
+      "subject": {
+        "canonicalization": "studio-json-v1",
+        "byte_size": 3359,
+        "sha256": "sha256:9447b652a4ab121bf5355e5faa21a224b2d6d4259d403c005580b757511d1e19"
+      },
+      "artifact_digests": [],
+      "scope": {
+        "destination": "https://example.invalid/synthetic/archive",
+        "audience": "synthetic-test",
+        "purpose": "Offline conformance only.",
+        "publication_time": "2026-09-15T12:10:00Z"
+      },
+      "expires_at": "2026-09-16T00:00:00Z",
+      "authority_reference": "urn:uuid:10000000-0000-4000-8000-000000000400"
+    },
+    {
+      "kind": "comic-approval-binding",
+      "spec_version": "1.0.0",
+      "decision_id": "urn:uuid:10000000-0000-4000-8000-000000000200",
+      "role": "publisher",
+      "actor": "synthetic-publisher",
+      "decided_at": "2026-09-15T12:02:00Z",
+      "subject": {
+        "canonicalization": "studio-json-v1",
+        "byte_size": 5269,
+        "sha256": "sha256:1d2b5e1bfc49f40ceea1662b04d7380735b82f730f55a61cc71f5a6696b750c2"
+      },
+      "artifact_digests": [
+        "sha256:5aa128a0dd0945b00ba3d71a5f7b5916e06f40c53048c31d74432eb03f4e764d"
+      ],
+      "scope": {
+        "destination": "https://example.invalid/synthetic/archive",
+        "audience": "synthetic-test",
+        "purpose": "Offline conformance only.",
+        "publication_time": "2026-09-15T12:10:00Z"
+      },
+      "expires_at": "2026-09-16T00:00:00Z",
+      "authority_reference": "urn:uuid:10000000-0000-4000-8000-000000000400"
+    },
+    {
+      "kind": "comic-approval-binding",
+      "spec_version": "1.0.0",
+      "decision_id": "urn:uuid:10000000-0000-4000-8000-000000000201",
+      "role": "canon-editor",
+      "actor": "synthetic-canon-editor",
+      "decided_at": "2026-09-15T12:02:00Z",
+      "subject": {
+        "canonicalization": "studio-json-v1",
+        "byte_size": 5269,
+        "sha256": "sha256:1d2b5e1bfc49f40ceea1662b04d7380735b82f730f55a61cc71f5a6696b750c2"
+      },
+      "artifact_digests": [
+        "sha256:5aa128a0dd0945b00ba3d71a5f7b5916e06f40c53048c31d74432eb03f4e764d"
+      ],
+      "scope": {
+        "destination": "https://example.invalid/synthetic/archive",
+        "audience": "synthetic-test",
+        "purpose": "Offline conformance only.",
+        "publication_time": "2026-09-15T12:10:00Z"
+      },
+      "expires_at": "2026-09-16T00:00:00Z",
+      "authority_reference": "urn:uuid:10000000-0000-4000-8000-000000000400"
+    },
+    {
+      "kind": "comic-approval-binding",
+      "spec_version": "1.0.0",
+      "decision_id": "urn:uuid:10000000-0000-4000-8000-000000000202",
+      "role": "disclosure-reviewer",
+      "actor": "synthetic-disclosure-reviewer",
+      "decided_at": "2026-09-15T12:02:00Z",
+      "subject": {
+        "canonicalization": "studio-json-v1",
+        "byte_size": 5269,
+        "sha256": "sha256:1d2b5e1bfc49f40ceea1662b04d7380735b82f730f55a61cc71f5a6696b750c2"
+      },
+      "artifact_digests": [
+        "sha256:5aa128a0dd0945b00ba3d71a5f7b5916e06f40c53048c31d74432eb03f4e764d"
+      ],
+      "scope": {
+        "destination": "https://example.invalid/synthetic/archive",
+        "audience": "synthetic-test",
+        "purpose": "Offline conformance only.",
+        "publication_time": "2026-09-15T12:10:00Z"
+      },
+      "expires_at": "2026-09-16T00:00:00Z",
+      "authority_reference": "urn:uuid:10000000-0000-4000-8000-000000000400"
+    }
+  ],
+  "linkage": {
+    "production": {
+      "production_id": "urn:uuid:10000000-0000-4000-8000-000000000001",
+      "revision": 1,
+      "identity": {
+        "canonicalization": "studio-json-v1",
+        "byte_size": 3359,
+        "sha256": "sha256:9447b652a4ab121bf5355e5faa21a224b2d6d4259d403c005580b757511d1e19"
+      }
+    },
+    "result_identity": {
+      "canonicalization": "studio-json-v1",
+      "byte_size": 4465,
+      "sha256": "sha256:871cb595c8d3b44d6245fd9c86daf9aa9185b76081f918b5a44c4568062f1dcf"
+    },
+    "release_identity": {
+      "canonicalization": "studio-json-v1",
+      "byte_size": 5269,
+      "sha256": "sha256:1d2b5e1bfc49f40ceea1662b04d7380735b82f730f55a61cc71f5a6696b750c2"
+    },
+    "attestation_reference": "urn:uuid:10000000-0000-4000-8000-000000000300"
+  },
+  "at": "2026-09-15T12:10:00Z",
+  "output_bytes": {
+    "transcript": "Panel 1: A cube.\nPanel 2: A sphere.\n"
+  },
+  "dependency_bytes": {
+    "https://example.invalid/synthetic/canon": "{\"synthetic\":true}",
+    "https://example.invalid/synthetic/mock-tool": "synthetic offline tool",
+    "https://example.invalid/synthetic/comic-manifest": "synthetic contract descriptor",
+    "https://example.invalid/synthetic/prompt": "{\"capabilities\":{\"optional\":[],\"required\":[\"text-generation\"]},\"context_slots\":[{\"accepted_classifications\":[\"public\",\"internal\"],\"accepted_media_types\":[\"text/plain\"],\"description\":\"Explicit synthetic notes.\",\"max_bytes\":100,\"name\":\"approved_notes\",\"required\":true},{\"accepted_classifications\":[\"internal\"],\"accepted_media_types\":[\"application/json\"],\"description\":\"Synthetic facts.\",\"max_bytes\":100,\"name\":\"context_facts\",\"required\":true},{\"accepted_classifications\":[\"public\"],\"accepted_media_types\":[\"text/plain\"],\"description\":\"Optional synthetic footer.\",\"max_bytes\":100,\"name\":\"optional_footer\",\"required\":false}],\"description\":\"Synthetic renderer fixture for an explicitly supplied public item.\",\"governance\":{\"constitution\":{\"commit\":\"a9cc8a503aa30e17820edc62ac95f7cbe10e0564\",\"tag\":\"constitution/v1.0.0\",\"version\":\"1.0.0\"},\"decision_owner\":\"@andrewperis\",\"evidence\":[\"https://github.com/DefinitelySecureStudio/studio/issues/63\"]},\"id\":\"prompt.reference.context-builder\",\"inputs\":[{\"classification\":\"public\",\"constraints\":{\"min_length\":1},\"description\":\"Synthetic public item name.\",\"name\":\"item\",\"required\":true,\"type\":\"string\"},{\"classification\":\"public\",\"description\":\"Synthetic attributes.\",\"name\":\"attributes\",\"required\":true,\"type\":\"object\"},{\"classification\":\"public\",\"default\":true,\"description\":\"Request concise output.\",\"name\":\"concise\",\"required\":false,\"type\":\"boolean\"}],\"lifecycle\":{\"status\":\"draft\"},\"name\":\"Describe a public item\",\"output\":{\"description\":\"A synthetic plain-text description for human review.\",\"kind\":\"text\",\"media_type\":\"text/plain\"},\"owners\":[\"@andrewperis\"],\"provenance\":{\"created_at\":\"2026-08-17T00:00:00Z\",\"created_by\":\"@andrewperis\",\"origin\":\"studio-original\",\"rights\":{\"basis\":\"studio-original\",\"notices\":[],\"reviewed_at\":\"2026-08-17T00:00:00Z\",\"reviewed_by\":\"@andrewperis\"},\"source_references\":[]},\"purpose\":\"Exercise provider-neutral rendering; it does not retrieve data, approve output, or establish Canon.\",\"spec_version\":\"1.0.0\",\"template\":{\"format\":\"studio-messages-v1\",\"messages\":[{\"parts\":[{\"text\":\"Describe the explicit item using only supplied inputs and context.\",\"type\":\"text\"}],\"role\":\"instruction\"},{\"parts\":[{\"text\":\"Item: \",\"type\":\"text\"},{\"name\":\"item\",\"type\":\"input\"},{\"text\":\"\\nAttributes: \",\"type\":\"text\"},{\"format\":\"json\",\"name\":\"attributes\",\"type\":\"input\"},{\"text\":\"\\nConcise: \",\"type\":\"text\"},{\"format\":\"text\",\"name\":\"concise\",\"type\":\"input\"},{\"text\":\"\\nNotes: \",\"type\":\"text\"},{\"slot\":\"approved_notes\",\"type\":\"context\"},{\"format\":\"json\",\"slot\":\"context_facts\",\"type\":\"context\"},{\"slot\":\"optional_footer\",\"type\":\"context\"}],\"role\":\"user\"}]},\"version\":\"1.0.0\"}"
+  },
+  "protected_sentinels": [
+    "SYNTHETIC-PROTECTED-SENTINEL"
+  ],
+  "trust": {
+    "approvals": [
+      {
+        "decision_id": "urn:uuid:10000000-0000-4000-8000-000000000199",
+        "sha256": "sha256:21cf0df439e7d871bb1af47e40b9a8b65e87c3d0e0d1b347612cc5a6c3ec09d5"
+      },
+      {
+        "decision_id": "urn:uuid:10000000-0000-4000-8000-000000000200",
+        "sha256": "sha256:9b08c55b7da322ba912971c7a04c66518b62972acfc9a01e76e52c765f397603"
+      },
+      {
+        "decision_id": "urn:uuid:10000000-0000-4000-8000-000000000201",
+        "sha256": "sha256:ec2b4192b3c31f50be3ec5628a97d181090530d30baa1fe56c5a4295c67740c8"
+      },
+      {
+        "decision_id": "urn:uuid:10000000-0000-4000-8000-000000000202",
+        "sha256": "sha256:310efb68d2464edebedc0505456c402e04770c26e3f782c1d89104a7b2fffc94"
+      }
+    ],
+    "revoked": [],
+    "not_applicable": [],
+    "assignment": {
+      "production_id": "urn:uuid:10000000-0000-4000-8000-000000000001",
+      "episode_id": "DS-0001"
+    },
+    "attestation": {
+      "reference": "urn:uuid:10000000-0000-4000-8000-000000000300",
+      "linkage_identity": {
+        "canonicalization": "studio-json-v1",
+        "byte_size": 627,
+        "sha256": "sha256:0fa52c096dcc5e041979fd5887bf0938abc0a486b4b659c19b6414ae43b43e0b"
+      }
+    }
+  }
+}

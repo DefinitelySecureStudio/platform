@@ -1,0 +1,1315 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:definitely-secure:contract:comic-manifest:1.0.0:comic-manifest",
+  "title": "Comic Manifest v1 candidate \u2014 three records; detached approval via $defs/approval",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/production"
+    },
+    {
+      "$ref": "#/$defs/result"
+    },
+    {
+      "$ref": "#/$defs/release"
+    }
+  ],
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,63}$"
+    },
+    "time": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$",
+      "maxLength": 32
+    },
+    "size": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "classification": {
+      "enum": [
+        "public",
+        "internal",
+        "confidential",
+        "restricted"
+      ]
+    },
+    "uri": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://",
+      "maxLength": 2048
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonicalization",
+        "byte_size",
+        "sha256"
+      ],
+      "properties": {
+        "canonicalization": {
+          "const": "studio-json-v1"
+        },
+        "byte_size": {
+          "$ref": "#/$defs/size"
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_uri",
+        "media_type",
+        "byte_size",
+        "sha256"
+      ],
+      "properties": {
+        "artifact_uri": {
+          "$ref": "#/$defs/uri"
+        },
+        "media_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "byte_size": {
+          "$ref": "#/$defs/size"
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "version",
+        "tag",
+        "commit",
+        "artifact"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+          "maxLength": 200
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "tag": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "artifact": {
+          "$ref": "#/$defs/artifact"
+        }
+      }
+    },
+    "productionRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "production_id",
+        "revision",
+        "identity"
+      ],
+      "properties": {
+        "production_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "revision": {
+          "$ref": "#/$defs/revision"
+        },
+        "identity": {
+          "$ref": "#/$defs/identity"
+        }
+      }
+    },
+    "releaseRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "release_id",
+        "episode_id",
+        "revision",
+        "identity"
+      ],
+      "properties": {
+        "release_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "episode_id": {
+          "type": "string",
+          "pattern": "^DS-(?!0000)[0-9]{4}$"
+        },
+        "revision": {
+          "$ref": "#/$defs/revision"
+        },
+        "identity": {
+          "$ref": "#/$defs/identity"
+        }
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "package_id",
+        "package_version",
+        "instance_id",
+        "manifest_identity",
+        "classification",
+        "purpose",
+        "sections",
+        "builder_result_identity",
+        "preparation_reference",
+        "use_authorization_reference"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": "1.0.0"
+        },
+        "package_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "package_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "instance_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "manifest_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "classification": {
+          "$ref": "#/$defs/classification"
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "minItems": 1,
+          "maxItems": 256
+        },
+        "builder_result_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "preparation_reference": {
+          "$ref": "#/$defs/uuid"
+        },
+        "use_authorization_reference": {
+          "$ref": "#/$defs/uuid"
+        }
+      }
+    },
+    "prompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "binding_id",
+        "definition",
+        "prompt_id",
+        "prompt_version",
+        "identity",
+        "context"
+      ],
+      "properties": {
+        "binding_id": {
+          "$ref": "#/$defs/name"
+        },
+        "definition": {
+          "$ref": "#/$defs/dependency"
+        },
+        "prompt_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "prompt_version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "context": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/context"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "asset_id",
+        "classification",
+        "reference",
+        "rights_notice"
+      ],
+      "properties": {
+        "asset_id": {
+          "$ref": "#/$defs/name"
+        },
+        "classification": {
+          "$ref": "#/$defs/classification"
+        },
+        "reference": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "dependency"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "public"
+                },
+                "dependency": {
+                  "$ref": "#/$defs/dependency"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "handle",
+                "media_type",
+                "byte_size",
+                "sha256"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "protected"
+                },
+                "handle": {
+                  "$ref": "#/$defs/uuid"
+                },
+                "media_type": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "byte_size": {
+                  "$ref": "#/$defs/size"
+                },
+                "sha256": {
+                  "$ref": "#/$defs/digest"
+                }
+              }
+            }
+          ]
+        },
+        "rights_notice": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canon",
+        "dependencies",
+        "prompts",
+        "assets"
+      ],
+      "properties": {
+        "canon": {
+          "$ref": "#/$defs/dependency"
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dependency"
+          },
+          "minItems": 1,
+          "maxItems": 256
+        },
+        "prompts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/prompt"
+          },
+          "minItems": 0,
+          "maxItems": 256
+        },
+        "assets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/asset"
+          },
+          "minItems": 0,
+          "maxItems": 256
+        }
+      }
+    },
+    "panel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "panel_id",
+        "description",
+        "text",
+        "asset_ids",
+        "prompt_bindings"
+      ],
+      "properties": {
+        "panel_id": {
+          "$ref": "#/$defs/name"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "text": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "text_id",
+              "kind",
+              "speaker",
+              "text"
+            ],
+            "properties": {
+              "text_id": {
+                "$ref": "#/$defs/name"
+              },
+              "kind": {
+                "enum": [
+                  "dialogue",
+                  "caption"
+                ]
+              },
+              "speaker": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            }
+          },
+          "minItems": 0,
+          "maxItems": 256
+        },
+        "asset_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/name"
+          },
+          "minItems": 0,
+          "maxItems": 256
+        },
+        "prompt_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/name"
+          },
+          "minItems": 0,
+          "maxItems": 256
+        }
+      }
+    },
+    "dimensions": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "width",
+            "height"
+          ],
+          "properties": {
+            "width": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 32768
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 32768
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "rendition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rendition_id",
+        "required",
+        "media_type",
+        "dimensions",
+        "alt_text",
+        "transcript",
+        "rights_notice"
+      ],
+      "properties": {
+        "rendition_id": {
+          "$ref": "#/$defs/name"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "media_type": {
+          "enum": [
+            "image/png",
+            "image/jpeg",
+            "image/webp",
+            "application/pdf",
+            "text/plain"
+          ]
+        },
+        "dimensions": {
+          "$ref": "#/$defs/dimensions"
+        },
+        "alt_text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "transcript": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32768
+        },
+        "rights_notice": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "production": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "spec_version",
+        "production_id",
+        "revision",
+        "previous",
+        "classification",
+        "title",
+        "intent",
+        "inputs",
+        "panels",
+        "renditions"
+      ],
+      "properties": {
+        "kind": {
+          "const": "comic-production"
+        },
+        "spec_version": {
+          "const": "1.0.0"
+        },
+        "production_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "revision": {
+          "$ref": "#/$defs/revision"
+        },
+        "previous": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/productionRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "classification": {
+          "$ref": "#/$defs/classification"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "intent": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "inputs": {
+          "$ref": "#/$defs/inputs"
+        },
+        "panels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/panel"
+          },
+          "minItems": 1,
+          "maxItems": 256
+        },
+        "renditions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/rendition"
+          },
+          "minItems": 1,
+          "maxItems": 32
+        }
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rendition_id",
+        "artifact",
+        "dimensions",
+        "rights_notice",
+        "alt_text",
+        "transcript"
+      ],
+      "properties": {
+        "rendition_id": {
+          "$ref": "#/$defs/name"
+        },
+        "artifact": {
+          "$ref": "#/$defs/artifact"
+        },
+        "dimensions": {
+          "$ref": "#/$defs/dimensions"
+        },
+        "rights_notice": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "alt_text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "transcript": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32768
+        }
+      }
+    },
+    "buildOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rendition_id",
+        "artifact",
+        "dimensions",
+        "rights_notice",
+        "alt_text",
+        "transcript"
+      ],
+      "properties": {
+        "rendition_id": {
+          "$ref": "#/$defs/name"
+        },
+        "artifact": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "artifact_uri",
+            "media_type",
+            "byte_size",
+            "sha256"
+          ],
+          "properties": {
+            "artifact_uri": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/uri"
+                },
+                {
+                  "$ref": "#/$defs/uuid"
+                }
+              ]
+            },
+            "media_type": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "byte_size": {
+              "$ref": "#/$defs/size"
+            },
+            "sha256": {
+              "$ref": "#/$defs/digest"
+            }
+          }
+        },
+        "dimensions": {
+          "$ref": "#/$defs/dimensions"
+        },
+        "rights_notice": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "alt_text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "transcript": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32768
+        }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gate",
+        "disposition",
+        "evidence_reference",
+        "rationale"
+      ],
+      "properties": {
+        "gate": {
+          "enum": [
+            "editorial",
+            "canon-continuity",
+            "visual-text",
+            "integrity",
+            "provenance",
+            "security-privacy",
+            "rights",
+            "accessibility",
+            "packaging"
+          ]
+        },
+        "disposition": {
+          "enum": [
+            "pass",
+            "fail",
+            "inconclusive",
+            "not-run",
+            "not-applicable"
+          ]
+        },
+        "evidence_reference": {
+          "$ref": "#/$defs/uuid"
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "generation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "model",
+        "parameters",
+        "evidence_state",
+        "limitations"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "value"
+            ],
+            "properties": {
+              "name": {
+                "$ref": "#/$defs/name"
+              },
+              "value": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              }
+            }
+          },
+          "minItems": 0,
+          "maxItems": 256
+        },
+        "evidence_state": {
+          "enum": [
+            "recorded",
+            "unavailable",
+            "withheld"
+          ]
+        },
+        "limitations": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tool",
+        "workflow_id",
+        "run_uri",
+        "started_at",
+        "finished_at",
+        "transformations",
+        "generation",
+        "reproducibility",
+        "limitations"
+      ],
+      "properties": {
+        "tool": {
+          "$ref": "#/$defs/dependency"
+        },
+        "workflow_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "run_uri": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/uri"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "started_at": {
+          "$ref": "#/$defs/time"
+        },
+        "finished_at": {
+          "$ref": "#/$defs/time"
+        },
+        "transformations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "step_id",
+              "input_digests",
+              "output_digests",
+              "private_inputs_withheld",
+              "private_outputs_withheld"
+            ],
+            "properties": {
+              "step_id": {
+                "$ref": "#/$defs/name"
+              },
+              "input_digests": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/digest"
+                },
+                "minItems": 0,
+                "maxItems": 256
+              },
+              "output_digests": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/digest"
+                },
+                "minItems": 0,
+                "maxItems": 256
+              },
+              "private_inputs_withheld": {
+                "type": "boolean"
+              },
+              "private_outputs_withheld": {
+                "type": "boolean"
+              }
+            }
+          },
+          "minItems": 1,
+          "maxItems": 256
+        },
+        "generation": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/generation"
+          },
+          "minItems": 0,
+          "maxItems": 256
+        },
+        "reproducibility": {
+          "enum": [
+            "exact",
+            "partial",
+            "audit-only"
+          ]
+        },
+        "limitations": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "spec_version",
+        "result_id",
+        "attempt_id",
+        "production",
+        "classification",
+        "inputs",
+        "status",
+        "outputs",
+        "gates",
+        "execution",
+        "diagnostics"
+      ],
+      "properties": {
+        "kind": {
+          "const": "comic-build-result"
+        },
+        "spec_version": {
+          "const": "1.0.0"
+        },
+        "result_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "attempt_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "production": {
+          "$ref": "#/$defs/productionRef"
+        },
+        "classification": {
+          "$ref": "#/$defs/classification"
+        },
+        "inputs": {
+          "$ref": "#/$defs/inputs"
+        },
+        "status": {
+          "enum": [
+            "complete",
+            "partial",
+            "failed"
+          ]
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/buildOutput"
+          },
+          "minItems": 0,
+          "maxItems": 32
+        },
+        "gates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/gate"
+          },
+          "minItems": 0,
+          "maxItems": 9
+        },
+        "execution": {
+          "$ref": "#/$defs/execution"
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "INPUT_MISMATCH",
+              "OUTPUT_MISSING",
+              "OUTPUT_INTEGRITY",
+              "AUTHORITY_DENIED",
+              "VALIDATION_FAILED",
+              "CANCELLED"
+            ]
+          },
+          "minItems": 0,
+          "maxItems": 32
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "complete"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "outputs": {
+                "minItems": 1
+              },
+              "diagnostics": {
+                "maxItems": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "diagnostics": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "destination",
+        "audience",
+        "purpose",
+        "publication_time"
+      ],
+      "properties": {
+        "destination": {
+          "$ref": "#/$defs/uri"
+        },
+        "audience": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "publication_time": {
+          "$ref": "#/$defs/time"
+        }
+      }
+    },
+    "approver": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision_id",
+        "role",
+        "actor",
+        "decided_at"
+      ],
+      "properties": {
+        "decision_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "role": {
+          "enum": [
+            "publisher",
+            "canon-editor",
+            "disclosure-reviewer"
+          ]
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "decided_at": {
+          "$ref": "#/$defs/time"
+        }
+      }
+    },
+    "release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "spec_version",
+        "release_id",
+        "episode_id",
+        "revision",
+        "previous",
+        "classification",
+        "title",
+        "production_credit",
+        "canon_scope",
+        "scope",
+        "input_canon",
+        "dependencies",
+        "outputs",
+        "gates",
+        "execution",
+        "approvers",
+        "private_context"
+      ],
+      "properties": {
+        "kind": {
+          "const": "comic-public-release"
+        },
+        "spec_version": {
+          "const": "1.0.0"
+        },
+        "release_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "episode_id": {
+          "type": "string",
+          "pattern": "^DS-(?!0000)[0-9]{4}$"
+        },
+        "revision": {
+          "$ref": "#/$defs/revision"
+        },
+        "previous": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/releaseRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "classification": {
+          "const": "public"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "production_credit": {
+          "const": "A Definitely Secure Studio production."
+        },
+        "canon_scope": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "input_canon": {
+          "$ref": "#/$defs/dependency"
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dependency"
+          },
+          "minItems": 1,
+          "maxItems": 256
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/output"
+          },
+          "minItems": 1,
+          "maxItems": 32
+        },
+        "gates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/gate"
+          },
+          "minItems": 9,
+          "maxItems": 9
+        },
+        "execution": {
+          "$ref": "#/$defs/execution"
+        },
+        "approvers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/approver"
+          },
+          "minItems": 2,
+          "maxItems": 16
+        },
+        "private_context": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "influenced"
+              ],
+              "properties": {
+                "influenced": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "influenced",
+                "attestation_reference"
+              ],
+              "properties": {
+                "influenced": {
+                  "const": true
+                },
+                "attestation_reference": {
+                  "$ref": "#/$defs/uuid"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "spec_version",
+        "decision_id",
+        "role",
+        "actor",
+        "subject",
+        "artifact_digests",
+        "scope",
+        "decided_at",
+        "expires_at",
+        "authority_reference"
+      ],
+      "properties": {
+        "kind": {
+          "const": "comic-approval-binding"
+        },
+        "spec_version": {
+          "const": "1.0.0"
+        },
+        "decision_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "role": {
+          "enum": [
+            "production-reviewer",
+            "publisher",
+            "canon-editor",
+            "disclosure-reviewer"
+          ]
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "subject": {
+          "$ref": "#/$defs/identity"
+        },
+        "artifact_digests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/digest"
+          },
+          "minItems": 0,
+          "maxItems": 256
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "decided_at": {
+          "$ref": "#/$defs/time"
+        },
+        "expires_at": {
+          "$ref": "#/$defs/time"
+        },
+        "authority_reference": {
+          "$ref": "#/$defs/uuid"
+        }
+      }
+    }
+  }
+}
