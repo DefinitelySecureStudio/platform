@@ -1,5 +1,22 @@
 # Constitution conformance record
 
+## Issue #81 lifecycle candidate — 2026-09-16
+
+Owner: @andrewperis. Assessed base: `c26845aff1827ad421db7c45517d62dc933b7046`
+plus this diff.
+Constitution/checklist: 1.0.0 at `a9cc8a503aa30e17820edc62ac95f7cbe10e0564`.
+Profiles: universal, repository/production system, ADR/specification, automated
+workflow. Evidence: ADR 0013, lifecycle guide and synthetic cache/replay/retention
+tests plus full regressions. Findings: immutable protected identities, exact scope
+and raw byte verification, fresh preparation around cache access, narrowed lifecycle,
+separate history permissions, explicit retention/cleanup and no implicit source refresh.
+No real Lore, public protected bytes, self-issued use/publication grants, dependencies,
+immutable contract changes or release. No exception requested. Status: proposed,
+effective on owner review/merge. Exclusions: production secure-store onboarding,
+physical memory erasure, malicious trusted-host adapters, workload isolation,
+durable audit and consumer interfaces. Review before #86 or any retention/access,
+trust namespace, time/revocation, cache identity or source-policy change.
+
 ## Issue #80 budgeted assembly candidate — 2026-09-16
 
 Owner: @andrewperis. Assessed base: `5c61f2660f5ca65807b943aff8d9ca1ee90624c2`
