@@ -1,5 +1,17 @@
 # Reviewed release inputs
 
+## Context Builder v1 preparation (#86)
+
+See [release/integration guide](../docs/context-builder-v1.md). The independent
+API inventory is `context-builder-api-v1.json`. Run
+`node scripts/check-builder-release.mjs`; it intentionally fails until actual
+immutable contract publication, verified lock adoption and validator regeneration.
+No fabricated release lock is checked in. The original SDK lock below is unchanged.
+The final artifact builder is blocked by this check; `--candidate` rehearsals are
+explicitly nonpublishable. No script grants approval or performs network publication.
+
+## Prompt SDK v1 inputs
+
 `api-v1.json` inventories the public entry point. Changes require API and
 compatibility review; the test suite detects accidental export additions/removals.
 

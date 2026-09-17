@@ -2,6 +2,11 @@
 
 ## Context Builder conformance
 
+`context-builder/release.test.js` pins the package API and tests fail-closed
+publication inputs and altered-download rejection. Release builds additionally
+require a clean commit and two byte-identical build rehearsals; download checks
+compare to a separately trusted manifest, not self-reported remote hashes.
+
 Run `node scripts/check-context-builder.mjs` for the reusable offline Builder suite,
 pinned reference matrix, contract/SDK binding tests, genuine text/JSON mock execution,
 CLI fake-private build and release-baseline check. See the

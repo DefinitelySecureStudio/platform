@@ -1,5 +1,8 @@
 # Definitely Secure Studio Platform
 
+Context Builder v1 [release/integration guide](docs/context-builder-v1.md): public
+API/CLI candidate, compatibility, adapter guides and owner-gated publication.
+
 Production software for the Definitely Secure Studio creative toolchain.
 
 See the [Prompt SDK v1 API/release guide](docs/prompt-sdk-v1.md) for quick start,

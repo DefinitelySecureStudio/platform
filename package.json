@@ -1,13 +1,15 @@
 {
   "name": "@definitely-secure-studio/platform",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "exports": {
-    "./prompt-sdk": "./src/prompt-sdk/index.js"
+    "./prompt-sdk": "./src/prompt-sdk/index.js",
+    "./context-builder": "./src/context-builder/index.js"
   },
   "bin": {
-    "studio-prompt": "./src/prompt-sdk/cli.js"
+    "studio-prompt": "./src/prompt-sdk/cli.js",
+    "studio-context": "./src/context-builder/cli.js"
   },
   "engines": {
     "node": ">=22"
