@@ -1,5 +1,22 @@
 # Constitution conformance record
 
+## Issue #83 SDK handoff candidate — 2026-09-16
+
+Owner: @andrewperis. Assessed base: `a1c330c298879b5ec212930994ff3f6c5be2f662`
+plus this diff. Constitution/checklist: 1.0.0 at
+`a9cc8a503aa30e17820edc62ac95f7cbe10e0564`. Profiles: universal,
+repository/production system, ADR/specification, automated workflow.
+Evidence: ADR 0015, handoff guide, real-build synthetic text/structured examples,
+non-invocation tests and full SDK regressions. Findings: independent exact-instance
+use approval, validated build/target/package correlation, pre-render binding and
+fresh authorization before adapter invocation, protected provenance linkage,
+value-free failures and no SDK retrieval. No real Lore, production grant synthesis,
+Canon promotion, immutable contract/SDK change, dependency or release. No exception.
+Status: proposed, effective on owner review/merge. Exclusions: production authority/
+adapter onboarding, downstream orchestration/release, secure retention, uncooperative
+adapters and side-effect rollback. Review before #86 or any trust, purpose, target,
+classification, use-decision, timing, provenance or downstream-consumer change.
+
 ## Issue #82 audit candidate — 2026-09-16
 
 Owner: @andrewperis. Assessed base: `4d87d34d9089ce3a1901d810c6b3727d2744781f`

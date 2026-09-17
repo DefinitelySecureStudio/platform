@@ -85,7 +85,9 @@ The unreleased Context Builder development pipeline provides
 [budgeted package assembly](docs/context-builder-assembly.md) behind a separate
 preparation gate, with [protected lifecycle and replay](docs/context-builder-lifecycle.md).
 [Required audit and independent synthetic attestations](docs/context-builder-audit.md)
-provide the development build-result boundary; consumer integration and release remain pending.
+provide the development build-result boundary. The
+[SDK review/use handoff](docs/context-builder-handoff.md) supports offline text/JSON
+mock execution; CLI integration and release remain pending.
 The [prompt registry](docs/prompt-registry.md) discovers validated definitions
 from approved filesystem/repository locations and resolves exact versions with
 explicit lifecycle behavior.

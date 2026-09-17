@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Context Builder SDK handoff (#83)
+
+- Integrate audited builds with independently supplied exact-instance use grants,
+  released SDK binding/rendering and guarded mock/provider execution.
+- Revalidate authority after adapter setup; preserve protected build/package/use/
+  execution linkage without changing SDK provenance or adding retrieval.
+- Add genuinely built text/JSON synthetic examples, structured processing and
+  adversarial non-invocation tests. No production approval or release authority.
+
 ## Unreleased — Context Builder audit and attestations (#82)
 
 - Add audited prepared/failed build results with bounded required sink delivery,

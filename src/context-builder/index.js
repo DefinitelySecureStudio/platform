@@ -5,3 +5,4 @@ export { PreparationError } from './errors.js';
 export { createMemorySourceBinding, createPublicSnapshotBinding, createApprovedExportBinding } from './source-readers.js';
 export { createMemoryArtifactStore, comparePreparedArtifacts } from './lifecycle.js';
 export { createAuditedContextBuilder, createSyntheticAuditSink, createSyntheticAttestor } from './audit.js';
+export { createContextHandoff, createSyntheticUseAuthorizationProvider } from './handoff.js';
