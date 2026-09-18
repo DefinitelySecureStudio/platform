@@ -32,7 +32,7 @@ test('runtime validation has no file, network, clock, dynamic code or process ef
     import http from 'node:http'; import https from 'node:https';
     import net from 'node:net'; import dns from 'node:dns';import cp from 'node:child_process';
     import {syncBuiltinESMExports} from 'node:module';
-    import {validateComicManifest} from './src/comic-manifest/index.js';
+    import {validateComicManifest,describeComicEpisode,validateComicRevision,validateComicPublicationBinding,validateComicEpisodeMetadata} from './src/comic-manifest/index.js';
     const f=JSON.parse(fs.readFileSync('tests/fixtures/comic-manifest-v1.json'));
     const inputs=[f.production,f.result,f.release,...f.approvals].map(x=>JSON.stringify(x));
     let calls=0;const deny=()=>{calls++;throw Error('Forbidden validation effect');};
@@ -45,6 +45,10 @@ test('runtime validation has no file, network, clock, dynamic code or process ef
     syncBuiltinESMExports();
     for(const input of inputs)assert.equal(validateComicManifest(input).valid,true);
     assert.equal(validateComicManifest('{"$ref":"https://example.invalid/private"}').valid,false);
+    assert.equal(describeComicEpisode(inputs[0]).valid,true);
+    assert.equal(validateComicRevision(inputs[0],inputs[0]).valid,true);
+    const bound=validateComicPublicationBinding(inputs[0],inputs[2],JSON.stringify({production_id:f.production.production_id,episode_id:f.release.episode_id}));
+    assert.equal(bound.valid,true);assert.equal(validateComicEpisodeMetadata(inputs[2],JSON.stringify(bound.metadata)).valid,true);
     assert.equal(calls,0);
   `;
   execFileSync(process.execPath,['--input-type=module','-e',code],{cwd:root,timeout:10_000});

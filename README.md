@@ -136,3 +136,7 @@ synthetic fixtures; it does not add a Manifest runtime or production dependency.
 The unreleased [Comic Manifest validation API](docs/comic-manifest-validation.md)
 provides bounded raw JSON parsing and record-local validation. Passing validation
 does not establish current authorization, cross-record integrity or publication readiness.
+
+[Episode and panel helpers](docs/comic-manifest-episodes.md) preserve draft ordering,
+verify exact revision predecessors and check explicit publication bindings and
+public display metadata without assigning numbers or granting publication authority.
