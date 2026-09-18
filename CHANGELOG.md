@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — Comic Manifest episode and panel structure (#91)
+
+- Add protected ordered episode views, exact predecessor/replay checks, explicit
+  production-to-publication binding and policy-consistent public display metadata.
+- Reject changed bytes under an existing revision, inconsistent numbering/title
+  metadata and dangling/duplicate content references using the existing contract.
+- Keep creative text inert, publication authority separate and foundation bytes unchanged.
+
 ## Unreleased — Comic Manifest parsing and local validation (#90)
 
 - Add a separate raw JSON API with byte/depth/value/string limits, Unicode and
