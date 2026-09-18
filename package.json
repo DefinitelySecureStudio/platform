@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     "./prompt-sdk": "./src/prompt-sdk/index.js",
-    "./context-builder": "./src/context-builder/index.js"
+    "./context-builder": "./src/context-builder/index.js",
+    "./comic-manifest": "./src/comic-manifest/index.js"
   },
   "bin": {
     "studio-prompt": "./src/prompt-sdk/cli.js",
@@ -21,7 +22,8 @@
     "generate:prompt-schema": "node scripts/generate-prompt-schema-validator.mjs",
     "generate:execution-schema": "node scripts/generate-execution-schema-validator.mjs",
     "generate:context-schema": "node scripts/generate-context-schema-validator.mjs",
-    "generate:structured-output-schema": "node scripts/generate-structured-output-schema-validator.mjs"
+    "generate:structured-output-schema": "node scripts/generate-structured-output-schema-validator.mjs",
+    "generate:comic-schema": "node scripts/generate-comic-manifest-validator.mjs"
   },
   "dependencies": {
     "ajv": "8.20.0",

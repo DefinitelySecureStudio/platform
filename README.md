@@ -132,3 +132,7 @@ must be synthetic, properly licensed, or already public.
 The [Comic Manifest contract consumer proof](docs/comic-manifest-contracts.md)
 checks the unreleased Codex candidate against the released SDK using offline
 synthetic fixtures; it does not add a Manifest runtime or production dependency.
+
+The unreleased [Comic Manifest validation API](docs/comic-manifest-validation.md)
+provides bounded raw JSON parsing and record-local validation. Passing validation
+does not establish current authorization, cross-record integrity or publication readiness.

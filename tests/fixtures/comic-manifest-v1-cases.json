@@ -1,0 +1,1115 @@
+[
+  {
+    "name": "empty panel list",
+    "layer": "schema",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "panels"
+        ],
+        "value": []
+      }
+    ]
+  },
+  {
+    "name": "oversized title",
+    "layer": "schema",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "title"
+        ],
+        "value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    ]
+  },
+  {
+    "name": "missing inputs",
+    "layer": "schema",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "inputs"
+        ],
+        "value": null
+      }
+    ]
+  },
+  {
+    "name": "nonopaque draft ID",
+    "layer": "schema",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "production_id"
+        ],
+        "value": "draft-title"
+      }
+    ]
+  },
+  {
+    "name": "zero revision",
+    "layer": "schema",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "revision"
+        ],
+        "value": 0
+      }
+    ]
+  },
+  {
+    "name": "unknown classification",
+    "layer": "schema",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "classification"
+        ],
+        "value": "secret"
+      }
+    ]
+  },
+  {
+    "name": "public record cannot claim internal",
+    "layer": "schema",
+    "edits": [
+      {
+        "path": [
+          "release",
+          "classification"
+        ],
+        "value": "internal"
+      }
+    ]
+  },
+  {
+    "name": "zero publication number",
+    "layer": "schema",
+    "edits": [
+      {
+        "path": [
+          "release",
+          "episode_id"
+        ],
+        "value": "DS-0000"
+      }
+    ]
+  },
+  {
+    "name": "malformed publication number",
+    "layer": "schema",
+    "edits": [
+      {
+        "path": [
+          "release",
+          "episode_id"
+        ],
+        "value": "DS-1"
+      }
+    ]
+  },
+  {
+    "name": "public output cannot use private handle",
+    "layer": "schema",
+    "edits": [
+      {
+        "path": [
+          "release",
+          "outputs",
+          0,
+          "artifact",
+          "artifact_uri"
+        ],
+        "value": "urn:uuid:10000000-0000-4000-8000-000000000001"
+      }
+    ]
+  },
+  {
+    "name": "public nested private field",
+    "layer": "schema",
+    "edits": [
+      {
+        "path": [
+          "release",
+          "private_context",
+          "package_id"
+        ],
+        "value": "private"
+      }
+    ]
+  },
+  {
+    "name": "missing private attestation",
+    "layer": "schema",
+    "edits": [
+      {
+        "path": [
+          "release",
+          "private_context"
+        ],
+        "value": {
+          "influenced": true
+        }
+      }
+    ]
+  },
+  {
+    "name": "false influence cannot include attestation",
+    "layer": "schema",
+    "edits": [
+      {
+        "path": [
+          "release",
+          "private_context"
+        ],
+        "value": {
+          "influenced": false,
+          "attestation_reference": "urn:uuid:10000000-0000-4000-8000-000000000001"
+        }
+      }
+    ]
+  },
+  {
+    "name": "protected record link forbidden in release",
+    "layer": "schema",
+    "edits": [
+      {
+        "path": [
+          "release",
+          "production"
+        ],
+        "value": {
+          "production_id": "urn:uuid:10000000-0000-4000-8000-000000000001",
+          "revision": 1,
+          "identity": {
+            "canonicalization": "studio-json-v1",
+            "byte_size": 3359,
+            "sha256": "sha256:9447b652a4ab121bf5355e5faa21a224b2d6d4259d403c005580b757511d1e19"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "digest malformed",
+    "layer": "schema",
+    "edits": [
+      {
+        "path": [
+          "result",
+          "outputs",
+          0,
+          "artifact",
+          "sha256"
+        ],
+        "value": "sha256:abcd"
+      }
+    ]
+  },
+  {
+    "name": "negative artifact size",
+    "layer": "schema",
+    "edits": [
+      {
+        "path": [
+          "result",
+          "outputs",
+          0,
+          "artifact",
+          "byte_size"
+        ],
+        "value": -1
+      }
+    ]
+  },
+  {
+    "name": "complete with diagnostic",
+    "layer": "schema",
+    "edits": [
+      {
+        "path": [
+          "result",
+          "diagnostics"
+        ],
+        "value": [
+          "OUTPUT_MISSING"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "failed without diagnostic",
+    "layer": "schema",
+    "edits": [
+      {
+        "path": [
+          "result",
+          "status"
+        ],
+        "value": "failed"
+      }
+    ]
+  },
+  {
+    "name": "invalid approval date",
+    "layer": "schema",
+    "edits": [
+      {
+        "path": [
+          "approvals",
+          0,
+          "expires_at"
+        ],
+        "value": "tomorrow"
+      }
+    ]
+  },
+  {
+    "name": "unknown generation parameter shape",
+    "layer": "schema",
+    "edits": [
+      {
+        "path": [
+          "result",
+          "execution",
+          "generation"
+        ],
+        "value": [
+          {
+            "model": "x"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "floating dependency version",
+    "layer": "schema",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "inputs",
+          "canon",
+          "version"
+        ],
+        "value": "^1.0.0"
+      }
+    ]
+  },
+  {
+    "name": "unknown context version",
+    "layer": "schema",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "inputs",
+          "prompts",
+          0,
+          "context",
+          "contract_version"
+        ],
+        "value": "2.0.0"
+      }
+    ]
+  },
+  {
+    "name": "panel command forbidden",
+    "layer": "schema",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "panels",
+          0,
+          "command"
+        ],
+        "value": "run anything"
+      }
+    ]
+  },
+  {
+    "name": "duplicate panel identity",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "panels",
+          1,
+          "panel_id"
+        ],
+        "value": "first"
+      }
+    ],
+    "code": "PANEL_ID",
+    "rebind": true
+  },
+  {
+    "name": "duplicate text identity",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "panels",
+          1,
+          "text",
+          0,
+          "text_id"
+        ],
+        "value": "caption-one"
+      }
+    ],
+    "code": "TEXT_ID",
+    "rebind": true
+  },
+  {
+    "name": "dangling panel asset",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "panels",
+          0,
+          "asset_ids"
+        ],
+        "value": [
+          "missing"
+        ]
+      }
+    ],
+    "code": "ASSET_LINK",
+    "rebind": true
+  },
+  {
+    "name": "dangling prompt binding",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "panels",
+          0,
+          "prompt_bindings"
+        ],
+        "value": [
+          "missing"
+        ]
+      }
+    ],
+    "code": "PROMPT_LINK",
+    "rebind": true
+  },
+  {
+    "name": "caption with speaker",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "panels",
+          0,
+          "text",
+          0,
+          "speaker"
+        ],
+        "value": "synthetic"
+      }
+    ],
+    "code": "SPEAKER",
+    "rebind": true
+  },
+  {
+    "name": "production classification downgrade",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "classification"
+        ],
+        "value": "public"
+      }
+    ],
+    "code": "CLASSIFICATION",
+    "rebind": true
+  },
+  {
+    "name": "first revision with predecessor",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "previous"
+        ],
+        "value": {
+          "production_id": "urn:uuid:10000000-0000-4000-8000-000000000001",
+          "revision": 1,
+          "identity": {
+            "canonicalization": "studio-json-v1",
+            "byte_size": 3359,
+            "sha256": "sha256:9447b652a4ab121bf5355e5faa21a224b2d6d4259d403c005580b757511d1e19"
+          }
+        }
+      }
+    ],
+    "code": "REVISION",
+    "rebind": true
+  },
+  {
+    "name": "no required rendition",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "renditions",
+          0,
+          "required"
+        ],
+        "value": false
+      }
+    ],
+    "code": "REQUIRED_OUTPUT",
+    "rebind": true
+  },
+  {
+    "name": "dimensions incompatible with text",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "renditions",
+          0,
+          "dimensions"
+        ],
+        "value": {
+          "width": 1,
+          "height": 1
+        }
+      }
+    ],
+    "code": "DIMENSIONS",
+    "rebind": true
+  },
+  {
+    "name": "unexpected output",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "result",
+          "outputs",
+          0,
+          "rendition_id"
+        ],
+        "value": "unknown"
+      }
+    ],
+    "code": "UNEXPECTED_OUTPUT",
+    "rebind": true
+  },
+  {
+    "name": "wrong output media",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "result",
+          "outputs",
+          0,
+          "artifact",
+          "media_type"
+        ],
+        "value": "image/png"
+      }
+    ],
+    "code": "MEDIA",
+    "rebind": true
+  },
+  {
+    "name": "wrong output digest",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "result",
+          "outputs",
+          0,
+          "artifact",
+          "sha256"
+        ],
+        "value": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ],
+    "code": "OUTPUT_DIGEST",
+    "rebind": true
+  },
+  {
+    "name": "wrong output length",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "result",
+          "outputs",
+          0,
+          "artifact",
+          "byte_size"
+        ],
+        "value": 999
+      }
+    ],
+    "code": "OUTPUT_SIZE",
+    "rebind": true
+  },
+  {
+    "name": "wrong output rights",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "result",
+          "outputs",
+          0,
+          "rights_notice"
+        ],
+        "value": "different"
+      }
+    ],
+    "code": "OUTPUT_REQUIREMENT",
+    "rebind": true
+  },
+  {
+    "name": "package substitution",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "inputs",
+          "prompts",
+          0,
+          "context",
+          "instance_id"
+        ],
+        "value": "urn:uuid:10000000-0000-4000-8000-000000000001"
+      }
+    ],
+    "code": "PACKAGE_LINK",
+    "rebind": true
+  },
+  {
+    "name": "wrong context purpose",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "inputs",
+          "prompts",
+          0,
+          "context",
+          "purpose"
+        ],
+        "value": "different"
+      }
+    ],
+    "code": "CONTEXT_PURPOSE",
+    "rebind": true
+  },
+  {
+    "name": "wrong context sections",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "inputs",
+          "prompts",
+          0,
+          "context",
+          "sections"
+        ],
+        "value": [
+          "other"
+        ]
+      }
+    ],
+    "code": "CONTEXT_SECTIONS",
+    "rebind": true
+  },
+  {
+    "name": "use grant substitution",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "inputs",
+          "prompts",
+          0,
+          "context",
+          "use_authorization_reference"
+        ],
+        "value": "urn:uuid:10000000-0000-4000-8000-000000000001"
+      }
+    ],
+    "code": "USE_LINK",
+    "rebind": true
+  },
+  {
+    "name": "future canon substituted",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "release",
+          "input_canon",
+          "commit"
+        ],
+        "value": "2222222222222222222222222222222222222222"
+      }
+    ],
+    "code": "CANON_INPUT",
+    "rebind": true
+  },
+  {
+    "name": "wrong public dependencies",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "release",
+          "dependencies",
+          0,
+          "commit"
+        ],
+        "value": "2222222222222222222222222222222222222222"
+      }
+    ],
+    "code": "DEPENDENCY_LINK",
+    "rebind": true
+  },
+  {
+    "name": "public output tampering",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "release",
+          "outputs",
+          0,
+          "artifact",
+          "sha256"
+        ],
+        "value": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ],
+    "code": "RELEASE_OUTPUTS",
+    "rebind": true
+  },
+  {
+    "name": "failed public gate",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "release",
+          "gates",
+          0,
+          "disposition"
+        ],
+        "value": "fail"
+      }
+    ],
+    "code": "GATE_FAILED",
+    "rebind": true
+  },
+  {
+    "name": "inconclusive public gate",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "release",
+          "gates",
+          0,
+          "disposition"
+        ],
+        "value": "inconclusive"
+      }
+    ],
+    "code": "GATE_FAILED",
+    "rebind": true
+  },
+  {
+    "name": "unreviewed not-applicable gate",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "release",
+          "gates",
+          0,
+          "disposition"
+        ],
+        "value": "not-applicable"
+      }
+    ],
+    "code": "GATE_NA",
+    "rebind": true
+  },
+  {
+    "name": "duplicate public gate",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "release",
+          "gates",
+          1,
+          "gate"
+        ],
+        "value": "editorial"
+      }
+    ],
+    "code": "GATES",
+    "rebind": true
+  },
+  {
+    "name": "false private influence",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "release",
+          "private_context"
+        ],
+        "value": {
+          "influenced": false
+        }
+      }
+    ],
+    "code": "PRIVATE_INFLUENCE",
+    "rebind": true
+  },
+  {
+    "name": "unassigned episode",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "release",
+          "episode_id"
+        ],
+        "value": "DS-0002"
+      }
+    ],
+    "code": "ASSIGNMENT",
+    "rebind": true
+  },
+  {
+    "name": "public private prose sentinel",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "release",
+          "canon_scope"
+        ],
+        "value": "SYNTHETIC-PROTECTED-SENTINEL"
+      }
+    ],
+    "code": "PRIVATE_LEAK",
+    "rebind": true
+  },
+  {
+    "name": "public private hash in URL",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "release",
+          "outputs",
+          0,
+          "artifact",
+          "artifact_uri"
+        ],
+        "value": "https://example.invalid/sha256:a287bcbe601550c2a4df68b296c64d622591fc91aa5713e8ea6e2e6119f04eab"
+      }
+    ],
+    "code": "PRIVATE_LEAK",
+    "rebind": true
+  },
+  {
+    "name": "floating input tag",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "inputs",
+          "canon",
+          "tag"
+        ],
+        "value": "main"
+      }
+    ],
+    "code": "FLOATING_REFERENCE",
+    "rebind": true
+  },
+  {
+    "name": "dependency digest mismatch",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "inputs",
+          "canon",
+          "artifact",
+          "sha256"
+        ],
+        "value": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ],
+    "code": "DEPENDENCY_DIGEST",
+    "rebind": true
+  },
+  {
+    "name": "backwards execution time",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "result",
+          "execution",
+          "finished_at"
+        ],
+        "value": "2026-09-14T00:00:00Z"
+      }
+    ],
+    "code": "TIME",
+    "rebind": true
+  },
+  {
+    "name": "changed panels invalidate prior result",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "panels"
+        ],
+        "value": [
+          {
+            "panel_id": "second",
+            "description": "A synthetic red sphere.",
+            "text": [
+              {
+                "text_id": "caption-two",
+                "kind": "caption",
+                "speaker": null,
+                "text": "A sphere."
+              }
+            ],
+            "asset_ids": [],
+            "prompt_bindings": []
+          },
+          {
+            "panel_id": "first",
+            "description": "A synthetic blue cube.",
+            "text": [
+              {
+                "text_id": "caption-one",
+                "kind": "caption",
+                "speaker": null,
+                "text": "A cube."
+              }
+            ],
+            "asset_ids": [],
+            "prompt_bindings": [
+              "description"
+            ]
+          }
+        ]
+      }
+    ],
+    "code": "PRODUCTION_LINK",
+    "rebind": false
+  },
+  {
+    "name": "wrong result input revision",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "result",
+          "production",
+          "revision"
+        ],
+        "value": 2
+      }
+    ],
+    "code": "PRODUCTION_LINK",
+    "rebind": false
+  },
+  {
+    "name": "wrong actual inputs",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "result",
+          "inputs",
+          "canon",
+          "commit"
+        ],
+        "value": "2222222222222222222222222222222222222222"
+      }
+    ],
+    "code": "INPUT_LINK",
+    "rebind": false
+  },
+  {
+    "name": "approval bound to other bytes",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "approvals",
+          0,
+          "subject",
+          "sha256"
+        ],
+        "value": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ],
+    "code": "APPROVAL_SUBJECT",
+    "rebind": false
+  },
+  {
+    "name": "approval changed audience",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "approvals",
+          0,
+          "scope",
+          "audience"
+        ],
+        "value": "everyone"
+      }
+    ],
+    "code": "APPROVAL_SCOPE",
+    "rebind": false
+  },
+  {
+    "name": "expired approval",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "at"
+        ],
+        "value": "2026-09-16T00:00:00Z"
+      }
+    ],
+    "code": "APPROVAL_TIME",
+    "rebind": false
+  },
+  {
+    "name": "revoked approval",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "trust",
+          "revoked"
+        ],
+        "value": [
+          "urn:uuid:10000000-0000-4000-8000-000000000199"
+        ]
+      }
+    ],
+    "code": "APPROVAL_TRUST",
+    "rebind": false
+  },
+  {
+    "name": "untrusted approval issuer",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "approvals",
+          0,
+          "authority_reference"
+        ],
+        "value": "urn:uuid:10000000-0000-4000-8000-000000000001"
+      }
+    ],
+    "code": "APPROVAL_TRUST",
+    "rebind": false
+  },
+  {
+    "name": "missing approval trust",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "trust",
+          "approvals"
+        ],
+        "value": []
+      }
+    ],
+    "code": "APPROVAL_TRUST",
+    "rebind": false
+  },
+  {
+    "name": "missing attestation trust",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "trust",
+          "attestation"
+        ],
+        "value": null
+      }
+    ],
+    "code": "ATTESTATION_TRUST",
+    "rebind": false
+  },
+  {
+    "name": "attestation mapped to other result",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "linkage",
+          "result_identity",
+          "sha256"
+        ],
+        "value": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ],
+    "code": "LINEAGE",
+    "rebind": false
+  }
+]
