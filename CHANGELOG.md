@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Comic Manifest immutable references (#92)
+
+- Add a protected reference planner and host-installed exact resolver inventory
+  for canon, contracts/tools, prompts, context and assets, including shared panel uses.
+- Verify bounded transport bytes and canonical identities with current scoped
+  access decisions, classification checks, expiry/revocation and cancellation.
+- Fail closed without partial results or sensitive diagnostics; no ambient fetch,
+  permission renewal, public projection or released foundation changes.
+
 ## Unreleased — Comic Manifest episode and panel structure (#91)
 
 - Add protected ordered episode views, exact predecessor/replay checks, explicit
