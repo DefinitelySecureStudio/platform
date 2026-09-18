@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased — Comic Manifest parsing and local validation (#90)
+
+- Add a separate raw JSON API with byte/depth/value/string limits, Unicode and
+  duplicate-key checks, generated closed-schema validation, canonical identities
+  and record-local semantic checks with value-free diagnostics.
+- Pin the merged Codex candidate and reproducibly generate validators using
+  locked dependencies. No released SDK/Builder code, schemas or locks change.
+- Add focused boundary/effect tests and public API documentation; cross-record
+  verification, authorization and publication remain separately scoped.
+
 ## Unreleased — verified Context Builder contract adoption (#86)
 
 - Adopt immutable Codex Context Builder 1.0.0 at

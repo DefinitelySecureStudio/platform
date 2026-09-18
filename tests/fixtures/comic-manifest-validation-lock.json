@@ -1,0 +1,28 @@
+{
+  "repository": "DefinitelySecureStudio/codex",
+  "commit": "e415596f2ec73f4d25b289532a72a565ff33c28d",
+  "status": "unreleased-development",
+  "artifacts": [
+    {
+      "source_path": "schemas/json/comic-manifest/v1/comic-manifest.schema.json",
+      "path": "tests/fixtures/comic-manifest-v1.schema.json",
+      "artifact_uri": "https://github.com/DefinitelySecureStudio/codex/blob/e415596f2ec73f4d25b289532a72a565ff33c28d/schemas/json/comic-manifest/v1/comic-manifest.schema.json",
+      "byte_size": 29711,
+      "sha256": "sha256:c9e7d3ee3a9593ec7e85504f680d0cd9b5ece7a6c0db22f4a7152d08b6db2f5c"
+    },
+    {
+      "source_path": "fixtures/comic-manifest-v1.json",
+      "path": "tests/fixtures/comic-manifest-v1.json",
+      "artifact_uri": "https://github.com/DefinitelySecureStudio/codex/blob/e415596f2ec73f4d25b289532a72a565ff33c28d/fixtures/comic-manifest-v1.json",
+      "byte_size": 27425,
+      "sha256": "sha256:bc0a33418a57446953d917ffab1f77c9f39911bef7ef27b70d108ffa32e8aca7"
+    },
+    {
+      "source_path": "fixtures/comic-manifest-v1-cases.json",
+      "path": "tests/fixtures/comic-manifest-v1-cases.json",
+      "artifact_uri": "https://github.com/DefinitelySecureStudio/codex/blob/e415596f2ec73f4d25b289532a72a565ff33c28d/fixtures/comic-manifest-v1-cases.json",
+      "byte_size": 20628,
+      "sha256": "sha256:21245fabd9906fb0bc214cc993915089db6c1ad443ad035f98f97ced35685c4d"
+    }
+  ]
+}
