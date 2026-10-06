@@ -82,7 +82,8 @@ global uniqueness/append-only storage through their approved storage boundary.
 It does not fetch missing history, authenticate that history, detect undisclosed
 forks or establish that a release ID was never used elsewhere. Validate each pair
 when checking a supplied chain. Passing this check does not carry approvals forward;
-#95 owns current approval/invalidation integration. #96 owns full build-result and
+#95 adds the current approval/invalidation boundary and disclosure-safe revision
+diffs in [comic-manifest-approvals.md](comic-manifest-approvals.md). #96 owns full build-result and
 artifact linkage.
 
 ## Publication binding and naming consistency

@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased — Comic Manifest revision and approval boundaries (#95)
+
+- Pin the exact merged Codex approval-time clarification and its synthetic
+  boundary matrix without changing the Comic Manifest schema or released SDK,
+  Context Package or Context Builder bytes.
+- Add exact current approval evaluation for production review and release
+  publication through a required host verifier, plus deterministic
+  disclosure-aware revision summaries.
+- Keep authorization, current revocation, publication and canon authority in
+  the host and Universe boundaries; fake verifier responses remain test-only.
+
 ## Unreleased — Comic Manifest rendition and publication outputs (#94)
 
 - Adopt the exact owner-reviewed Codex #94 schema and synthetic scenario fixtures
