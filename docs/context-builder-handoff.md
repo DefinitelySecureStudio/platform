@@ -29,6 +29,30 @@ still current. Future consumers may pass the package identity, audited evidence
 reference and use decision linkage without implementing Comic Manifest/Orchestrator
 epics or granting their release authority here.
 
+## Comic Manifest reference consumer (#93)
+
+The bounded consumer proof in
+[`tests/prompt-sdk/comic-manifest-contract.test.js`](../tests/prompt-sdk/comic-manifest-contract.test.js)
+resolves the exact synthetic Prompt Definition, prepared Context Package and
+`context-build-result` bytes through the Comic Manifest reference resolver. Before
+calling the released Prompt SDK binding/render APIs, it checks the Manifest's
+complete identities, prompt id/version, package instance, purpose, classification,
+declared section slots, Builder result identity and embedded package. It validates
+the prepared result with Builder's existing `createBuildArtifact`/
+`verifyBuildArtifact` APIs and retains the protected Builder `evidence_reference`.
+It does not call a model or execute the prompt.
+
+The consumer asks a trusted authorization provider for a current Context
+Authorization separately at the use boundary. The Manifest's
+`use_authorization_reference` and Builder evidence stay attached as historical
+protected provenance; they are never passed directly as a grant. The host must
+obtain a current allow/deny decision and perform revocation checks independently.
+The offline fixture injects a synthetic host authority and explicitly checks its
+scoped result before using the released SDK's existing v1 authorization validation.
+A host may reverify the same decision ID if it remains current; freshness comes
+from the current authority check, not ID inequality. No immutable Builder or SDK
+schemas or bytes change.
+
 ## Separate authority and validation
 
 The integration snapshots request, prompt, inputs and execution options before
