@@ -1,4 +1,4 @@
-// Generated from DefinitelySecureStudio/codex@dba54695996200c100299555bc665914765ebf87; unreleased reviewed candidate.
+// Generated from DefinitelySecureStudio/codex@8044643bf888067f5a6e0d212f843d72e8787f2b; unreleased reviewed candidate.
 // Source sha256:7bd3c5392ae0db0c5baba553c233142d3d4427471f5850123eef7b87d4c8eaa4; 30860 bytes.
 // Rebuild with scripts/generate-comic-manifest-validator.mjs; do not edit.
 import { createRequire } from 'node:module';

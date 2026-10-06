@@ -1,0 +1,215 @@
+[
+  {
+    "name": "approval remains valid at decision time",
+    "action_time": "2026-09-15T12:02:00Z",
+    "publication_time": "2026-09-15T12:10:00Z",
+    "decided_at": "2026-09-15T12:02:00Z",
+    "expires_at": "2026-09-15T12:11:00Z",
+    "valid": true
+  },
+  {
+    "name": "action just before expiry remains valid",
+    "action_time": "2026-09-15T12:10:00.000Z",
+    "publication_time": "2026-09-15T12:00:00Z",
+    "decided_at": "2026-09-15T12:02:00Z",
+    "expires_at": "2026-09-15T12:10:00.001Z",
+    "valid": true
+  },
+  {
+    "name": "publication just before expiry remains valid",
+    "action_time": "2026-09-15T12:05:00Z",
+    "publication_time": "2026-09-15T12:10:00Z",
+    "decided_at": "2026-09-15T12:02:00Z",
+    "expires_at": "2026-09-15T12:10:00.001Z",
+    "valid": true
+  },
+  {
+    "name": "action at expiry is expired",
+    "action_time": "2026-09-15T12:10:00Z",
+    "publication_time": "2026-09-15T12:09:59.999Z",
+    "decided_at": "2026-09-15T12:02:00Z",
+    "expires_at": "2026-09-15T12:10:00Z",
+    "valid": false
+  },
+  {
+    "name": "publication at expiry is expired",
+    "action_time": "2026-09-15T12:09:59.999Z",
+    "publication_time": "2026-09-15T12:10:00Z",
+    "decided_at": "2026-09-15T12:02:00Z",
+    "expires_at": "2026-09-15T12:10:00Z",
+    "valid": false
+  },
+  {
+    "name": "decision after action time is not yet valid",
+    "action_time": "2026-09-15T12:10:00Z",
+    "publication_time": "2026-09-15T12:10:00Z",
+    "decided_at": "2026-09-15T12:10:00.001Z",
+    "expires_at": "2026-09-15T12:11:00Z",
+    "valid": false
+  },
+  {
+    "name": "submillisecond action just before expiry remains valid",
+    "action_time": "2026-09-15T12:10:00.0000Z",
+    "publication_time": "2026-09-15T12:10:00.0000Z",
+    "decided_at": "2026-09-15T12:02:00Z",
+    "expires_at": "2026-09-15T12:10:00.0001Z",
+    "valid": true
+  },
+  {
+    "name": "submillisecond publication just before expiry remains valid",
+    "action_time": "2026-09-15T12:05:00Z",
+    "publication_time": "2026-09-15T12:10:00.00010Z",
+    "decided_at": "2026-09-15T12:02:00Z",
+    "expires_at": "2026-09-15T12:10:00.00011Z",
+    "valid": true
+  },
+  {
+    "name": "equivalent fractional widths preserve inclusive decision equality",
+    "action_time": "2026-09-15T12:02:00.0001000Z",
+    "publication_time": "2026-09-15T12:10:00.00010Z",
+    "decided_at": "2026-09-15T12:02:00.0001Z",
+    "expires_at": "2026-09-15T12:10:00.00011Z",
+    "valid": true
+  },
+  {
+    "name": "action at expiry is expired across fractional widths",
+    "action_time": "2026-09-15T12:10:00.0001000Z",
+    "publication_time": "2026-09-15T12:09:59.999Z",
+    "decided_at": "2026-09-15T12:02:00Z",
+    "expires_at": "2026-09-15T12:10:00.0001Z",
+    "valid": false
+  },
+  {
+    "name": "publication at expiry is expired across fractional widths",
+    "action_time": "2026-09-15T12:09:59.999999Z",
+    "publication_time": "2026-09-15T12:10:00.0001000Z",
+    "decided_at": "2026-09-15T12:02:00Z",
+    "expires_at": "2026-09-15T12:10:00.0001Z",
+    "valid": false
+  },
+  {
+    "name": "future submillisecond decision is rejected",
+    "action_time": "2026-09-15T12:10:00.0001Z",
+    "publication_time": "2026-09-15T12:10:00.0009Z",
+    "decided_at": "2026-09-15T12:10:00.0009Z",
+    "expires_at": "2026-09-15T12:10:00.0010Z",
+    "valid": false
+  },
+  {
+    "name": "equivalent instants across accepted timestamp separators remain valid",
+    "action_time": "2026-09-15t12:10:00.0001000Z",
+    "schema_valid_action_time": true,
+    "publication_time": "2026-09-15\t12:10:00.00010Z",
+    "decided_at": "2026-09-15 12:10:00.0001Z",
+    "expires_at": "2026-09-15T12:10:00.00011Z",
+    "valid": true
+  },
+  {
+    "name": "valid leap-day action time remains valid",
+    "action_time": "2024-02-29t12:10:00Z",
+    "schema_valid_action_time": true,
+    "publication_time": "2024-02-29 12:10:00Z",
+    "decided_at": "2024-02-29T12:02:00Z",
+    "expires_at": "2024-02-29T12:11:00Z",
+    "valid": true
+  },
+  {
+    "name": "last ordinary second with maximum schema precision remains valid",
+    "action_time": "2026-09-15T23:59:59.99999999999Z",
+    "schema_valid_action_time": true,
+    "publication_time": "2026-09-15 23:59:59.99999999999Z",
+    "decided_at": "2026-09-15T23:59:59.99999999998Z",
+    "expires_at": "2026-09-16T00:00:00Z",
+    "valid": true
+  },
+  {
+    "name": "action at expiry is expired across accepted timestamp separators",
+    "action_time": "2026-09-15 12:10:00.0001000Z",
+    "schema_valid_action_time": true,
+    "publication_time": "2026-09-15T12:09:59.999Z",
+    "decided_at": "2026-09-15t12:02:00Z",
+    "expires_at": "2026-09-15t12:10:00.0001Z",
+    "valid": false
+  },
+  {
+    "name": "publication at expiry is expired across accepted timestamp separators",
+    "action_time": "2026-09-15T12:09:59.999999Z",
+    "publication_time": "2026-09-15t12:10:00.0001000Z",
+    "decided_at": "2026-09-15T12:02:00Z",
+    "expires_at": "2026-09-15 12:10:00.0001Z",
+    "valid": false
+  },
+  {
+    "name": "invalid trusted action hour is rejected",
+    "action_time": "2026-09-15T24:00:00Z",
+    "publication_time": "2026-09-15T12:10:00Z",
+    "decided_at": "2026-09-15T12:02:00Z",
+    "expires_at": "2026-09-16T00:00:00Z",
+    "valid": false
+  },
+  {
+    "name": "invalid trusted action minute is rejected",
+    "action_time": "2026-09-15T12:60:00Z",
+    "publication_time": "2026-09-15T12:10:00Z",
+    "decided_at": "2026-09-15T12:02:00Z",
+    "expires_at": "2026-09-16T00:00:00Z",
+    "valid": false
+  },
+  {
+    "name": "invalid trusted action second is rejected",
+    "action_time": "2026-09-15T12:03:99Z",
+    "publication_time": "2026-09-15T12:10:00Z",
+    "decided_at": "2026-09-15T12:02:00Z",
+    "expires_at": "2026-09-16T00:00:00Z",
+    "valid": false
+  },
+  {
+    "name": "invalid trusted action calendar date is rejected",
+    "action_time": "2026-02-30T12:10:00Z",
+    "publication_time": "2026-02-28T12:10:00Z",
+    "decided_at": "2026-02-28T12:02:00Z",
+    "expires_at": "2026-03-01T00:00:00Z",
+    "valid": false
+  },
+  {
+    "name": "invalid non-leap-year February 29 action date is rejected",
+    "action_time": "2025-02-29T12:10:00Z",
+    "publication_time": "2025-02-28T12:10:00Z",
+    "decided_at": "2025-02-28T12:02:00Z",
+    "expires_at": "2025-03-01T00:00:00Z",
+    "valid": false
+  },
+  {
+    "name": "schema-valid midmonth leap-second action time is unsupported",
+    "action_time": "2026-09-15T23:59:60Z",
+    "schema_valid_action_time": true,
+    "publication_time": "2026-09-15T23:59:59Z",
+    "decided_at": "2026-09-15T23:59:58Z",
+    "expires_at": "2026-09-16T00:00:00Z",
+    "valid": false
+  },
+  {
+    "name": "schema-valid leap-second decision cannot authorize",
+    "action_time": "2026-09-16T00:00:00Z",
+    "publication_time": "2026-09-15T23:59:59Z",
+    "decided_at": "2026-09-15T23:59:60Z",
+    "expires_at": "2026-09-16T00:01:00Z",
+    "valid": false
+  },
+  {
+    "name": "schema-valid leap-second expiry cannot grant authority",
+    "action_time": "2026-09-15T23:59:59Z",
+    "publication_time": "2026-09-15T23:59:59Z",
+    "decided_at": "2026-09-15T23:59:58Z",
+    "expires_at": "2026-09-15T23:59:60Z",
+    "valid": false
+  },
+  {
+    "name": "schema-valid leap-second publication time cannot authorize",
+    "action_time": "2026-09-15T23:59:59Z",
+    "publication_time": "2026-09-15T23:59:60Z",
+    "decided_at": "2026-09-15T23:59:58Z",
+    "expires_at": "2026-09-16T00:01:00Z",
+    "valid": false
+  }
+]

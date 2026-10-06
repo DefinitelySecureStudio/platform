@@ -5,15 +5,15 @@ Manifest runtime, orchestration, source retrieval, trust issuer or publication A
 Codex owns the schema and semantics; public creative authority remains in Universe.
 
 The [fixture lock](../tests/fixtures/comic-manifest-contract-lock.json) pins the
-latest owner-merged Codex candidate at commit
-`dba54695996200c100299555bc665914765ebf87` by full source paths, sizes and SHA-256
+owner-reviewed Codex candidate at commit
+`8044643bf888067f5a6e0d212f843d72e8787f2b` by full source paths, sizes and SHA-256
 digests. The schema and scenario are verbatim test artifacts, not local
 normative schema forks or production dependencies. The existing Context Builder
 fixture is identical to the pinned Codex bytes and is reused unchanged. All apparent
 private context, grants, IDs, publication numbers and URLs are synthetic. A fixed
 fixture UUID is not a production attestation or evidence of secure issuance.
 
-The [Codex specification](https://github.com/DefinitelySecureStudio/codex/blob/dba54695996200c100299555bc665914765ebf87/specs/manifests/comic-manifest-v1.md),
+The [Codex specification](https://github.com/DefinitelySecureStudio/codex/blob/8044643bf888067f5a6e0d212f843d72e8787f2b/specs/manifests/comic-manifest-v1.md),
 RFC 0007 and RFC 0008 define three immutable payloads, exact-version support,
 rendition profiles, relational invariants, detached approvals and public projection.
 Schema validity proves only structure. No matching hash, stored preparation result
@@ -33,8 +33,10 @@ No provider, external URL or real source is invoked. `npm test` includes this pr
 
 This is not a Manifest validator or full synthetic build execution. Codex's separate
 fixture oracle tests candidate relational semantics. Production raw JSON hardening,
-current trusted verifier/revocation adapters, media/rights inspection, approval
-verification and safe projection remain #90–#98 responsibilities. Human disclosure
+current trusted verifier/revocation adapters, media/rights inspection and safe
+projection remain #90–#98 responsibilities. The current approval boundary is
+documented in [#95](comic-manifest-approvals.md) and still requires an external
+trusted verifier. Human disclosure
 review must inspect free text and output bytes; sentinel checks do not prove safety.
 
 ## Adoption and constitutional scope

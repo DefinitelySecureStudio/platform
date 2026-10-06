@@ -2,8 +2,10 @@
 
 The **unreleased** `@definitely-secure-studio/platform/comic-manifest` entry point
 parses and validates explicit raw JSON against the owner-merged Codex candidate.
-It has no source reader, network fetcher, execution engine, approval provider or
-publisher. It does not mutate the released Prompt SDK or Context Builder.
+It has no default source reader, network fetcher, execution engine, production
+trust provider or publisher. The explicit host-injected approval boundary is
+described in [#95](comic-manifest-approvals.md). It does not mutate the released
+Prompt SDK or Context Builder.
 
 ```js
 import {
@@ -32,6 +34,8 @@ if (!result.valid) {
 | `validateComicManifest(source)` | Parse, dispatch exact kind/version, validate the generated closed schema, check record-local invariants; success adds canonical `identity` |
 | `COMIC_MANIFEST_LIMITS` | Frozen contract maximums; callers may reject stricter limits before invoking the API |
 | `COMIC_MANIFEST_CONTRACT` | Frozen reviewed source commit, schema ID/size/digest and explicit `unreleased-development` status |
+| `createComicApprovalBoundary(...)` | Host-injected exact current approval evaluation for production review or release publication; no default trust adapter |
+| `diffComicRevision(candidate, previous)` | Deterministic value-free summary for an explicit unchanged/adjacent revision pair |
 
 Both functions return `{valid:false,diagnostics:[{stage,code}]}` on failure. There
 is one deterministic first-failure diagnostic, no partial `value` or identity, no
@@ -89,12 +93,12 @@ and complete protected transformation shape. Release checks the same output
 profile/cap rules and the exact standard Studio credit.
 
 Release checks revision/predecessor shape, final title, deduplicated public tuples,
-output identities, exact gate ordering, required public approver roles, decision
-and publication time order, and public transformation digests drawn only from the
-record's declared public dependencies/canon/outputs. It cannot establish that those
-declared public inputs really are public. Approval binding checks time ordering,
-publication scope bounds and sorted artifact-list shape for the claimed role; it
-cannot authenticate the actor or evaluate current permission.
+output identities, exact gate ordering, required public approver roles, approval
+timestamp shape, and public transformation digests drawn only from the record's
+declared public dependencies/canon/outputs. It cannot establish that those
+declared public inputs really are public. Approval binding checks expiry ordering
+and sorted artifact-list shape for the claimed role; it cannot authenticate the
+actor or evaluate current permission.
 
 Semantic codes: `REVISION`, `DUPLICATE_ID`, `LOCAL_REFERENCE`, `SPEAKER`,
 `CLASSIFICATION`, `REQUIRED_OUTPUT`, `DIMENSIONS`, `RENDITION_PROFILE`,
@@ -103,9 +107,10 @@ Semantic codes: `REVISION`, `DUPLICATE_ID`, `LOCAL_REFERENCE`, `SPEAKER`,
 `TRANSFORMATION`, `TOOL_REFERENCE`, `FINAL_TITLE`,
 `DUPLICATE_REFERENCE`, `GATE_ORDER`, `APPROVAL_ROLE`, `PUBLIC_PROVENANCE`,
 `ARTIFACT_ORDER`, `APPROVAL_ARTIFACTS`; unexpected internal failures use the fixed
-`SEMANTIC_INVALID`. Timestamps are schema-validated UTC calendar values; ordering
-preserves sub-millisecond precision and RFC3339 leap-second syntax without reading
-a clock or rounding through JavaScript Date.
+`SEMANTIC_INVALID`. Execution timestamps preserve schema-accepted UTC calendar
+values, sub-millisecond precision and RFC3339 leap-second syntax without reading a
+clock or rounding through JavaScript Date. Approval times use a separate strict
+calendar comparator; second `60` is rejected for approval-time checks.
 
 **`valid: true` is record-local validity, not build success, current authorization,
 disclosure safety, canon status or publication eligibility.** Partial/failed result
@@ -113,7 +118,12 @@ records, release candidates with failed gates and historical approval envelopes
 can be valid records. This API never checks the wall clock, renews a grant, marks
 a gate complete, follows a reference, issues an attestation or approves a payload.
 
-#91–#94 add richer episode/reference/foundation/output integration. The separate
+#91–#95 add episode/reference/foundation/output, revision and approval integration.
+Approval-time use requires `decided_at <= action_time < expires_at` and separately
+requires the exact scope's `publication_time < expires_at`; it does not impose a
+decision-to-publication ordering. See
+[`comic-manifest-approvals.md`](comic-manifest-approvals.md) for the current
+host verifier seam and disclosure-safe diff. The separate
 [`validateComicOutputCompatibility`](comic-manifest-renditions.md) helper checks
 production-to-result output requirements, result-to-release output preservation,
 and the supplied episode assignment. It consumes explicit records and never reads
@@ -126,12 +136,13 @@ gaps return to Codex, not local schema edits.
 
 ## Contract adoption and reproducible generation
 
-Normative source: [Codex specification](https://github.com/DefinitelySecureStudio/codex/blob/dba54695996200c100299555bc665914765ebf87/specs/manifests/comic-manifest-v1.md),
-RFC 0007 and [RFC 0008](https://github.com/DefinitelySecureStudio/codex/blob/dba54695996200c100299555bc665914765ebf87/rfcs/0008-comic-manifest-rendition-profiles.md),
-merged commit `dba54695996200c100299555bc665914765ebf87`.
+Normative source: [Codex specification](https://github.com/DefinitelySecureStudio/codex/blob/8044643bf888067f5a6e0d212f843d72e8787f2b/specs/manifests/comic-manifest-v1.md),
+RFC 0007 and [RFC 0008](https://github.com/DefinitelySecureStudio/codex/blob/8044643bf888067f5a6e0d212f843d72e8787f2b/rfcs/0008-comic-manifest-rendition-profiles.md),
+merged commit `8044643bf888067f5a6e0d212f843d72e8787f2b`.
 [Runtime metadata](../src/comic-manifest/contract.js) pins the exact schema bytes;
 [development fixture lock](../tests/fixtures/comic-manifest-validation-lock.json)
-pins schema, scenario and negative fixtures to that same merged Codex commit. The
+pins schema, scenario, negative cases and approval-time matrix to that same merged
+Codex commit. The
 updated 1.0.0 candidate replaces the earlier unreleased #89 profile shape; the
 historical consumer proof remains pinned independently. These are candidate source
 references, **not immutable production release tuples**. #99 remains the release

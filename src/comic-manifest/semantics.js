@@ -1,4 +1,5 @@
 import { canonicalJson } from '../prompt-sdk/canonical-json.js';
+import { compareComicApprovalTimes, isComicApprovalTime } from './approval-time.js';
 const need = (condition, code) => { if (!condition) throw code; };
 const same = (a, b) => canonicalJson(a) === canonicalJson(b);
 const unique = (values, code) => need(new Set(values).size === values.length, code);
@@ -8,9 +9,8 @@ const renditionProfiles = new Map([
   ['comic-portable-document@1.0.0', { mediaTypes: ['application/pdf'], maxBytes: 50_000_000, image: false }],
   ['comic-accessible-transcript@1.0.0', { mediaTypes: ['text/plain'], maxBytes: 131_072, image: false }]
 ]);
-// Schema-validated UTC timestamps; lexical comparison preserves sub-millisecond
-// precision and RFC3339 leap seconds without reading a clock or rounding dates.
-const time = value => value.slice(0, -1).replace(/[t\s]/, 'T').split('.').map((v, i) => i ? v.padEnd(12, '0') : v).concat(value.includes('.') ? [] : ['000000000000']).join('.');
+// Execution ordering preserves schema-valid RFC3339 leap-second syntax without a clock.
+const executionTime = value => value.slice(0, -1).replace(/[t\s]/, 'T').split('.').map((v, i) => i ? v.padEnd(12, '0') : v).concat(value.includes('.') ? [] : ['000000000000']).join('.');
 const gateOrder = ['editorial', 'canon-continuity', 'visual-text', 'integrity', 'provenance', 'security-privacy', 'rights', 'accessibility', 'packaging'];
 function dimensions(output) {
   need(output.artifact ? output.artifact.media_type.startsWith('image/') === (output.dimensions !== null)
@@ -52,7 +52,7 @@ function inputs(input, classification) {
 }
 function execution(e, isPublic) {
   dependency(e.tool);
-  need(time(e.started_at) <= time(e.finished_at), 'TIME_ORDER');
+  need(executionTime(e.started_at) <= executionTime(e.finished_at), 'TIME_ORDER');
   unique(e.transformations.map(t => t.step_id), 'DUPLICATE_ID');
   for (const t of e.transformations) {
     if (!isPublic) need(t.input_digests.length > 0 && t.output_digests.length > 0 && !t.private_inputs_withheld && !t.private_outputs_withheld, 'TRANSFORMATION');
@@ -96,14 +96,17 @@ function release(r) {
   for (const role of ['publisher', 'canon-editor', ...(r.private_context.influenced ? ['disclosure-reviewer'] : [])]) {
     need(r.approvers.some(a => a.role === role), 'APPROVAL_ROLE');
   }
-  for (const a of r.approvers) need(time(a.decided_at) <= time(r.scope.publication_time), 'TIME_ORDER');
+  need(isComicApprovalTime(r.scope.publication_time) && r.approvers.every(a => isComicApprovalTime(a.decided_at)), 'TIME_ORDER');
   execution(r.execution, true);
   need(r.dependencies.some(d => same(d, r.execution.tool)), 'TOOL_REFERENCE');
   const publicDigests = new Set([r.input_canon.artifact.sha256, ...r.dependencies.map(d => d.artifact.sha256), ...r.outputs.map(o => o.artifact.sha256)]);
   for (const t of r.execution.transformations) need([...t.input_digests, ...t.output_digests].every(d => publicDigests.has(d)), 'PUBLIC_PROVENANCE');
 }
 function approval(a) {
-  need(time(a.decided_at) < time(a.expires_at) && time(a.decided_at) <= time(a.scope.publication_time) && time(a.scope.publication_time) < time(a.expires_at), 'TIME_ORDER');
+  need(compareComicApprovalTimes(a.decided_at, a.expires_at) === -1 &&
+    compareComicApprovalTimes(a.scope.publication_time, a.expires_at) === -1 &&
+    isComicApprovalTime(a.decided_at) && isComicApprovalTime(a.expires_at) &&
+    isComicApprovalTime(a.scope.publication_time), 'TIME_ORDER');
   need(a.artifact_digests.every((d, i) => i === 0 || a.artifact_digests[i - 1] <= d), 'ARTIFACT_ORDER');
   need(a.role === 'production-reviewer' ? a.artifact_digests.length === 0 : a.artifact_digests.length > 0, 'APPROVAL_ARTIFACTS');
 }

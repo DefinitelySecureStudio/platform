@@ -3,4 +3,6 @@ export { COMIC_MANIFEST_LIMITS, parseComicManifestJson } from './parse-json.js';
 export { validateComicManifest } from './validate.js';
 export { describeComicEpisode, validateComicRevision, validateComicPublicationBinding, validateComicEpisodeMetadata } from './episode.js';
 export { validateComicOutputCompatibility } from './output-compatibility.js';
+export { diffComicRevision } from './revision-diff.js';
+export { createComicApprovalBoundary } from './approvals.js';
 export { COMIC_REFERENCE_LIMITS, planComicReferences, createComicReferenceResolver } from './references.js';

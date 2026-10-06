@@ -3,7 +3,7 @@
 The unreleased `./comic-manifest` module adds `planComicReferences`,
 `createComicReferenceResolver` and `COMIC_REFERENCE_LIMITS`. They implement the
 Codex v1 reference semantics, now pinned to the owner-reviewed
-[specification at merge dba5469](https://github.com/DefinitelySecureStudio/codex/blob/dba54695996200c100299555bc665914765ebf87/specs/manifests/comic-manifest-v1.md),
+[specification at merge 8044643](https://github.com/DefinitelySecureStudio/codex/blob/8044643bf888067f5a6e0d212f843d72e8787f2b/specs/manifests/comic-manifest-v1.md),
 without changing released Prompt SDK/Context Package/Context Builder bytes.
 
 ## Planning and exact identities
