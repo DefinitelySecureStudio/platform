@@ -4,19 +4,21 @@ This is a **test-only consumer of an unreleased Codex 1.0.0 candidate**. It adds
 Manifest runtime, orchestration, source retrieval, trust issuer or publication API.
 Codex owns the schema and semantics; public creative authority remains in Universe.
 
-The [fixture lock](../tests/fixtures/comic-manifest-contract-lock.json) pins Codex
-commit `53e4bd7738ae33c928bf72864d69d413168cc5b4` by full source paths, sizes and
-SHA-256 digests. The schema and scenario are verbatim test artifacts, not local
+The [fixture lock](../tests/fixtures/comic-manifest-contract-lock.json) pins the
+latest owner-merged Codex candidate at commit
+`dba54695996200c100299555bc665914765ebf87` by full source paths, sizes and SHA-256
+digests. The schema and scenario are verbatim test artifacts, not local
 normative schema forks or production dependencies. The existing Context Builder
 fixture is identical to the pinned Codex bytes and is reused unchanged. All apparent
 private context, grants, IDs, publication numbers and URLs are synthetic. A fixed
 fixture UUID is not a production attestation or evidence of secure issuance.
 
-The [Codex specification](https://github.com/DefinitelySecureStudio/codex/blob/53e4bd7738ae33c928bf72864d69d413168cc5b4/specs/manifests/comic-manifest-v1.md)
-and RFC 0007 define three immutable payloads, exact-version support, relational
-invariants, detached approvals and public projection. Schema validity proves only
-structure. No matching hash, stored preparation result or supplied decision object
-can authorize access, renew an expired grant, declassify output or promote canon.
+The [Codex specification](https://github.com/DefinitelySecureStudio/codex/blob/dba54695996200c100299555bc665914765ebf87/specs/manifests/comic-manifest-v1.md),
+RFC 0007 and RFC 0008 define three immutable payloads, exact-version support,
+rendition profiles, relational invariants, detached approvals and public projection.
+Schema validity proves only structure. No matching hash, stored preparation result
+or supplied decision object can authorize access, renew an expired grant, declassify
+output or promote canon.
 
 ## Verification
 

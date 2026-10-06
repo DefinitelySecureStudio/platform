@@ -18,6 +18,7 @@
 
 - [Execution provenance](execution-provenance.md) covers metadata policy and pluggable observers.
 - [Observer decision](adr/0007-execution-observers.md) records the failure-isolated boundary.
+- [Comic Manifest rendition and publication outputs](comic-manifest-renditions.md) covers exact profiles, output compatibility and declaration limits.
 
 This directory contains architecture decisions, public interfaces, operational
 guides, and deployment documentation for the production platform.

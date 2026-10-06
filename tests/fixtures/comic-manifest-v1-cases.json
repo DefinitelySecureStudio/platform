@@ -541,6 +541,94 @@
     "rebind": true
   },
   {
+    "name": "allowed profile alternative still must equal selected media type",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": ["production", "renditions", 0, "profile", "profile_id"],
+        "value": "comic-page-image"
+      },
+      {
+        "path": ["production", "renditions", 0, "media_type"],
+        "value": "image/png"
+      },
+      {
+        "path": ["production", "renditions", 0, "dimensions"],
+        "value": {"width": 1, "height": 1}
+      },
+      {
+        "path": ["result", "outputs", 0, "profile", "profile_id"],
+        "value": "comic-page-image"
+      },
+      {
+        "path": ["result", "outputs", 0, "artifact", "media_type"],
+        "value": "image/webp"
+      },
+      {
+        "path": ["result", "outputs", 0, "dimensions"],
+        "value": {"width": 1, "height": 1}
+      },
+      {
+        "path": ["release", "outputs", 0, "profile", "profile_id"],
+        "value": "comic-page-image"
+      },
+      {
+        "path": ["release", "outputs", 0, "artifact", "media_type"],
+        "value": "image/webp"
+      },
+      {
+        "path": ["release", "outputs", 0, "dimensions"],
+        "value": {"width": 1, "height": 1}
+      }
+    ],
+    "code": "MEDIA",
+    "rebind": true
+  },
+  {
+    "name": "public release preserves selected PNG despite profile allowing WebP",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": ["production", "renditions", 0, "profile", "profile_id"],
+        "value": "comic-page-image"
+      },
+      {
+        "path": ["production", "renditions", 0, "media_type"],
+        "value": "image/png"
+      },
+      {
+        "path": ["production", "renditions", 0, "dimensions"],
+        "value": {"width": 1, "height": 1}
+      },
+      {
+        "path": ["result", "outputs", 0, "profile", "profile_id"],
+        "value": "comic-page-image"
+      },
+      {
+        "path": ["result", "outputs", 0, "artifact", "media_type"],
+        "value": "image/png"
+      },
+      {
+        "path": ["result", "outputs", 0, "dimensions"],
+        "value": {"width": 1, "height": 1}
+      },
+      {
+        "path": ["release", "outputs", 0, "profile", "profile_id"],
+        "value": "comic-page-image"
+      },
+      {
+        "path": ["release", "outputs", 0, "artifact", "media_type"],
+        "value": "image/webp"
+      },
+      {
+        "path": ["release", "outputs", 0, "dimensions"],
+        "value": {"width": 1, "height": 1}
+      }
+    ],
+    "code": "RELEASE_OUTPUTS",
+    "rebind": true
+  },
+  {
     "name": "wrong output digest",
     "layer": "relational",
     "edits": [
@@ -592,6 +680,208 @@
     ],
     "code": "OUTPUT_REQUIREMENT",
     "rebind": true
+  },
+  {
+    "name": "unknown rendition profile id",
+    "layer": "schema",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "renditions",
+          0,
+          "profile",
+          "profile_id"
+        ],
+        "value": "comic-page-image-v2"
+      }
+    ]
+  },
+  {
+    "name": "result transcript must match requirement",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "result",
+          "outputs",
+          0,
+          "transcript"
+        ],
+        "value": "A different synthetic transcript."
+      }
+    ],
+    "code": "OUTPUT_REQUIREMENT",
+    "rebind": true
+  },
+  {
+    "name": "rendition profile is required",
+    "layer": "schema",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "renditions",
+          0,
+          "profile"
+        ],
+        "remove": true
+      }
+    ]
+  },
+  {
+    "name": "unknown rendition profile version",
+    "layer": "schema",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "renditions",
+          0,
+          "profile",
+          "profile_version"
+        ],
+        "value": "2.0.0"
+      }
+    ]
+  },
+  {
+    "name": "transcript profile rejects another media type",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "renditions",
+          0,
+          "media_type"
+        ],
+        "value": "application/pdf"
+      }
+    ],
+    "code": "RENDITION_MEDIA",
+    "rebind": true
+  },
+  {
+    "name": "raster profile rejects dimensions over pixel limit",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "renditions",
+          0,
+          "profile",
+          "profile_id"
+        ],
+        "value": "comic-page-image"
+      },
+      {
+        "path": [
+          "production",
+          "renditions",
+          0,
+          "media_type"
+        ],
+        "value": "image/png"
+      },
+      {
+        "path": [
+          "production",
+          "renditions",
+          0,
+          "dimensions"
+        ],
+        "value": {
+          "width": 8192,
+          "height": 4097
+        }
+      }
+    ],
+    "code": "RENDITION_DIMENSIONS",
+    "rebind": true
+  },
+  {
+    "name": "transcript profile cap cannot be raised",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "renditions",
+          0,
+          "max_bytes"
+        ],
+        "value": 131073
+      }
+    ],
+    "code": "RENDITION_LIMIT",
+    "rebind": true
+  },
+  {
+    "name": "result cannot raise the declared output cap",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "production",
+          "renditions",
+          0,
+          "max_bytes"
+        ],
+        "value": 35
+      },
+      {
+        "path": [
+          "result",
+          "outputs",
+          0,
+          "max_bytes"
+        ],
+        "value": 35
+      },
+      {
+        "path": [
+          "release",
+          "outputs",
+          0,
+          "max_bytes"
+        ],
+        "value": 35
+      }
+    ],
+    "code": "OUTPUT_LIMIT",
+    "rebind": true
+  },
+  {
+    "name": "result accessibility description must match",
+    "layer": "relational",
+    "edits": [
+      {
+        "path": [
+          "result",
+          "outputs",
+          0,
+          "alt_text"
+        ],
+        "value": "A different synthetic description."
+      }
+    ],
+    "code": "OUTPUT_REQUIREMENT",
+    "rebind": true
+  },
+  {
+    "name": "public release requires exact studio credit",
+    "layer": "schema",
+    "edits": [
+      {
+        "path": [
+          "release",
+          "production_credit"
+        ],
+        "value": "A different production."
+      }
+    ]
   },
   {
     "name": "package substitution",

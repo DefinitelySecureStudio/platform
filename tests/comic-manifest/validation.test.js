@@ -32,7 +32,7 @@ const mutations=[
  ['production',p=>p.panels[0].text[0].speaker='synthetic','SPEAKER'],
  ['production',p=>p.revision=2,'REVISION'],
  ['production',p=>p.classification='public','CLASSIFICATION'],
- ['production',p=>p.renditions[0].required=false,'REQUIRED_RENDITION'],
+ ['production',p=>p.renditions[0].required=false,'REQUIRED_OUTPUT'],
  ['production',p=>p.renditions[0].dimensions={width:1,height:1},'DIMENSIONS'],
  ['production',p=>p.inputs.canon.tag='main','FLOATING_REFERENCE'],
  ['result',r=>r.outputs.push(r.outputs[0]),'DUPLICATE_ID'],

@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased — Comic Manifest rendition and publication outputs (#94)
+
+- Adopt the exact owner-reviewed Codex #94 schema and synthetic scenario fixtures
+  at `dba54695996200c100299555bc665914765ebf87`; regenerate the locked validator.
+- Validate versioned rendition profiles, selected media and dimensions, pixel and
+  declared byte limits, nonblank accessibility/rights metadata, and standard credit.
+- Add raw-record output compatibility checks across production, result and public
+  release, including exact selected-output metadata/order and explicit episode
+  assignment consistency. No rendering, publication authority or rights decision.
+- Preserve released Prompt SDK v1, Context Package v1 and Context Builder v1 bytes.
+
 ## Unreleased — Comic Manifest immutable references (#92)
 
 - Add a protected reference planner and host-installed exact resolver inventory
