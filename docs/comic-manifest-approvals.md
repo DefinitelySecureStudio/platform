@@ -34,7 +34,9 @@ as trusted configuration. Candidate, predecessor, detached approval and review
 scope data are raw JSON strings; payloads cannot install or replace an adapter.
 `getTime()` is called once per evaluation. The verifier is called for every
 required approval on every evaluation; results are never cached or reused.
-Only the literal boolean `true` from the verifier accepts. `false`, unknown
+Each verifier call receives a frozen exact tuple; its subject, scope and selected
+artifact-digest list are immutable, including after asynchronous work. Only the
+literal boolean `true` from the verifier accepts. `false`, unknown
 values, thrown errors, missing bindings and unverifiable evidence fail closed
 with fixed value-free diagnostics. A status label such as `"approved"` does not
 grant authority.

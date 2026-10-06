@@ -74,6 +74,32 @@ test('release approval boundary binds current decisions to exact release, output
   }
 });
 
+test('async verifiers cannot mutate any nested approval input, including for the final role', async () => {
+  const seen = [];
+  const verifier = boundary({ verify: async input => {
+    seen.push(input);
+    const expectedDigests = [...input.artifactDigests];
+    assert.ok(Object.isFrozen(input));
+    assert.ok(Object.isFrozen(input.subject));
+    assert.ok(Object.isFrozen(input.scope));
+    assert.ok(Object.isFrozen(input.artifactDigests));
+    await Promise.resolve();
+    assert.throws(() => input.artifactDigests.push('sha256:' + '0'.repeat(64)), TypeError);
+    assert.throws(() => { input.artifactDigests[0] = 'sha256:' + '0'.repeat(64); }, TypeError);
+    assert.deepEqual([...input.artifactDigests], expectedDigests);
+    return true;
+  } });
+  const result = await verifier.verify({
+    candidateSource: raw(fixture.release), approvalSources: fixture.approvals.slice(1).map(raw)
+  });
+  assert.equal(result.valid, true);
+  assert.deepEqual(seen.map(input => input.role).sort(), ['canon-editor', 'disclosure-reviewer', 'publisher']);
+  assert.equal(seen.length, 3);
+  for (const input of seen) assert.deepEqual([...input.artifactDigests], [
+    'sha256:5aa128a0dd0945b00ba3d71a5f7b5916e06f40c53048c31d74432eb03f4e764d'
+  ]);
+});
+
 test('production review is separately scoped and binds the exact production with no artifacts', async () => {
   const calls = [];
   const result = await boundary({ verify: input => { calls.push(input); return true; } }).verify({

@@ -71,8 +71,8 @@ export function createComicApprovalBoundary({ getTime, verifyCurrentApproval, pr
           !required.every(role => embeddedRoles.includes(role))) return failure('APPROVAL_ROLES');
     }
 
-    const artifactDigests = candidate.kind === 'comic-production' ? [] :
-      candidate.outputs.map(output => output.artifact.sha256).sort();
+    const artifactDigests = Object.freeze(candidate.kind === 'comic-production' ? [] :
+      candidate.outputs.map(output => output.artifact.sha256).sort());
     const action = candidate.kind === 'comic-production' ? 'review-production' : 'publish-release';
     let currentTime;
     try { currentTime = await getTime(); }
