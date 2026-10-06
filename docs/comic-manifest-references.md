@@ -159,10 +159,14 @@ to bind or render:
 
 The Manifest's `use_authorization_reference`, Builder preparation evidence and
 past authorization decisions are historical evidence only. At each package-use
-boundary the consumer must receive a separately supplied current Context
-Authorization and evaluation time. The test supplies a standalone synthetic authorization fixture with a new decision
-id to show that current permission is separate from the stored historical
-reference; it does not renew the saved decision. A
+boundary the host must call its trusted authorization provider and receive an
+explicitly verified result scoped to the exact prompt, package, sections, purpose
+and evaluation time, including a current revocation check, before passing the
+returned Context Authorization to SDK binding/rendering. A raw saved authorization
+document cannot be passed directly as a use grant. The offline test models this
+with an injected synthetic host authority; it proves direct historical input
+cannot render and that a fresh host recheck can render even when it returns the
+same decision ID. Decision-ID inequality is not a freshness signal. A
 missing, denied/revoked, expired or mismatched current decision fails before
 rendering. The host authority remains responsible for current revocation checks;
 Prompt SDK v1 does not add revocation fields to the immutable authorization

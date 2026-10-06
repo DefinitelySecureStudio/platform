@@ -42,13 +42,16 @@ the prepared result with Builder's existing `createBuildArtifact`/
 `verifyBuildArtifact` APIs and retains the protected Builder `evidence_reference`.
 It does not call a model or execute the prompt.
 
-The consumer supplies a current Context Authorization separately at the use
-boundary. The Manifest's `use_authorization_reference` and Builder evidence stay
-attached as historical protected provenance; they are never used as a grant. The
-host must obtain a current allow/deny decision and perform revocation checks
-independently. The offline fixture supplies a standalone synthetic decision and
-uses the released SDK's existing v1 authorization validation; it does not renew a
-historical grant. No immutable Builder or SDK schemas or bytes change.
+The consumer asks a trusted authorization provider for a current Context
+Authorization separately at the use boundary. The Manifest's
+`use_authorization_reference` and Builder evidence stay attached as historical
+protected provenance; they are never passed directly as a grant. The host must
+obtain a current allow/deny decision and perform revocation checks independently.
+The offline fixture injects a synthetic host authority and explicitly checks its
+scoped result before using the released SDK's existing v1 authorization validation.
+A host may reverify the same decision ID if it remains current; freshness comes
+from the current authority check, not ID inequality. No immutable Builder or SDK
+schemas or bytes change.
 
 ## Separate authority and validation
 

@@ -103,12 +103,13 @@ async function resolveComicReferences(source = fixture.production, { readDecisio
 // bytes already verified by the installed reference resolver and uses the released
 // SDK for current package authorization, binding, and rendering. It never executes
 // a prompt or calls a model adapter.
-function comicPromptHandoff(source, verified, { authorization, at, inputValues, render = renderPromptWithContextPackage } = {}) {
+async function comicPromptHandoff(source, verified, { authorizationProvider, authorization, at, inputValues, render = renderPromptWithContextPackage } = {}) {
   const manifestReport = validateComicManifest(canonicalJson(source));
   assert.equal(manifestReport.valid, true, JSON.stringify(manifestReport.diagnostics));
   const production = manifestReport.value;
   assert.equal(production.kind, 'comic-production');
-  assert.ok(authorization, 'Current package-use authorization is a separate required input.');
+  assert.ok(authorizationProvider && typeof authorizationProvider.authorize === 'function',
+    'A trusted host authorization provider must reverify package use at this boundary.');
   assert.equal(typeof at, 'string', 'The package-use evaluation time is explicit.');
   assert.equal(verified?.valid, true, 'Only a successful exact reference verification can be handed off.');
   assert.equal(canonicalJson(verified.manifest_identity), canonicalJson(identity(production)));
@@ -164,8 +165,24 @@ function comicPromptHandoff(source, verified, { authorization, at, inputValues, 
   assert.equal(typeof builderResult.evidence_reference, 'string');
   assert.ok(builderResult.evidence_reference.length > 0);
 
-  // The Manifest's use_authorization_reference remains historical provenance. The
-  // independently supplied authorization below is the only grant used at this boundary.
+  // A saved authorization document is only historical data. Ask the trusted host
+  // authority at the use boundary and require its current revocation check to bind
+  // to this exact prompt/package/scope/time before giving the grant to the SDK.
+  const authorizationRequest = {
+    prompt: { id: definition.id, version: definition.version },
+    package: packageDocument.manifest.package,
+    sections: packageDocument.manifest.sections.map(section => section.slot),
+    purpose: packageDocument.manifest.purpose,
+    classification: packageDocument.manifest.classification,
+    at
+  };
+  const verifiedUse = await authorizationProvider.authorize(authorizationRequest);
+  assert.equal(verifiedUse?.status, 'verified', 'The host authority must explicitly reverify use.');
+  assert.equal(verifiedUse?.revocation?.status, 'active', 'The host must confirm the grant is not revoked.');
+  assert.equal(verifiedUse?.revocation?.checked_at, at, 'Revocation must be checked at the use evaluation time.');
+  assert.equal(canonicalJson(verifiedUse?.request), canonicalJson(authorizationRequest),
+    'The host verification must cover the exact use request.');
+  authorization = verifiedUse.authorization;
   const binding = validateContextBinding(definition, packageDocument, authorization, { at });
   if (!binding.valid) throw new Error('CURRENT_USE_AUTHORIZATION_INVALID');
   const { renderedPrompt } = render(definition, {
@@ -192,12 +209,12 @@ function comicPromptHandoff(source, verified, { authorization, at, inputValues, 
   };
 }
 
-function currentUseAuthorization() {
+function currentUseAuthorization({ decisionId = 'urn:uuid:00000000-0000-4000-8000-000000000073' } = {}) {
   const packageDocument = foundation.result.package;
   return {
     spec_version: '1.0.0',
     kind: 'context-authorization',
-    decision_id: 'urn:uuid:00000000-0000-4000-8000-000000000073',
+    decision_id: decisionId,
     decision: 'allow',
     package: structuredClone(packageDocument.manifest.package),
     prompt: { id: foundation.prompt.id, version: foundation.prompt.version },
@@ -208,6 +225,28 @@ function currentUseAuthorization() {
     decided_at: '2026-09-15T12:05:00Z',
     expires_at: '2026-09-15T13:00:00Z',
     authority_reference: 'urn:uuid:00000000-0000-4000-8000-000000000074'
+  };
+}
+
+// A small trusted-host stand-in: approvals are independently configured records,
+// and authorize() rechecks current revocation for every exact use request. It never
+// creates or renews an authorization document.
+function syntheticUseAuthority({ approvals, revocationStatus = 'active' }) {
+  let calls = 0;
+  return {
+    get calls() { return calls; },
+    async authorize(request) {
+      calls++;
+      assert.equal(revocationStatus, 'active', 'The synthetic host authority denies revoked grants.');
+      const authorization = approvals[0];
+      assert.ok(authorization, 'The host authority needs an independently supplied approval record.');
+      return {
+        status: 'verified',
+        request: structuredClone(request),
+        authorization: structuredClone(authorization),
+        revocation: { status: revocationStatus, checked_at: request.at }
+      };
+    }
   };
 }
 
@@ -234,9 +273,10 @@ test('exact Manifest prompt, prepared package and Builder evidence pass the offl
   assert.equal(verified.valid, true, JSON.stringify(verified.diagnostics));
   assert.equal(reads, plan.references.length);
   const authorization = currentUseAuthorization();
+  const authorizationProvider = syntheticUseAuthority({ approvals: [authorization] });
   const renderCalls = [];
-  const result = comicPromptHandoff(fixture.production, verified, {
-    authorization,
+  const result = await comicPromptHandoff(fixture.production, verified, {
+    authorizationProvider,
     at: fixture.at,
     render(definition, options) {
       renderCalls.push({ definition, options });
@@ -251,7 +291,7 @@ test('exact Manifest prompt, prepared package and Builder evidence pass the offl
   assert.equal(result.handoff.preparation_reference, foundation.request.preparation_reference);
   assert.equal(result.handoff.historical_use_authorization_reference, fixture.production.inputs.prompts[0].context.use_authorization_reference);
   assert.equal(result.handoff.current_use_authorization.decision_id, authorization.decision_id);
-  assert.notEqual(result.handoff.current_use_authorization.decision_id, result.handoff.historical_use_authorization_reference);
+  assert.equal(authorizationProvider.calls, 1, 'The host authority is consulted at the use boundary.');
 });
 
 test('Platform canonical identity agrees with every Codex linkage and approval subject', () => {
@@ -306,8 +346,8 @@ test('schema-valid Manifest cannot substitute the prompt, package, purpose, slot
     mutate(production);
     assert.equal(validateComicManifest(canonicalJson(production)).valid, true);
     let renders = 0;
-    assert.throws(() => comicPromptHandoff(production, verified, {
-      authorization: currentUseAuthorization(),
+    await assert.rejects(() => comicPromptHandoff(production, verified, {
+      authorizationProvider: syntheticUseAuthority({ approvals: [currentUseAuthorization()] }),
       at: fixture.at,
       render() { renders++; throw new Error('Rendering must not occur for an invalid link.'); }
     }));
@@ -318,13 +358,37 @@ test('schema-valid Manifest cannot substitute the prompt, package, purpose, slot
 test('historical preparation/use evidence cannot replace a separate current package-use authorization', async () => {
   const { verified } = await resolveComicReferences();
   let renders = 0;
-  assert.throws(() => comicPromptHandoff(fixture.production, verified, {
+  assert.equal(foundation.authorization.decision_id,
+    fixture.production.inputs.prompts[0].context.use_authorization_reference,
+    'The regression fixture reproduces the historical authorization reference.');
+  await assert.rejects(() => comicPromptHandoff(fixture.production, verified, {
+    authorization: foundation.authorization,
     at: fixture.at,
-    render() { renders++; throw new Error('Rendering must not occur without current authorization.'); }
-  }), /Current package-use authorization/);
+    render() { renders++; throw new Error('A direct historical authorization must not render.'); }
+  }), /trusted host authorization provider/);
   assert.equal(renders, 0);
-  assert.throws(() => comicPromptHandoff(fixture.production, verified, {
-    authorization: foundation.result,
+
+  // Reverification is the freshness boundary. An authority can recheck and return
+  // the same decision ID when that grant remains current; ID inequality is not the
+  // freshness test.
+  const sameDecisionIdProvider = syntheticUseAuthority({ approvals: [structuredClone(foundation.authorization)] });
+  const result = await comicPromptHandoff(fixture.production, verified, {
+    authorizationProvider: sameDecisionIdProvider,
+    at: fixture.at
+  });
+  assert.equal(sameDecisionIdProvider.calls, 1);
+  assert.equal(result.handoff.current_use_authorization.decision_id, foundation.authorization.decision_id);
+
+  const revokedProvider = syntheticUseAuthority({ approvals: [foundation.authorization], revocationStatus: 'revoked' });
+  await assert.rejects(() => comicPromptHandoff(fixture.production, verified, {
+    authorizationProvider: revokedProvider,
+    at: fixture.at,
+    render() { renders++; throw new Error('A revoked authorization must not render.'); }
+  }), /synthetic host authority denies revoked grants/);
+  assert.equal(renders, 0);
+
+  await assert.rejects(() => comicPromptHandoff(fixture.production, verified, {
+    authorizationProvider: syntheticUseAuthority({ approvals: [foundation.result] }),
     at: fixture.at,
     render() { renders++; throw new Error('Builder evidence is not a use grant.'); }
   }), /CURRENT_USE_AUTHORIZATION_INVALID/);
@@ -346,8 +410,8 @@ test('wrong, denied, stale or revoked current authorization fails before renderi
     const authorization = currentUseAuthorization();
     mutate(authorization);
     let renders = 0;
-    assert.throws(() => comicPromptHandoff(fixture.production, verified, {
-      authorization,
+    await assert.rejects(() => comicPromptHandoff(fixture.production, verified, {
+      authorizationProvider: syntheticUseAuthority({ approvals: [authorization] }),
       at,
       render() { renders++; throw new Error(`Rendering must not occur after ${name}.`); }
     }), /CURRENT_USE_AUTHORIZATION_INVALID/);
