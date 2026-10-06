@@ -134,6 +134,49 @@ bound their own acquisition: JavaScript cannot forcibly stop arbitrary host code
 that ignores its signal or blocks the event loop. The core neither retries nor
 falls back, and never reports partial artifacts as successful.
 
+## Prompt/Builder package handoff (#93)
+
+The test-only consumer in
+[`tests/prompt-sdk/comic-manifest-contract.test.js`](../tests/prompt-sdk/comic-manifest-contract.test.js)
+demonstrates the cross-record handoff without exporting a Comic Manifest runtime
+API. It accepts artifacts only from a successful `createComicReferenceResolver`
+result and checks the complete relationship before asking the released Prompt SDK
+to bind or render:
+
+- The selected Prompt Definition is the exact verified public artifact pinned by
+  the Manifest selector, logical id/version and canonical identity. A trusted host
+  must review the installed reference/tag binding; fixture identity checks alone
+  do not establish approval or production release.
+- The selected Context Package matches the Manifest's package id/version/instance,
+  complete manifest identity, purpose, classification and ordered section slots.
+- The exact prepared Context Builder result has the bound canonical identity and
+  embeds that same complete package document. Its `preparation_reference` matches
+  the package's preparation authority reference, and its protected
+  `evidence_reference` is retained in the handoff metadata.
+- The released SDK validates the prompt's declared slots, accepted media types and
+  classifications, required sections, explicit template placements, package
+  lifetime and authorization scope before rendering.
+
+The Manifest's `use_authorization_reference`, Builder preparation evidence and
+past authorization decisions are historical evidence only. At each package-use
+boundary the consumer must receive a separately supplied current Context
+Authorization and evaluation time. The test supplies a standalone synthetic authorization fixture with a new decision
+id to show that current permission is separate from the stored historical
+reference; it does not renew the saved decision. A
+missing, denied/revoked, expired or mismatched current decision fails before
+rendering. The host authority remains responsible for current revocation checks;
+Prompt SDK v1 does not add revocation fields to the immutable authorization
+schema. The reference proof performs no model call, source refresh, permission
+renewal or external read; its resolver uses only synthetic in-memory byte readers.
+
+No Manifest, Context Package, Builder result or Prompt SDK schema is extended.
+The test consumer is a bounded integration proof, not a production orchestration
+or approval API. It validates the prepared result through Builder's existing
+`createBuildArtifact`/`verifyBuildArtifact` APIs and uses the Prompt SDK's existing
+validation and rendering APIs. Run it with
+`node --test tests/prompt-sdk/comic-manifest-contract.test.js`; the full regression
+suite also covers the released Builder/SDK contracts.
+
 ## Content verification and result handling
 
 After raw byte identity verifies, prompt definitions must match the declared complete
