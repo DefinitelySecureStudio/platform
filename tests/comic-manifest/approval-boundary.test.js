@@ -110,6 +110,8 @@ test('reviewer role set, producer separation, exact subject, artifacts, metadata
   const approvals = fixture.approvals.slice(1).map(a => structuredClone(a));
   const run = source => boundary().verify({ candidateSource: raw(fixture.release), approvalSources: source });
   assert.equal((await run(approvals.slice(0, 2).map(raw))).diagnostics[0].code, 'APPROVAL_ROLES');
+  const unknownRole = [fixture.approvals[0], ...fixture.approvals.slice(2)];
+  assert.equal((await run(unknownRole.map(raw))).diagnostics[0].code, 'APPROVAL_ROLES');
 
   const cases = [
     ['subject', a => { a[0].subject.sha256 = 'sha256:' + '0'.repeat(64); }, 'APPROVAL_BINDING'],
@@ -193,6 +195,14 @@ for (const entry of timeCases) test(`Codex approval-time boundary: ${entry.name}
 });
 
 test('unsupported actions, unknown roles, and non-exact review scopes cannot authorize', async () => {
+  const actions = [];
+  const releaseAction = await boundary({ verify: input => { actions.push(input.intendedAction); return true; } }).verify({
+    candidateSource: raw(fixture.release), approvalSources: fixture.approvals.slice(1).map(raw),
+    intendedAction: 'promote-canon', status: 'approved'
+  });
+  assert.equal(releaseAction.intended_action, 'publish-release');
+  assert.deepEqual(actions, ['publish-release', 'publish-release', 'publish-release']);
+
   const releaseAsReview = await boundary().verify({
     candidateSource: raw(fixture.release), approvalSources: fixture.approvals.slice(1).map(raw),
     reviewScopeSource: raw(fixture.release.scope)
