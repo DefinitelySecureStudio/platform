@@ -80,10 +80,13 @@ failure. Ajv runs fail-fast and its raw diagnostic state is discarded.
 
 Production checks revision/predecessor shape, unique local identities, ordered
 text speaker rules, local asset/prompt references, declared input classification,
-required rendition presence and media/dimension consistency. Input tuples reject
-explicit floating tag names but their immutability/authenticity still needs an
-artifact verifier. Result checks unique outputs/gates, declared input classification,
-execution time order, tool membership and complete protected transformation shape.
+required rendition presence, exact versioned profile/media compatibility, image
+side/pixel ceilings, declared byte caps and nonblank accessibility/rights fields.
+Input tuples reject explicit floating tag names but their immutability/authenticity
+still needs an artifact verifier. Result checks unique outputs/gates, declared input
+classification, output profile/cap validity, execution time order, tool membership
+and complete protected transformation shape. Release checks the same output
+profile/cap rules and the exact standard Studio credit.
 
 Release checks revision/predecessor shape, final title, deduplicated public tuples,
 output identities, exact gate ordering, required public approver roles, decision
@@ -94,8 +97,10 @@ publication scope bounds and sorted artifact-list shape for the claimed role; it
 cannot authenticate the actor or evaluate current permission.
 
 Semantic codes: `REVISION`, `DUPLICATE_ID`, `LOCAL_REFERENCE`, `SPEAKER`,
-`CLASSIFICATION`, `REQUIRED_RENDITION`, `DIMENSIONS`, `FLOATING_REFERENCE`,
-`TIME_ORDER`, `TRANSFORMATION`, `TOOL_REFERENCE`, `FINAL_TITLE`,
+`CLASSIFICATION`, `REQUIRED_OUTPUT`, `DIMENSIONS`, `RENDITION_PROFILE`,
+`RENDITION_MEDIA`, `RENDITION_DIMENSIONS`, `RENDITION_LIMIT`,
+`RENDITION_METADATA`, `OUTPUT_LIMIT`, `FLOATING_REFERENCE`, `TIME_ORDER`,
+`TRANSFORMATION`, `TOOL_REFERENCE`, `FINAL_TITLE`,
 `DUPLICATE_REFERENCE`, `GATE_ORDER`, `APPROVAL_ROLE`, `PUBLIC_PROVENANCE`,
 `ARTIFACT_ORDER`, `APPROVAL_ARTIFACTS`; unexpected internal failures use the fixed
 `SEMANTIC_INVALID`. Timestamps are schema-validated UTC calendar values; ordering
@@ -108,22 +113,27 @@ records, release candidates with failed gates and historical approval envelopes
 can be valid records. This API never checks the wall clock, renews a grant, marks
 a gate complete, follows a reference, issues an attestation or approves a payload.
 
-#91–#94 add richer episode/reference/foundation/output integration. #95 handles
-cross-revision/current approval boundaries; #96 handles cross-record build-result
-verification and public projection. Actual predecessor bytes, complete public
-input lineage, artifact hashes/dimensions, trusted identities/revocation, required
-output matching against production, human rights/accessibility/disclosure review
-and actual publication remain outside this local API. Never use it as a replacement
-for those checks. Normative gaps return to Codex, not local schema edits.
+#91–#94 add richer episode/reference/foundation/output integration. The separate
+[`validateComicOutputCompatibility`](comic-manifest-renditions.md) helper checks
+production-to-result output requirements, result-to-release output preservation,
+and the supplied episode assignment. It consumes explicit records and never reads
+artifact locations. #95 handles cross-revision/current approval boundaries; #96
+handles deeper cross-record artifact verification and public projection. Actual
+media decoding/rendering, artifact-byte identity, trusted identities/revocation,
+human rights/accessibility/disclosure review and publication remain outside these
+checks. Never treat matching declarations as proof of those properties. Normative
+gaps return to Codex, not local schema edits.
 
 ## Contract adoption and reproducible generation
 
-Normative source: [Codex specification](https://github.com/DefinitelySecureStudio/codex/blob/e415596f2ec73f4d25b289532a72a565ff33c28d/specs/manifests/comic-manifest-v1.md)
-and RFC 0007, merged commit `e415596f2ec73f4d25b289532a72a565ff33c28d`.
+Normative source: [Codex specification](https://github.com/DefinitelySecureStudio/codex/blob/dba54695996200c100299555bc665914765ebf87/specs/manifests/comic-manifest-v1.md),
+RFC 0007 and [RFC 0008](https://github.com/DefinitelySecureStudio/codex/blob/dba54695996200c100299555bc665914765ebf87/rfcs/0008-comic-manifest-rendition-profiles.md),
+merged commit `dba54695996200c100299555bc665914765ebf87`.
 [Runtime metadata](../src/comic-manifest/contract.js) pins the exact schema bytes;
 [development fixture lock](../tests/fixtures/comic-manifest-validation-lock.json)
-pins schema, scenario and negative fixtures to that same reviewed commit. These
-bytes match the previously reviewed #89 artifacts. They are candidate source
+pins schema, scenario and negative fixtures to that same merged Codex commit. The
+updated 1.0.0 candidate replaces the earlier unreleased #89 profile shape; the
+historical consumer proof remains pinned independently. These are candidate source
 references, **not immutable production release tuples**. #99 remains the release
 gate; no tag, registry publishing or production-ready claim is introduced here.
 
@@ -137,11 +147,14 @@ npm test
 The generator verifies schema size/digest and the installed/locked Ajv 8.20.0 and
 ajv-formats 3.0.1 versions before writing standalone validators. It takes explicit
 local bytes and never fetches. The committed generated file must reproduce exactly;
-it is not hand-edited. Existing schema fixture bytes and released schema/code/locks
-stay unchanged. New reviewed contract versions require a separate pin update,
-regeneration, conformance and owner review, never edits under an existing identity.
+it is not hand-edited. This adoption changes only the unreleased Comic Manifest
+candidate and its local consumer fixtures. Released Prompt SDK v1, Context Package
+v1 and Context Builder v1 bytes and locks remain unchanged. Future normative profile
+changes return to Codex for review before an explicit Platform pin update and
+regeneration.
 
-Tests cover reviewed positive/negative fixtures, malformed grammar, duplicate and
+Tests cover reviewed positive/negative fixtures, rendition profile boundaries and
+cross-record output/episode compatibility, malformed grammar, duplicate and
 prototype keys, exact byte/depth/value/string limits, Unicode, unsafe coercion hooks,
 value-free failures, local semantics, canonical identity agreement, reproducible
 generation and schema tampering. An isolated effects test disables filesystem,

@@ -3,6 +3,11 @@ const need = (condition, code) => { if (!condition) throw code; };
 const same = (a, b) => canonicalJson(a) === canonicalJson(b);
 const unique = (values, code) => need(new Set(values).size === values.length, code);
 const rank = value => ['public', 'internal', 'confidential', 'restricted'].indexOf(value);
+const renditionProfiles = new Map([
+  ['comic-page-image@1.0.0', { mediaTypes: ['image/png', 'image/jpeg', 'image/webp'], maxBytes: 50_000_000, image: true }],
+  ['comic-portable-document@1.0.0', { mediaTypes: ['application/pdf'], maxBytes: 50_000_000, image: false }],
+  ['comic-accessible-transcript@1.0.0', { mediaTypes: ['text/plain'], maxBytes: 131_072, image: false }]
+]);
 // Schema-validated UTC timestamps; lexical comparison preserves sub-millisecond
 // precision and RFC3339 leap seconds without reading a clock or rounding dates.
 const time = value => value.slice(0, -1).replace(/[t\s]/, 'T').split('.').map((v, i) => i ? v.padEnd(12, '0') : v).concat(value.includes('.') ? [] : ['000000000000']).join('.');
@@ -10,6 +15,19 @@ const gateOrder = ['editorial', 'canon-continuity', 'visual-text', 'integrity', 
 function dimensions(output) {
   need(output.artifact ? output.artifact.media_type.startsWith('image/') === (output.dimensions !== null)
     : output.media_type.startsWith('image/') === (output.dimensions !== null), 'DIMENSIONS');
+}
+function renditionProfile(output) {
+  const profile = renditionProfiles.get(`${output.profile.profile_id}@${output.profile.profile_version}`);
+  need(profile, 'RENDITION_PROFILE');
+  const mediaType = output.artifact ? output.artifact.media_type : output.media_type;
+  need(profile.mediaTypes.includes(mediaType), 'RENDITION_MEDIA');
+  if (profile.image) {
+    need(output.dimensions !== null && output.dimensions.width <= 8_192 && output.dimensions.height <= 8_192 &&
+      output.dimensions.width * output.dimensions.height <= 33_554_432, 'RENDITION_DIMENSIONS');
+  } else need(output.dimensions === null, 'RENDITION_DIMENSIONS');
+  need(output.max_bytes <= profile.maxBytes, 'RENDITION_LIMIT');
+  if (output.artifact) need(output.artifact.byte_size <= output.max_bytes, 'OUTPUT_LIMIT');
+  need(['alt_text', 'transcript', 'rights_notice'].every(key => output[key].trim().length > 0), 'RENDITION_METADATA');
 }
 function dependency(d) {
   need(!['main', 'master', 'latest'].includes(d.tag.toLowerCase()), 'FLOATING_REFERENCE');
@@ -55,14 +73,14 @@ function production(p) {
     for (const t of panel.text) need((t.kind === 'caption') === (t.speaker === null), 'SPEAKER');
   }
   unique(p.renditions.map(x => x.rendition_id), 'DUPLICATE_ID');
-  need(p.renditions.some(r => r.required), 'REQUIRED_RENDITION');
-  p.renditions.forEach(dimensions);
+  need(p.renditions.some(r => r.required), 'REQUIRED_OUTPUT');
+  p.renditions.forEach(r => { dimensions(r); renditionProfile(r); });
 }
 function result(r) {
   inputs(r.inputs, r.classification);
   unique(r.outputs.map(x => x.rendition_id), 'DUPLICATE_ID');
   unique(r.gates.map(x => x.gate), 'DUPLICATE_ID');
-  r.outputs.forEach(dimensions); execution(r.execution, false);
+  r.outputs.forEach(output => { dimensions(output); renditionProfile(output); }); execution(r.execution, false);
   need(r.inputs.dependencies.some(d => same(d, r.execution.tool)), 'TOOL_REFERENCE');
 }
 function release(r) {
@@ -71,7 +89,8 @@ function release(r) {
   need(r.title !== 'Untitled', 'FINAL_TITLE');
   dependency(r.input_canon); r.dependencies.forEach(dependency);
   unique(r.dependencies.map(d => canonicalJson(d)), 'DUPLICATE_REFERENCE');
-  unique(r.outputs.map(x => x.rendition_id), 'DUPLICATE_ID'); r.outputs.forEach(dimensions);
+  unique(r.outputs.map(x => x.rendition_id), 'DUPLICATE_ID');
+  r.outputs.forEach(output => { dimensions(output); renditionProfile(output); });
   need(same(r.gates.map(g => g.gate), gateOrder), 'GATE_ORDER');
   unique(r.approvers.map(a => a.decision_id), 'DUPLICATE_ID');
   for (const role of ['publisher', 'canon-editor', ...(r.private_context.influenced ? ['disclosure-reviewer'] : [])]) {

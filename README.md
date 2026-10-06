@@ -144,3 +144,7 @@ public display metadata without assigning numbers or granting publication author
 [Immutable reference verification](docs/comic-manifest-references.md) uses explicit
 host-installed exact bindings, current access verification and bounded reads.
 Protected results are not public projections or package-use authorization.
+
+[Rendition and publication output validation](docs/comic-manifest-renditions.md)
+adopts the reviewed exact profile catalog and checks selected outputs and explicit
+episode assignment without rendering or granting publication authority.

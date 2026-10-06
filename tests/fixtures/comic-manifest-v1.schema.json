@@ -507,14 +507,36 @@
         }
       ]
     },
+    "renditionProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "profile_version"
+      ],
+      "properties": {
+        "profile_id": {
+          "enum": [
+            "comic-page-image",
+            "comic-portable-document",
+            "comic-accessible-transcript"
+          ]
+        },
+        "profile_version": {
+          "const": "1.0.0"
+        }
+      }
+    },
     "rendition": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "rendition_id",
         "required",
+        "profile",
         "media_type",
         "dimensions",
+        "max_bytes",
         "alt_text",
         "transcript",
         "rights_notice"
@@ -525,6 +547,9 @@
         },
         "required": {
           "type": "boolean"
+        },
+        "profile": {
+          "$ref": "#/$defs/renditionProfile"
         },
         "media_type": {
           "enum": [
@@ -537,6 +562,11 @@
         },
         "dimensions": {
           "$ref": "#/$defs/dimensions"
+        },
+        "max_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50000000
         },
         "alt_text": {
           "type": "string",
@@ -634,7 +664,9 @@
       "required": [
         "rendition_id",
         "artifact",
+        "profile",
         "dimensions",
+        "max_bytes",
         "rights_notice",
         "alt_text",
         "transcript"
@@ -646,8 +678,16 @@
         "artifact": {
           "$ref": "#/$defs/artifact"
         },
+        "profile": {
+          "$ref": "#/$defs/renditionProfile"
+        },
         "dimensions": {
           "$ref": "#/$defs/dimensions"
+        },
+        "max_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50000000
         },
         "rights_notice": {
           "type": "string",
@@ -672,7 +712,9 @@
       "required": [
         "rendition_id",
         "artifact",
+        "profile",
         "dimensions",
+        "max_bytes",
         "rights_notice",
         "alt_text",
         "transcript"
@@ -714,8 +756,16 @@
             }
           }
         },
+        "profile": {
+          "$ref": "#/$defs/renditionProfile"
+        },
         "dimensions": {
           "$ref": "#/$defs/dimensions"
+        },
+        "max_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50000000
         },
         "rights_notice": {
           "type": "string",

@@ -137,7 +137,12 @@
         "dimensions": null,
         "alt_text": "A blue cube, followed by a red sphere.",
         "transcript": "Panel 1: A cube.\nPanel 2: A sphere.",
-        "rights_notice": "Synthetic conformance fixture; Apache-2.0."
+        "rights_notice": "Synthetic conformance fixture; Apache-2.0.",
+        "profile": {
+          "profile_id": "comic-accessible-transcript",
+          "profile_version": "1.0.0"
+        },
+        "max_bytes": 131072
       }
     ]
   },
@@ -151,8 +156,8 @@
       "revision": 1,
       "identity": {
         "canonicalization": "studio-json-v1",
-        "byte_size": 3359,
-        "sha256": "sha256:9447b652a4ab121bf5355e5faa21a224b2d6d4259d403c005580b757511d1e19"
+        "byte_size": 3459,
+        "sha256": "sha256:9250217ad23125b0356a9e7002f57a55dacf9d982f069caa403b89f8c6c234dc"
       }
     },
     "classification": "internal",
@@ -258,7 +263,12 @@
         "dimensions": null,
         "rights_notice": "Synthetic conformance fixture; Apache-2.0.",
         "alt_text": "A blue cube, followed by a red sphere.",
-        "transcript": "Panel 1: A cube.\nPanel 2: A sphere."
+        "transcript": "Panel 1: A cube.\nPanel 2: A sphere.",
+        "profile": {
+          "profile_id": "comic-accessible-transcript",
+          "profile_version": "1.0.0"
+        },
+        "max_bytes": 131072
       }
     ],
     "gates": [
@@ -385,7 +395,12 @@
         "dimensions": null,
         "rights_notice": "Synthetic conformance fixture; Apache-2.0.",
         "alt_text": "A blue cube, followed by a red sphere.",
-        "transcript": "Panel 1: A cube.\nPanel 2: A sphere."
+        "transcript": "Panel 1: A cube.\nPanel 2: A sphere.",
+        "profile": {
+          "profile_id": "comic-accessible-transcript",
+          "profile_version": "1.0.0"
+        },
+        "max_bytes": 131072
       }
     ],
     "gates": [
@@ -513,8 +528,8 @@
       "decided_at": "2026-09-15T12:02:00Z",
       "subject": {
         "canonicalization": "studio-json-v1",
-        "byte_size": 3359,
-        "sha256": "sha256:9447b652a4ab121bf5355e5faa21a224b2d6d4259d403c005580b757511d1e19"
+        "byte_size": 3459,
+        "sha256": "sha256:9250217ad23125b0356a9e7002f57a55dacf9d982f069caa403b89f8c6c234dc"
       },
       "artifact_digests": [],
       "scope": {
@@ -535,8 +550,8 @@
       "decided_at": "2026-09-15T12:02:00Z",
       "subject": {
         "canonicalization": "studio-json-v1",
-        "byte_size": 5269,
-        "sha256": "sha256:1d2b5e1bfc49f40ceea1662b04d7380735b82f730f55a61cc71f5a6696b750c2"
+        "byte_size": 5369,
+        "sha256": "sha256:fe77969b47aa6b5dde423c9ae13075b082974f375bd9a71502b09f89859bc8bf"
       },
       "artifact_digests": [
         "sha256:5aa128a0dd0945b00ba3d71a5f7b5916e06f40c53048c31d74432eb03f4e764d"
@@ -559,8 +574,8 @@
       "decided_at": "2026-09-15T12:02:00Z",
       "subject": {
         "canonicalization": "studio-json-v1",
-        "byte_size": 5269,
-        "sha256": "sha256:1d2b5e1bfc49f40ceea1662b04d7380735b82f730f55a61cc71f5a6696b750c2"
+        "byte_size": 5369,
+        "sha256": "sha256:fe77969b47aa6b5dde423c9ae13075b082974f375bd9a71502b09f89859bc8bf"
       },
       "artifact_digests": [
         "sha256:5aa128a0dd0945b00ba3d71a5f7b5916e06f40c53048c31d74432eb03f4e764d"
@@ -583,8 +598,8 @@
       "decided_at": "2026-09-15T12:02:00Z",
       "subject": {
         "canonicalization": "studio-json-v1",
-        "byte_size": 5269,
-        "sha256": "sha256:1d2b5e1bfc49f40ceea1662b04d7380735b82f730f55a61cc71f5a6696b750c2"
+        "byte_size": 5369,
+        "sha256": "sha256:fe77969b47aa6b5dde423c9ae13075b082974f375bd9a71502b09f89859bc8bf"
       },
       "artifact_digests": [
         "sha256:5aa128a0dd0945b00ba3d71a5f7b5916e06f40c53048c31d74432eb03f4e764d"
@@ -605,19 +620,19 @@
       "revision": 1,
       "identity": {
         "canonicalization": "studio-json-v1",
-        "byte_size": 3359,
-        "sha256": "sha256:9447b652a4ab121bf5355e5faa21a224b2d6d4259d403c005580b757511d1e19"
+        "byte_size": 3459,
+        "sha256": "sha256:9250217ad23125b0356a9e7002f57a55dacf9d982f069caa403b89f8c6c234dc"
       }
     },
     "result_identity": {
       "canonicalization": "studio-json-v1",
-      "byte_size": 4465,
-      "sha256": "sha256:871cb595c8d3b44d6245fd9c86daf9aa9185b76081f918b5a44c4568062f1dcf"
+      "byte_size": 4565,
+      "sha256": "sha256:5d0026491f8400ac9bbb1c5919065c97d3d0aab33c5458d1e454124ca429157a"
     },
     "release_identity": {
       "canonicalization": "studio-json-v1",
-      "byte_size": 5269,
-      "sha256": "sha256:1d2b5e1bfc49f40ceea1662b04d7380735b82f730f55a61cc71f5a6696b750c2"
+      "byte_size": 5369,
+      "sha256": "sha256:fe77969b47aa6b5dde423c9ae13075b082974f375bd9a71502b09f89859bc8bf"
     },
     "attestation_reference": "urn:uuid:10000000-0000-4000-8000-000000000300"
   },
@@ -638,19 +653,19 @@
     "approvals": [
       {
         "decision_id": "urn:uuid:10000000-0000-4000-8000-000000000199",
-        "sha256": "sha256:21cf0df439e7d871bb1af47e40b9a8b65e87c3d0e0d1b347612cc5a6c3ec09d5"
+        "sha256": "sha256:01dbf5f12ff893334d732144d5a0e413b9edbe7d30e3c3e5e8736626192bf7f9"
       },
       {
         "decision_id": "urn:uuid:10000000-0000-4000-8000-000000000200",
-        "sha256": "sha256:9b08c55b7da322ba912971c7a04c66518b62972acfc9a01e76e52c765f397603"
+        "sha256": "sha256:7a26286430ffa21e15575dbf410eacd7e3a5c3c506c334d26178274e5e87ca64"
       },
       {
         "decision_id": "urn:uuid:10000000-0000-4000-8000-000000000201",
-        "sha256": "sha256:ec2b4192b3c31f50be3ec5628a97d181090530d30baa1fe56c5a4295c67740c8"
+        "sha256": "sha256:344605674729c54422a344a1d46de39854fcc75ae10f55fb0338b1d053c04f8a"
       },
       {
         "decision_id": "urn:uuid:10000000-0000-4000-8000-000000000202",
-        "sha256": "sha256:310efb68d2464edebedc0505456c402e04770c26e3f782c1d89104a7b2fffc94"
+        "sha256": "sha256:1f598d171b62d79047dbfb7b1ac7813695b3f3a7c2ef732e51b83cf0192228d5"
       }
     ],
     "revoked": [],
@@ -664,7 +679,7 @@
       "linkage_identity": {
         "canonicalization": "studio-json-v1",
         "byte_size": 627,
-        "sha256": "sha256:0fa52c096dcc5e041979fd5887bf0938abc0a486b4b659c19b6414ae43b43e0b"
+        "sha256": "sha256:c8bf79ebeb5a52ef933fb779c7dc8ad388341da053ee653a5fc3c54e845a3829"
       }
     }
   }
