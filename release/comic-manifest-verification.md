@@ -1,21 +1,14 @@
 # Comic Manifest v1 verification record — Studio #99
 
 Status: release preparation candidate; no tag, release, or npm package has been
-published. The source branches are still under preparation review. This checklist
+published. Codex PR #16 has merged; Platform PR #42 remains an open preparation draft. This checklist
 records what is verified locally and what must be reverified against the exact
 post-merge candidate. It does not convert a successful test, AI review, draft
 PR, or owner acceptance of the Issue 98 golden packet into release approval.
 
 ## Preparation evidence — 2026-10-07
 
-- Codex prep branch `codex/issue-99-release-prep`, head
-  `028d5638e20d9283a2955aacbd38e1bfc6dca259`, tree
-  `cae3cbe3ae5945b53d544ef5be7dd19941e13689`. All 248 Codex tests pass. Two
-  clean local builds matched byte-for-byte: schema 30,860 bytes
-  (`7bd3c5392ae0db0c5baba553c233142d3d4427471f5850123eef7b87d4c8eaa4`),
-  source bundle 865,650 bytes
-  (`661b2c2a0e7c478799551043fa704d936cec238a0e64fea8c4523a0775e67309`),
-  release manifest 1,152 bytes (`8875573aa251776b7133fb5af82e87ce37a6c4a735bffab80a7beed543cf11fc`)
+- Codex merged release source commit `12e437e30328a3bb9cd2d15e6307a70b4b7e0e2a`, tree `cae3cbe3ae5945b53d544ef5be7dd19941e13689`. Its exact post-merge approval candidate was built twice and compared byte-for-byte: schema 30,860 bytes (`7bd3c5392ae0db0c5baba553c233142d3d4427471f5850123eef7b87d4c8eaa4`), source bundle 865,650 bytes (`bb131a7dbb96692172b4e44b56a272d041309e53b136433cc71a24c8d1b934de`), and release manifest 1,152 bytes (`56bba6d990c429384e16d8aa49af99b3a25ca8733efa96b5681be5932dcba878`). All 248 Codex tests pass. The older PR-head artifact tuples are historical and superseded by the exact merged-commit packet.
 - Platform prep branch includes current main after the Studio #98 DNS lookup
   guard merge, commit `1b5fd00189e6dcc3f3c7f1a76f4229029c9fb8ea`, tree
   `ccc876bd1e8184d29e53b4aa4bec3d2d630cfd8e`. The candidate package version
@@ -61,10 +54,11 @@ PR, or owner acceptance of the Issue 98 golden packet into release approval.
 - Codex publication: exact approved source commit and `contract/comic-manifest/v1.0.0` tag target; immutable release status; fresh downloads of schema, source bundle, and release manifest; declared and observed transport media types recorded separately; byte size and SHA-256 for each download.
 - Platform candidate: source commit, `comic-manifest/v1.0.0` component tag proposal, package version 1.2.0, source archive/package/lock/API inventory/contract locks, and artifact-manifest identities.
 - Verification: Codex 248/248 tests and CI run 19; Platform 700/700 tests,
-  offline Comic Manifest conformance 324/324 with 29 fixtures unchanged, and
-  CI run 78 on the same tested source code before the final documentation-only
-  verification-record edit; two clean builds per repository
-  compared byte-for-byte; isolated local-tarball consumer import and installed
+  offline Comic Manifest conformance 325/325 with 29 fixtures unchanged, and
+  [Platform CI run 80](https://github.com/DefinitelySecureStudio/platform/actions/runs/37689297426)
+  passed on code head `af408d4bbe083de4f6da160c7f6c12dc28c1a468` before this
+  documentation-only correction; two clean builds per repository compared
+  byte-for-byte; isolated local-tarball consumer import and installed
   CLI invocation; fresh zero-finding audits of both exact lockfiles;
   LICENSE/NOTICE and third-party notice review.
 - After a future approved Platform publication, download the complete asset set
