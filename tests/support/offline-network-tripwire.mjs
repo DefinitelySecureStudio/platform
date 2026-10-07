@@ -28,10 +28,14 @@ dgram.createSocket = blocked('dgram.createSocket');
 http2.connect = blocked('http2.connect');
 http2.createServer = blocked('http2.createServer');
 http2.createSecureServer = blocked('http2.createSecureServer');
-for (const method of ['lookup', 'resolve', 'resolve4', 'resolve6', 'resolveAny', 'resolveCname', 'resolveMx',
-  'resolveNaptr', 'resolveNs', 'resolvePtr', 'resolveSoa', 'resolveSrv', 'resolveTxt', 'reverse']) {
-  if (typeof dns[method] === 'function') dns[method] = blocked(`dns.${method}`);
-  if (typeof dns.promises[method] === 'function') dns.promises[method] = blocked(`dns.promises.${method}`);
+const isDnsLookup = method => method === 'lookup' || method === 'lookupService'
+  || method === 'reverse' || method.startsWith('resolve');
+for (const [label, api] of [['dns', dns], ['dns.promises', dns.promises]]) {
+  for (const method of Object.keys(api)) {
+    if (isDnsLookup(method) && typeof api[method] === 'function') {
+      api[method] = blocked(`${label}.${method}`);
+    }
+  }
 }
 for (const [label, Resolver] of [['dns.Resolver', dns.Resolver], ['dns.promises.Resolver', dns.promises.Resolver]]) {
   if (typeof Resolver !== 'function' || !Resolver.prototype) continue;
