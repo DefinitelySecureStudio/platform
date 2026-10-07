@@ -12,6 +12,7 @@ import {
   diffComicRevision,
   parseComicManifestJson,
   planComicReferences,
+  validateComicRevision,
   validateComicManifest
 } from './index.js';
 import { canonicalJson } from '../prompt-sdk/canonical-json.js';
@@ -262,14 +263,31 @@ function parseOptions(command, rest) {
   return values;
 }
 
-function invalidResult(result, defaultStage = 'schema') {
+function invalidResult(result, defaultStage = 'schema', context = 'local') {
   if (result?.valid === true) return null;
   const diagnostic = result?.diagnostics?.[0];
   const code = typeof diagnostic?.code === 'string' ? diagnostic.code : 'INPUT_INVALID';
   const stage = typeof diagnostic?.stage === 'string' ? diagnostic.stage : defaultStage;
-  const auth = /APPROVAL|DISCLOSURE|ATTESTATION|AUTHORITY|SELF_APPROVAL|PRIVATE_CONTEXT/.test(code);
-  const integrity = /REVISION|PRODUCTION_LINK|INPUT_LINK|CANON_INPUT|OUTPUT_|EXECUTION_LINK|GATE_|ARTIFACT|RESULT_|UNEXPECTED_OUTPUT|REQUIRED_OUTPUT|PUBLIC_DEPENDENCIES|UNSAFE_URI/.test(code);
-  return new CliError(code, auth ? 3 : integrity ? 4 : 2, stage);
+  // Validation and schema diagnostics describe the supplied local record, even
+  // when a code such as CLASSIFICATION or APPROVAL_ROLE also appears in a
+  // cross-record boundary. Only callers that have established local validity
+  // opt into revision/build-boundary exit categories.
+  let exit = 2;
+  if (context === 'revision') exit = 4;
+  if (context === 'build-result') {
+    if (stage === 'approval' || stage === 'disclosure') exit = 3;
+    else if (stage === 'artifact' || stage === 'output' || stage === 'build-result' || stage === 'revision-diff'
+        || (stage === 'episode' && code === 'EPISODE_TITLE')) exit = 4;
+  }
+  return new CliError(code, exit, stage);
+}
+
+function validateLocalRecord(source, expectedKind) {
+  const result = validateComicManifest(source);
+  const invalid = invalidResult(result, 'schema', 'local');
+  if (invalid) throw invalid;
+  if (expectedKind && result.value.kind !== expectedKind) reject('RECORD_KIND', 2, 'schema');
+  return result;
 }
 
 function safeDiagnostic(error) {
@@ -368,12 +386,24 @@ async function verifyCommand(options) {
     reject('INPUT_SHAPE', 2, 'input');
   }
 
-  const resultRecord = validateComicManifest(resultSource);
-  const error = invalidResult(resultRecord, 'schema');
-  if (error) throw error;
-  if (resultRecord.value.kind !== 'comic-build-result' || !exactKeys(artifactMap, resultRecord.value.outputs.map(output => output.artifact.artifact_uri))) {
+  validateLocalRecord(productionSource, 'comic-production');
+  const resultRecord = validateLocalRecord(resultSource, 'comic-build-result');
+  validateLocalRecord(candidateSource, 'comic-public-release');
+  if (previousSource !== null) validateLocalRecord(previousSource, 'comic-public-release');
+  for (const approval of approvalsValue) {
+    validateLocalRecord(canonicalJson(approval), 'comic-approval-binding');
+  }
+  const assignment = strictJson(assignmentSource, 'assignment');
+  if (!exactKeys(assignment, ['production_id', 'episode_id'])
+      || typeof assignment.production_id !== 'string' || typeof assignment.episode_id !== 'string') {
+    reject('ASSIGNMENT_INVALID', 2, 'assignment');
+  }
+  if (!exactKeys(artifactMap, resultRecord.value.outputs.map(output => output.artifact.artifact_uri))) {
     reject('ARTIFACT_MAP_MISMATCH', 2, 'artifact-map');
   }
+  const revision = validateComicRevision(candidateSource, previousSource);
+  const revisionError = invalidResult(revision, 'revision-diff', 'revision');
+  if (revisionError) throw revisionError;
   const seenArtifacts = new Set();
   const at = options.at;
   const approvalBoundary = createComicApprovalBoundary({
@@ -428,7 +458,7 @@ async function verifyCommand(options) {
     productionSource, resultSource, candidateSource, previousSource, assignmentSource,
     approvalSources: approvalsValue.map(value => canonicalJson(value))
   });
-  const invalid = invalidResult(result, 'build-result');
+  const invalid = invalidResult(result, 'build-result', 'build-result');
   if (invalid) throw invalid;
   if (seenArtifacts.size !== Object.keys(artifactMap).length) reject('ARTIFACT_MAP_MISMATCH', 4, 'artifact');
 
@@ -465,8 +495,11 @@ async function main(args) {
   }
   if (command === 'diff') {
     const [candidate, previous] = await Promise.all([readStableFile(options.candidate), readStableFile(options.previous)]);
+    const candidateRecord = validateLocalRecord(candidate);
+    const previousRecord = validateLocalRecord(previous);
+    if (candidateRecord.value.kind !== previousRecord.value.kind) reject('RECORD_KIND', 2, 'schema');
     const result = diffComicRevision(candidate, previous);
-    const invalid = invalidResult(result, 'revision-diff');
+    const invalid = invalidResult(result, 'revision-diff', 'revision');
     if (invalid) throw invalid;
     if (result.details_withheld) return { status: 'diffed', valid: true, change_status: 'withheld', details_withheld: true };
     return { status: 'diffed', valid: true, change_status: result.changed ? 'changed' : 'unchanged',

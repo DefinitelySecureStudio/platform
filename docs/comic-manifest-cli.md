@@ -80,7 +80,7 @@ written. It never prints either payload by default. Failure exits are:
 | `0` | Validation, inspection, diff, or synthetic verification succeeded |
 | `2` | Usage, missing input, malformed/oversized input, or local record validation failure |
 | `3` | Synthetic approval, disclosure, attestation, expiry, or revocation check failed |
-| `4` | Revision, cross-record linkage, canon/input identity, or artifact integrity mismatch |
+| `4` | Revision, cross-record linkage/classification, canon/input identity, or artifact verification mismatch |
 | `5` | Protected-output consent or destination policy/I/O failure |
 
 These are CLI outcomes, not new Codex schema diagnostics. Validation preserves
@@ -88,6 +88,14 @@ the API's fixed diagnostic codes; filesystem failures are normalized to fixed
 CLI codes such as `INPUT_FILE_INVALID`, `INPUT_FILE_CHANGED`,
 `OUTPUT_DIRECTORY_UNPROTECTED`, `OUTPUT_ALREADY_EXISTS`, and
 `OUTPUT_WRITE_FAILED`.
+
+Exit classification follows the operation context and boundary stage, not the
+diagnostic code text alone. Local parse, schema, and semantic failures always
+exit `2`, including a local `CLASSIFICATION` error. After local records and
+assignment shape are checked, revision-diff failures exit `4`; #96
+`approval`/`disclosure` failures exit `3`; and its `output`, `build-result`, and
+`artifact` failures exit `4`. This keeps a cross-record classification failure
+at exit `4` without turning a malformed local record into an integrity result.
 
 ## Protected and proposal outputs
 

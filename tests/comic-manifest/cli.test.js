@@ -245,12 +245,18 @@ test('nonregular inputs and concurrent path replacement fail safely without leak
 test('denied, stale and mismatched synthetic authority fails closed', async t => {
   const directory = await dir(t);
   const { files, args } = await verifyFiles(directory);
-  const approvals = JSON.parse(await readFile(files.approvals, 'utf8'));
   const policy = JSON.parse(await readFile(files.policy, 'utf8'));
 
   policy.approvals[0].decision = 'deny'; await writeJson(files.policy, policy);
   const denied = await json(args, 3);
   assert.equal(denied.diagnostics[0].code, 'APPROVAL_DENIED');
+
+  const { files: malformedFiles, args: malformedArgs } = await verifyFiles(directory);
+  const malformedApprovals = JSON.parse(await readFile(malformedFiles.approvals, 'utf8'));
+  delete malformedApprovals[0].decision_id;
+  await writeJson(malformedFiles.approvals, malformedApprovals);
+  const malformed = await json(malformedArgs, 2);
+  assert.equal(malformed.diagnostics[0].stage, 'schema');
 
   const expiryTime = '2026-09-16T00:00:00Z';
   const { files: staleFiles, args: staleArgs } = await verifyFiles(directory);
@@ -273,6 +279,58 @@ test('denied, stale and mismatched synthetic authority fails closed', async t =>
   await writeJson(mismatchFiles.policy, mismatchPolicy);
   const mismatch = await json(mismatchArgs, 3);
   assert.equal(mismatch.diagnostics[0].code, 'APPROVAL_DENIED');
+
+  const invalidTime = 'not-a-trusted-time';
+  const { files: clockFiles, args: clockArgs } = await verifyFiles(directory);
+  const clockPolicy = JSON.parse(await readFile(clockFiles.policy, 'utf8'));
+  clockPolicy.evaluation_time = invalidTime;
+  for (const approval of clockPolicy.approvals) {
+    approval.action_time = invalidTime;
+    approval.checked_at = invalidTime;
+  }
+  clockPolicy.disclosure.checked_at = invalidTime;
+  clockPolicy.private_influence.checked_at = invalidTime;
+  await writeJson(clockFiles.policy, clockPolicy);
+  clockArgs[clockArgs.indexOf('--at') + 1] = invalidTime;
+  const badClock = await json(clockArgs, 3);
+  assert.equal(badClock.diagnostics[0].stage, 'approval');
+  assert.equal(badClock.diagnostics[0].code, 'ACTION_TIME_INVALID');
+});
+
+test('cross-record classification is integrity exit while local classification stays input exit', async t => {
+  const directory = await dir(t);
+  const local = JSON.parse(await readFile(fixture, 'utf8')).production;
+  local.classification = 'public';
+  const localPath = join(directory, 'locally-invalid-production.json');
+  await writeJson(localPath, local);
+  const localFailure = await json(['validate', '--manifest', localPath], 2);
+  assert.equal(localFailure.diagnostics[0].stage, 'semantic');
+  assert.equal(localFailure.diagnostics[0].code, 'CLASSIFICATION');
+
+  const { files, args } = await verifyFiles(directory);
+  const production = JSON.parse(await readFile(files.production, 'utf8'));
+  const result = JSON.parse(await readFile(files.result, 'utf8'));
+  production.inputs.prompts[0].context.classification = 'public';
+  const productionIdentity = validateComicManifest(JSON.stringify(production)).identity;
+  result.production.identity = productionIdentity;
+  result.inputs = structuredClone(production.inputs);
+  result.classification = 'public';
+  assert.equal(validateComicManifest(JSON.stringify(production)).valid, true);
+  assert.equal(validateComicManifest(JSON.stringify(result)).valid, true);
+  await writeJson(files.production, production);
+  await writeJson(files.result, result);
+
+  const boundaryFailure = await json(args, 4);
+  assert.equal(boundaryFailure.diagnostics[0].stage, 'output');
+  assert.equal(boundaryFailure.diagnostics[0].code, 'CLASSIFICATION');
+
+  const { files: titleFiles, args: titleArgs } = await verifyFiles(directory);
+  const candidate = JSON.parse(await readFile(titleFiles.candidate, 'utf8'));
+  candidate.title = 'A different but locally valid title';
+  await writeJson(titleFiles.candidate, candidate);
+  const titleMismatch = await json(titleArgs, 4);
+  assert.equal(titleMismatch.diagnostics[0].stage, 'episode');
+  assert.equal(titleMismatch.diagnostics[0].code, 'EPISODE_TITLE');
 });
 
 test('tampered artifact bytes, canon drift and production identity mismatch use integrity exit', async t => {
