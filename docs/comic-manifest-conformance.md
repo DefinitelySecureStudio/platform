@@ -31,8 +31,9 @@ definitions, expected classification/redaction, source pins, golden digests, and
 the unchanged foundation lock digests are in `scenarios.json` and
 `review-lock.json`. The source fixture, schema, and approval-time oracle are
 pinned to Codex commit `8044643bf888067f5a6e0d212f843d72e8787f2b`; their Git blob
-IDs and SHA-256 values are checked against the local files. The public proposal
-expectations are derived by the test-only allowlist in
+IDs and SHA-256 values are checked against the local files. The independent
+proposal oracle's SHA-256 is also recorded and verified in `review-lock.json`.
+The public proposal expectations are derived by the test-only allowlist in
 `tests/support/comic-manifest-golden-oracle.js`, which imports no Platform
 runtime code. Tests compare the checked-in proposals to that oracle and to the
 actual offline CLI outputs. No test or CI command writes a golden or lock.

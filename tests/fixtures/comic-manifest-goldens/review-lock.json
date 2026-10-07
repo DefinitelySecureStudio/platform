@@ -8,6 +8,7 @@
     "commit": "8044643bf888067f5a6e0d212f843d72e8787f2b"
   },
   "oracle_path": "tests/support/comic-manifest-golden-oracle.js",
+  "oracle_sha256": "sha256:d2c2d792e7594506e9d91d2b4d4e30776c6431bd6c4e59dcb278d6d5ef5d7b57",
   "oracle_method": "The oracle imports no Platform runtime code. It selects the #96 documented public proposal fields from the Codex release fixture and the explicit public-only transform. The expected CLI reports are fixed JSON values. Tests compare runtime output to these proposed files; there is no writer in the test or CI path.",
   "source_artifacts": [
     {

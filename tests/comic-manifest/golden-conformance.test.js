@@ -30,6 +30,7 @@ test('Codex source pins and proposed goldens match the owner-review lock', async
   assert.equal(lock.owner_approved, false);
   assert.equal(lock.platform_base_commit, '94a538e9df7a003626ccaba5289bcb772bafe6ad');
   assert.equal(lock.oracle_path, 'tests/support/comic-manifest-golden-oracle.js');
+  assert.equal(hash(await readFile(join(root, lock.oracle_path))), lock.oracle_sha256);
   for (const source of lock.source_artifacts) {
     const bytes = await readFile(join(root, source.platform_path));
     assert.equal(bytes.byteLength, source.byte_size, source.platform_path);
