@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
-import { lstat, mkdtemp, mkdir, readFile, realpath, writeFile, rm } from 'node:fs/promises';
+import { lstat, mkdtemp, mkdir, readFile, realpath, stat, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { resolve, relative, dirname, basename, join } from 'node:path';
+import { resolve, relative, isAbsolute, sep, dirname, basename, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 import { comicManifestReleaseReadiness } from './check-comic-manifest-release.mjs';
@@ -24,14 +24,13 @@ export async function resolveExternalOutput(destination, checkoutRoot = root) {
       ancestor = parent;
     }
   }
-  const stat = await lstat(ancestor);
-  if (!stat.isDirectory()) throw Error('Output path must descend from an existing directory.');
   if (!missing.length) throw Error('Output directory must be new.');
   const physicalAncestor = await realpath(ancestor);
+  if (!(await stat(physicalAncestor)).isDirectory()) throw Error('Output path must descend from an existing directory.');
   const output = resolve(physicalAncestor, ...missing);
   const checkout = await realpath(checkoutRoot);
   const rel = relative(checkout, output);
-  if (!rel || rel === '..' || rel.startsWith('../') || rel.startsWith('..\\') || rel.startsWith('/')) {
+  if (!rel || (!rel.startsWith('..' + sep) && rel !== '..' && !isAbsolute(rel))) {
     throw Error('Output must be outside checkout.');
   }
   return output;
