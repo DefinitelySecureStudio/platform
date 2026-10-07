@@ -43,8 +43,10 @@ fake-private flow, a public correction, incomplete and failed outputs, and
 repeated processing of the same fixed bytes. In both successful flows the
 protected evidence is written only to a temporary owner-only directory and
 removed after checking its classification. Expected public output is compared
-byte-for-byte to a reviewed proposal fixture; protected evidence is never stored
-as a golden.
+as parsed JSON with structural equality to a reviewed proposal fixture;
+protected evidence is never stored as a golden. The repeated-run test also
+compares serialized proposal buffers byte-for-byte across the two runs; it does
+not compare a runtime proposal buffer byte-for-byte with a golden file.
 
 All golden/catalog/oracle/lock changes are explicit owner-review paths in
 `.github/CODEOWNERS`. Their current status is `proposed-owner-review` and
@@ -64,8 +66,11 @@ npm run test:comic-manifest-conformance
 The runner executes Comic Manifest tests plus the Prompt SDK/Builder handoff
 tests, then the synthetic CLI reference flow. It preloads
 `tests/support/offline-network-tripwire.mjs` into the test and CLI subprocesses;
-an attempted fetch, DNS lookup, socket, HTTP(S), WebSocket or HTTP/2 operation
-fails the run. Before and after execution, the runner hashes every file under
+an attempted fetch, DNS lookup, direct `net.Socket.prototype.connect`, socket,
+HTTP(S), WebSocket or HTTP/2 operation fails the run. Subprocess regressions
+prove that caught and uncaught calls through `Socket.prototype.connect`,
+`dns.Resolver`, and `dns.promises.Resolver` still fail the child process.
+Before and after execution, the runner hashes every file under
 `tests/fixtures/`, including the source fixtures, goldens and locks. A changed,
 added or removed fixture fails the run. Temporary scenario files are created
 outside that tree and removed.

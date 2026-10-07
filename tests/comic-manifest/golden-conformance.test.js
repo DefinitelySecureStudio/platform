@@ -128,7 +128,7 @@ for (const [status, goldenName, diagnostic] of [
   });
 }
 
-test('repeated fixed-fixture processing matches the deterministic golden byte for byte', async t => {
+test('repeated fixed-fixture processing matches the report golden and repeats proposal bytes', async t => {
   const first = await verifiedScenario(t, {
     expectedEvidenceClassification: 'internal', golden: 'v1/deterministic-report.json'
   });

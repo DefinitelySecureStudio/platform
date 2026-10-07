@@ -21,6 +21,7 @@ for (const method of ['request', 'get']) {
 }
 net.connect = blocked('net.connect');
 net.createConnection = blocked('net.createConnection');
+net.Socket.prototype.connect = blocked('net.Socket.prototype.connect');
 net.Server.prototype.listen = blocked('net.Server.listen');
 tls.connect = blocked('tls.connect');
 dgram.createSocket = blocked('dgram.createSocket');
@@ -31,6 +32,13 @@ for (const method of ['lookup', 'resolve', 'resolve4', 'resolve6', 'resolveAny',
   'resolveNaptr', 'resolveNs', 'resolvePtr', 'resolveSoa', 'resolveSrv', 'resolveTxt', 'reverse']) {
   if (typeof dns[method] === 'function') dns[method] = blocked(`dns.${method}`);
   if (typeof dns.promises[method] === 'function') dns.promises[method] = blocked(`dns.promises.${method}`);
+}
+for (const [label, Resolver] of [['dns.Resolver', dns.Resolver], ['dns.promises.Resolver', dns.promises.Resolver]]) {
+  if (typeof Resolver !== 'function' || !Resolver.prototype) continue;
+  for (const method of Object.getOwnPropertyNames(Resolver.prototype)) {
+    if (method === 'constructor' || typeof Resolver.prototype[method] !== 'function') continue;
+    Resolver.prototype[method] = blocked(`${label}.prototype.${method}`);
+  }
 }
 if (typeof globalThis.fetch === 'function') globalThis.fetch = blocked('fetch');
 if (typeof globalThis.WebSocket === 'function') globalThis.WebSocket = blocked('WebSocket');
