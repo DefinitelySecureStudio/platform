@@ -18,8 +18,10 @@ PR, or owner acceptance of the Issue 98 golden packet into release approval.
   release manifest 1,152 bytes (`8875573aa251776b7133fb5af82e87ce37a6c4a735bffab80a7beed543cf11fc`)
 - Platform prep branch includes current main after the Studio #98 DNS lookup
   guard merge, commit `1b5fd00189e6dcc3f3c7f1a76f4229029c9fb8ea`, tree
-  `ccc876bd1e8184d29e53b4aa4bec3d2d630cfd8e`. The candidate package version is
-  `1.2.0`; component tag proposal is `comic-manifest/v1.0.0`. The npm package
+  `ccc876bd1e8184d29e53b4aa4bec3d2d630cfd8e`. Current Platform prep head is
+  `6e15f8ce6dc825ac6391b04b6e6a2d4d04354011`, tree
+  `0bd4344c8fa6831afaedfbe0c7861ffc46c27092`. The candidate package version
+  is `1.2.0`; component tag proposal is `comic-manifest/v1.0.0`. The npm package
   allowlist contains runtime sources and notices only; tests, examples, and
   fixtures are excluded. Its offline smoke installs the local candidate
   tarball into an isolated consumer using a separate generated lock and cache,
@@ -60,9 +62,9 @@ PR, or owner acceptance of the Issue 98 golden packet into release approval.
 
 - Codex publication: exact approved source commit and `contract/comic-manifest/v1.0.0` tag target; immutable release status; fresh downloads of schema, source bundle, and release manifest; declared and observed transport media types recorded separately; byte size and SHA-256 for each download.
 - Platform candidate: source commit, `comic-manifest/v1.0.0` component tag proposal, package version 1.2.0, source archive/package/lock/API inventory/contract locks, and artifact-manifest identities.
-- Verification: Codex 247/247 tests and CI run 17 on Node 22/24; Platform
-  699/699 tests, offline Comic Manifest conformance 324/324 with 29 fixtures
-  unchanged, and CI run 73 on Node 22/24; two clean builds per repository
+- Verification: Codex 248/248 tests and CI run 19; Platform 700/700 tests,
+  offline Comic Manifest conformance 324/324 with 29 fixtures unchanged, and
+  CI run 78; two clean builds per repository
   compared byte-for-byte; isolated local-tarball consumer import and installed
   CLI invocation; fresh zero-finding audits of both exact lockfiles;
   LICENSE/NOTICE and third-party notice review.
