@@ -153,3 +153,8 @@ episode assignment without rendering or granting publication authority.
 checks exact production/result lineage, raw output bytes through an explicit
 bounded provider, and current approval before returning separated protected
 evidence and an allowlisted Universe proposal.
+
+The [Comic Manifest authoring CLI](docs/comic-manifest-cli.md) adds offline
+validate/inspect/diff/verify commands with bounded explicit inputs and safe
+reports. Its synthetic reference flow exercises #96 without production trust or
+publishing.
