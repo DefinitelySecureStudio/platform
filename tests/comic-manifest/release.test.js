@@ -223,8 +223,11 @@ test('fresh-download verifier checks trusted manifest bytes, exact allowlist, re
   const invalidTrusted = structuredClone(trusted);
   invalidTrusted.assets[0].filename = '../outside';
   const invalidPath = join(temp, 'invalid-trusted-manifest.json');
-  await writeFile(invalidPath, JSON.stringify(invalidTrusted, null, 2) + '\n');
+  const invalidBytes = Buffer.from(JSON.stringify(invalidTrusted, null, 2) + '\n');
+  await writeFile(invalidPath, invalidBytes);
+  await writeFile(join(downloads, downloadedManifest), invalidBytes);
   await assert.rejects(verifyComicManifestDownloads(invalidPath, downloads), /Unexpected or incomplete/);
+  await writeFile(join(downloads, downloadedManifest), trustedBytes);
 
   const manifestMismatch = join(temp, 'manifest-mismatch'); await mkdir(manifestMismatch);
   for (const asset of trusted.assets) await writeFile(join(manifestMismatch, asset.filename), await readFile(join(source, asset.filename)));
