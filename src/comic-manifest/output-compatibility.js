@@ -4,6 +4,7 @@ import { validateComicPublicationBinding } from './episode.js';
 
 const failure = code => ({ valid: false, diagnostics: [{ stage: 'output', code }] });
 const same = (a, b) => canonicalJson(a) === canonicalJson(b);
+const classificationRank = Object.freeze(['public', 'internal', 'confidential', 'restricted']);
 
 function record(source, kind) {
   const result = validateComicManifest(source);
@@ -18,6 +19,8 @@ function buildOutputCompatibility(production, result) {
     identity: production.identity
   };
   if (!same(result.value.production, expectedProduction)) return failure('PRODUCTION_LINK');
+  if (classificationRank.indexOf(result.value.classification) <
+      classificationRank.indexOf(production.value.classification)) return failure('CLASSIFICATION');
   if (!same(result.value.inputs, production.value.inputs)) return failure('INPUT_LINK');
 
   const requirements = new Map(production.value.renditions.map(requirement => [requirement.rendition_id, requirement]));

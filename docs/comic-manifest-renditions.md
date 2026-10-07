@@ -44,8 +44,9 @@ const outputs = validateComicOutputCompatibility(
 
 The first two arguments are required bounded raw JSON records. The optional release
 and assignment arguments must be supplied together. The helper checks the result's
-production identity and exact input tuple, each selected output against its
-production declaration, required output presence for complete results, and the
+production identity, classification at least as restrictive as production, and
+exact input tuple; each selected output against its production declaration;
+required output presence for complete results; and the
 release's output order and recorded content identity. When a release is supplied,
 the assignment's opaque production ID and `DS-NNNN` episode ID must match the
 records and the final titles must agree. The assignment is a consistency input, not
