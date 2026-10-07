@@ -148,3 +148,8 @@ Protected results are not public projections or package-use authorization.
 [Rendition and publication output validation](docs/comic-manifest-renditions.md)
 adopts the reviewed exact profile catalog and checks selected outputs and explicit
 episode assignment without rendering or granting publication authority.
+
+[Build-result verification and public proposal](docs/comic-manifest-build-results.md)
+checks exact production/result lineage, raw output bytes through an explicit
+bounded provider, and current approval before returning separated protected
+evidence and an allowlisted Universe proposal.

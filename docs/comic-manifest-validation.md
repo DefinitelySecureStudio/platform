@@ -35,6 +35,7 @@ if (!result.valid) {
 | `COMIC_MANIFEST_LIMITS` | Frozen contract maximums; callers may reject stricter limits before invoking the API |
 | `COMIC_MANIFEST_CONTRACT` | Frozen reviewed source commit, schema ID/size/digest and explicit `unreleased-development` status |
 | `createComicApprovalBoundary(...)` | Host-injected exact current approval evaluation for production review or release publication; no default trust adapter |
+| `createComicBuildResultBoundary(...)` | Explicit bounded artifact-byte verification, exact result/lineage checks, current disclosure/private-influence verification, final #95 approval check, and separate protected evidence/public proposal |
 | `diffComicRevision(candidate, previous)` | Deterministic value-free summary for an explicit unchanged/adjacent revision pair |
 
 Both functions return `{valid:false,diagnostics:[{stage,code}]}` on failure. There
@@ -118,21 +119,24 @@ records, release candidates with failed gates and historical approval envelopes
 can be valid records. This API never checks the wall clock, renews a grant, marks
 a gate complete, follows a reference, issues an attestation or approves a payload.
 
-#91–#95 add episode/reference/foundation/output, revision and approval integration.
+#91–#96 add episode/reference/foundation/output, revision, approval, and build-result integration.
 Approval-time use requires `decided_at <= action_time < expires_at` and separately
 requires the exact scope's `publication_time < expires_at`; it does not impose a
 decision-to-publication ordering. See
 [`comic-manifest-approvals.md`](comic-manifest-approvals.md) for the current
-host verifier seam and disclosure-safe diff. The separate
+host verifier seam and disclosure-safe diff. See
+[`comic-manifest-build-results.md`](comic-manifest-build-results.md) for #96's
+explicit byte, exact lineage, disclosure/attestation, and proposal boundary. The
+separate
 [`validateComicOutputCompatibility`](comic-manifest-renditions.md) helper checks
 production-to-result output requirements, result-to-release output preservation,
 and the supplied episode assignment. It consumes explicit records and never reads
-artifact locations. #95 handles cross-revision/current approval boundaries; #96
-handles deeper cross-record artifact verification and public projection. Actual
-media decoding/rendering, artifact-byte identity, trusted identities/revocation,
-human rights/accessibility/disclosure review and publication remain outside these
-checks. Never treat matching declarations as proof of those properties. Normative
-gaps return to Codex, not local schema edits.
+artifact locations. #96 separately reads raw bytes only through an explicit bounded
+host provider and checks their declared lengths/digests. Actual media
+decoding/rendering, production trust/attestation infrastructure, human
+rights/accessibility/disclosure review, and publication remain outside the
+Platform implementation. Never treat matching declarations as proof of those
+properties. Normative gaps return to Codex, not local schema edits.
 
 ## Contract adoption and reproducible generation
 

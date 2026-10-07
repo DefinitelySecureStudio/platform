@@ -32,12 +32,12 @@ expired/denied/wrong-purpose use and preparation evidence substituted for a gran
 No provider, external URL or real source is invoked. `npm test` includes this proof.
 
 This is not a Manifest validator or full synthetic build execution. Codex's separate
-fixture oracle tests candidate relational semantics. Production raw JSON hardening,
-current trusted verifier/revocation adapters, media/rights inspection and safe
-projection remain #90–#98 responsibilities. The current approval boundary is
-documented in [#95](comic-manifest-approvals.md) and still requires an external
-trusted verifier. Human disclosure
-review must inspect free text and output bytes; sentinel checks do not prove safety.
+fixture oracle tests candidate relational semantics. Production raw JSON hardening
+and current trusted verifier/revocation adapters remain explicit host responsibilities.
+#96 adds bounded raw output-byte verification and an allowlisted proposal boundary in
+[comic-manifest-build-results.md](comic-manifest-build-results.md). The #95 approval
+boundary still requires an external trusted verifier. Human disclosure review must
+inspect free text, URLs, and output bytes; sentinel checks do not prove safety.
 
 ## Adoption and constitutional scope
 
