@@ -34,7 +34,7 @@ test('Comic Manifest inventory matches the public package API and additive packa
 });
 
 test('candidate lock pins exact Codex bytes while readiness remains blocked until publication and adoption', async () => {
-  assert.equal(lock.commit, '7a13c5ded2c902da77355fdd606ec8a5337279fc');
+  assert.equal(lock.commit, 'edef7684d07f7b1f53ca7b077b521077a0a164d4');
   assert.equal(lock.status, 'candidate-unpublished');
   assert.equal(lock.assets.length, 3);
   const report = await comicManifestReleaseReadiness();

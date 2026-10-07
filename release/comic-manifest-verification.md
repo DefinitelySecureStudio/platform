@@ -9,14 +9,14 @@ PR, or owner acceptance of the Issue 98 golden packet into release approval.
 ## Preparation evidence — 2026-10-07
 
 - Codex prep branch `codex/issue-99-release-prep`, head
-  `7a13c5ded2c902da77355fdd606ec8a5337279fc`, tree
-  `d6fa8ec1f5ac5bfa50d72329467625621bc66aa3`. All 246 Codex tests pass. Two
+  `edef7684d07f7b1f53ca7b077b521077a0a164d4`, tree
+  `87af93e4d96b603387dbcbfad87e7c7cd67f2bea`. All 246 Codex tests pass. Two
   clean local builds matched byte-for-byte: schema 30,860 bytes
   (`7bd3c5392ae0db0c5baba553c233142d3d4427471f5850123eef7b87d4c8eaa4`),
-  source bundle 858,201 bytes
-  (`4b891bea075a6fc0daf1bf14e8462a0ca858c11444f1277b6363b4f54c0b32cb`),
+  source bundle 858,401 bytes
+  (`793256d94b5b87a00d8cdee957d4784fcf40aeff87fc6da66bff184764b5dd76`),
   release manifest 1,152 bytes
-  (`554eacb20db42e49d96a7550c8d4bda6f41ac6041dd9f11344b793b2a8def43e`).
+  (`c8d8edd1d0d2db652bd41e2e05f58304e6859c2bc0cdec250966dd4c89b60ed8`).
 - Platform prep branch is based on Issue 98's merged tree
   `e50bffc8aee795cf0ccb0c2dcab881cc943c3656`. The candidate package version is
   `1.2.0`; component tag proposal is `comic-manifest/v1.0.0`. The npm package
@@ -24,16 +24,17 @@ PR, or owner acceptance of the Issue 98 golden packet into release approval.
   fixtures are excluded. Its extracted CLI validation uses only the synthetic
   public release fixture. Candidate builds are deterministic and readiness is
   intentionally blocked by missing Codex publication and runtime-pin adoption.
-- The lockfile contains the existing pinned versions only: Ajv 8.20.0 and
-  ajv-formats 3.0.1, plus fast-deep-equal 3.1.3 (MIT), fast-uri 3.1.7
-  (BSD-3-Clause), json-schema-traverse 1.0.0 (MIT), and require-from-string
-  2.0.2 (MIT). No dependency was added or upgraded. NOTICE review found the
-  existing fast-uri entry said 3.1.5 while the lock says 3.1.7; the entry is
-  corrected. The projects retain Apache-2.0 LICENSE/NOTICE files.
-- `npm audit --json` could not reach `registry.npmjs.org` (`ENOTFOUND`), so a
-  fresh advisory audit is unresolved and is a release gate. `npm ls --depth=1`
-  confirmed the installed dependency versions match the lockfile; that is not
-  a substitute for the audit.
+- The Platform lock retains Ajv 8.20.0, ajv-formats 3.0.1,
+  fast-deep-equal 3.1.3 (MIT), json-schema-traverse 1.0.0 (MIT), and
+  require-from-string 2.0.2 (MIT). The fresh audit identified one moderate
+  advisory in transitive fast-uri 3.1.7, GHSA-hrr3-gc8f-f4qj, patched in 3.1.8.
+  The lock now pins 3.1.8 within Ajv's existing range; `package.json` is
+  unchanged and no dependency was added. NOTICE was updated to 3.1.8
+  (BSD-3-Clause); project LICENSE/NOTICE are Apache-2.0.
+- After the lock update, fresh `npm audit --json` runs against both exact
+  lockfiles reported zero vulnerabilities. `npm ls --depth=1` confirms the
+  installed Platform tree matches the lock. Re-run the audit on the exact
+  post-merge lock before publication.
 
 ## Evidence to bind to an exact head
 
