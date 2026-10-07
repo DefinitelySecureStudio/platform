@@ -75,7 +75,7 @@ test('release output path resolution rejects symlinked parents into the checkout
   const externalAlias = join(temp, 'external-alias'), externalTarget = join(temp, 'physical-output-parent');
   await mkdir(externalTarget);
   await symlink(externalTarget, externalAlias, 'dir');
-  assert.equal(await resolveExternalOutput(join(externalAlias, 'release-output')), join(externalTarget, 'release-output'));
+  assert.equal(await resolveExternalOutput(join(externalAlias, 'release-output')), join(await realpath(externalTarget), 'release-output'));
 });
 
 test('Platform artifact provenance accepts a source commit only for the exact local Git tree', async t => {
@@ -143,11 +143,23 @@ test('candidate artifacts build reproducibly with an exact manifest and declared
   assert.deepEqual(suppliedLock.packages[''].dependencies, packageJson.dependencies);
   const consumer = join(temp, 'offline-consumer'); await mkdir(consumer);
   const localArchive = '../a/comic-manifest-v1.0.0.package.tgz';
+  const vendor = join(temp, 'offline-vendor'), cache = join(temp, 'offline-npm-cache');
+  await mkdir(vendor);
+  const localDependencies = ['ajv', 'ajv-formats', 'fast-deep-equal', 'fast-uri', 'json-schema-traverse', 'require-from-string'];
+  const consumerDependencies = { '@definitely-secure-studio/platform': 'file:' + localArchive };
+  for (const name of localDependencies) {
+    const lockEntry = suppliedLock.packages['node_modules/' + name];
+    const installed = JSON.parse(await readFile(join(root, 'node_modules', name, 'package.json'), 'utf8'));
+    assert.equal(installed.version, lockEntry.version, 'local smoke dependency must match the supplied lock: ' + name);
+    const packed = JSON.parse(execFileSync('npm', ['pack', '--ignore-scripts', '--offline', '--cache', cache,
+      '--json', '--pack-destination', vendor, join(root, 'node_modules', name)], { cwd: consumer, encoding: 'utf8' }));
+    assert.equal(packed.length, 1);
+    consumerDependencies[name] = 'file:../offline-vendor/' + packed[0].filename;
+  }
   await writeFile(join(consumer, 'package.json'), JSON.stringify({
     name: 'comic-manifest-offline-consumer', version: '1.0.0', private: true, type: 'module',
-    dependencies: { '@definitely-secure-studio/platform': 'file:' + localArchive }
+    dependencies: consumerDependencies
   }, null, 2) + '\n');
-  const cache = process.env.COMIC_MANIFEST_SMOKE_CACHE || execFileSync('npm', ['config', 'get', 'cache'], { encoding: 'utf8' }).trim();
   execFileSync('npm', ['install', '--package-lock-only', '--offline', '--ignore-scripts', '--cache', cache], { cwd: consumer, stdio: 'pipe' });
   execFileSync('npm', ['ci', '--offline', '--ignore-scripts', '--cache', cache], { cwd: consumer, stdio: 'pipe' });
   const installedApi = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e',
@@ -176,7 +188,7 @@ test('fresh-download verifier checks trusted manifest bytes, exact allowlist, re
   const temp = await mkdtemp(join(tmpdir(), 'comic-manifest-download-'));
   t.after(() => rm(temp, { recursive: true, force: true }));
   const source = join(temp, 'source'), downloads = join(temp, 'downloads');
-  await mkdir(source); await mkdir(downloads);
+  await mkdir(downloads);
   const manifest = await buildComicManifestRelease(source, { candidate: true });
   const trusted = structuredClone(manifest);
   trusted.candidate = false; trusted.readiness = { ready: true, blockers: [] };
