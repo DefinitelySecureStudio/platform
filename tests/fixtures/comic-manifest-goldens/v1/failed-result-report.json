@@ -1,0 +1,11 @@
+{
+  "status": "failed",
+  "valid": false,
+  "diagnostics": [
+    {
+      "stage": "build-result",
+      "code": "RESULT_NOT_COMPLETE",
+      "action": "review-inputs"
+    }
+  ]
+}

@@ -1,0 +1,172 @@
+{
+  "kind": "comic-public-release-proposal",
+  "proposal_version": "1.0.0",
+  "source_spec_version": "1.0.0",
+  "release": {
+    "release_id": "urn:uuid:10000000-0000-4000-8000-000000000004",
+    "episode_id": "DS-0001",
+    "revision": 1,
+    "previous": null,
+    "classification": "public",
+    "title": "Synthetic Shapes",
+    "production_credit": "A Definitely Secure Studio production.",
+    "canon_scope": "None; synthetic test identity does not reserve a real publication number.",
+    "scope": {
+      "destination": "https://example.invalid/synthetic/archive",
+      "audience": "synthetic-test",
+      "purpose": "Offline conformance only.",
+      "publication_time": "2026-09-15T12:10:00Z"
+    },
+    "input_canon": {
+      "repository": "synthetic/canon",
+      "version": "1.0.0",
+      "tag": "canon/v1.0.0",
+      "commit": "1111111111111111111111111111111111111111",
+      "artifact": {
+        "artifact_uri": "https://example.invalid/synthetic/canon",
+        "media_type": "application/json",
+        "byte_size": 18,
+        "sha256": "sha256:a8198524f58e72b56283ab71ebddada22840f108b46ef7165bb3fca9919c5558"
+      }
+    },
+    "dependencies": [
+      {
+        "repository": "synthetic/mock-tool",
+        "version": "1.0.0",
+        "tag": "mock-tool/v1.0.0",
+        "commit": "1111111111111111111111111111111111111111",
+        "artifact": {
+          "artifact_uri": "https://example.invalid/synthetic/mock-tool",
+          "media_type": "application/json",
+          "byte_size": 22,
+          "sha256": "sha256:b5b94381f12f81d18bc1fc6fed0b04254162f21361e4d999ab356cc14cc464cf"
+        }
+      },
+      {
+        "repository": "synthetic/comic-manifest",
+        "version": "1.0.0",
+        "tag": "comic-manifest/v1.0.0",
+        "commit": "1111111111111111111111111111111111111111",
+        "artifact": {
+          "artifact_uri": "https://example.invalid/synthetic/comic-manifest",
+          "media_type": "application/json",
+          "byte_size": 29,
+          "sha256": "sha256:836b922aa06e1e4759a9ee86412b96b8502bfe992092a10bfc08d97e390ffa47"
+        }
+      }
+    ],
+    "outputs": [
+      {
+        "rendition_id": "transcript",
+        "artifact": {
+          "artifact_uri": "https://example.invalid/synthetic/transcript.txt",
+          "media_type": "text/plain",
+          "byte_size": 36,
+          "sha256": "sha256:5aa128a0dd0945b00ba3d71a5f7b5916e06f40c53048c31d74432eb03f4e764d"
+        },
+        "profile": {
+          "profile_id": "comic-accessible-transcript",
+          "profile_version": "1.0.0"
+        },
+        "dimensions": null,
+        "max_bytes": 131072,
+        "rights_notice": "Synthetic conformance fixture; Apache-2.0.",
+        "alt_text": "A blue cube, followed by a red sphere.",
+        "transcript": "Panel 1: A cube.\nPanel 2: A sphere."
+      }
+    ],
+    "gates": [
+      {
+        "gate": "editorial",
+        "disposition": "pass",
+        "evidence_reference": "urn:uuid:10000000-0000-4000-8000-000000000100",
+        "rationale": "Synthetic reviewed fixture only."
+      },
+      {
+        "gate": "canon-continuity",
+        "disposition": "pass",
+        "evidence_reference": "urn:uuid:10000000-0000-4000-8000-000000000101",
+        "rationale": "Synthetic reviewed fixture only."
+      },
+      {
+        "gate": "visual-text",
+        "disposition": "pass",
+        "evidence_reference": "urn:uuid:10000000-0000-4000-8000-000000000102",
+        "rationale": "Synthetic reviewed fixture only."
+      },
+      {
+        "gate": "integrity",
+        "disposition": "pass",
+        "evidence_reference": "urn:uuid:10000000-0000-4000-8000-000000000103",
+        "rationale": "Synthetic reviewed fixture only."
+      },
+      {
+        "gate": "provenance",
+        "disposition": "pass",
+        "evidence_reference": "urn:uuid:10000000-0000-4000-8000-000000000104",
+        "rationale": "Synthetic reviewed fixture only."
+      },
+      {
+        "gate": "security-privacy",
+        "disposition": "pass",
+        "evidence_reference": "urn:uuid:10000000-0000-4000-8000-000000000105",
+        "rationale": "Synthetic reviewed fixture only."
+      },
+      {
+        "gate": "rights",
+        "disposition": "pass",
+        "evidence_reference": "urn:uuid:10000000-0000-4000-8000-000000000106",
+        "rationale": "Synthetic reviewed fixture only."
+      },
+      {
+        "gate": "accessibility",
+        "disposition": "pass",
+        "evidence_reference": "urn:uuid:10000000-0000-4000-8000-000000000107",
+        "rationale": "Synthetic reviewed fixture only."
+      },
+      {
+        "gate": "packaging",
+        "disposition": "pass",
+        "evidence_reference": "urn:uuid:10000000-0000-4000-8000-000000000108",
+        "rationale": "Synthetic reviewed fixture only."
+      }
+    ],
+    "execution": {
+      "tool": {
+        "repository": "synthetic/mock-tool",
+        "version": "1.0.0",
+        "tag": "mock-tool/v1.0.0",
+        "commit": "1111111111111111111111111111111111111111",
+        "artifact": {
+          "artifact_uri": "https://example.invalid/synthetic/mock-tool",
+          "media_type": "application/json",
+          "byte_size": 22,
+          "sha256": "sha256:b5b94381f12f81d18bc1fc6fed0b04254162f21361e4d999ab356cc14cc464cf"
+        }
+      },
+      "workflow_id": "synthetic-offline",
+      "run_uri": null,
+      "started_at": "2026-09-15T12:00:00Z",
+      "finished_at": "2026-09-15T12:00:01Z",
+      "transformations": [
+        {
+          "step_id": "mock",
+          "input_digests": [
+            "sha256:a8198524f58e72b56283ab71ebddada22840f108b46ef7165bb3fca9919c5558"
+          ],
+          "output_digests": [
+            "sha256:5aa128a0dd0945b00ba3d71a5f7b5916e06f40c53048c31d74432eb03f4e764d"
+          ],
+          "private_inputs_withheld": false,
+          "private_outputs_withheld": false
+        }
+      ],
+      "generation": [],
+      "reproducibility": "exact",
+      "limitations": "Fixed synthetic text only; no external generation."
+    },
+    "private_context": {
+      "influenced": false
+    }
+  }
+}

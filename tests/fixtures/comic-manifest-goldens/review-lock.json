@@ -1,0 +1,75 @@
+{
+  "status": "proposed-owner-review",
+  "owner_approved": false,
+  "normative_contract_change": false,
+  "platform_base_commit": "94a538e9df7a003626ccaba5289bcb772bafe6ad",
+  "codex_pin": {
+    "repository": "DefinitelySecureStudio/codex",
+    "commit": "8044643bf888067f5a6e0d212f843d72e8787f2b"
+  },
+  "oracle_path": "tests/support/comic-manifest-golden-oracle.js",
+  "oracle_method": "The oracle imports no Platform runtime code. It selects the #96 documented public proposal fields from the Codex release fixture and the explicit public-only transform. The expected CLI reports are fixed JSON values. Tests compare runtime output to these proposed files; there is no writer in the test or CI path.",
+  "source_artifacts": [
+    {
+      "codex_path": "fixtures/comic-manifest-v1.json",
+      "platform_path": "tests/fixtures/comic-manifest-v1.json",
+      "codex_blob_sha1": "717cf73e08e4b48391549d96a16a8ae5e0be7033",
+      "byte_size": 27884,
+      "sha256": "sha256:f0b08ba49d1eeb83add35cd3ef4fbc718cd8a5907bf470352d124b7079566774"
+    },
+    {
+      "codex_path": "fixtures/comic-manifest-v1-cases.json",
+      "platform_path": "tests/fixtures/comic-manifest-v1-cases.json",
+      "codex_blob_sha1": "58dc1b7d167d127e03ff4886eb70dacb6afbbfac",
+      "byte_size": 26852,
+      "sha256": "sha256:11cdd2680e311af77a4c81813b05725899c15304761e5fe3fa17f635ee6018f3"
+    },
+    {
+      "codex_path": "fixtures/comic-manifest-v1-approval-times.json",
+      "platform_path": "tests/fixtures/comic-manifest-v1-approval-times.json",
+      "codex_blob_sha1": "22aced56f74272af1afebd026ad732f3a1c37682",
+      "byte_size": 7417,
+      "sha256": "sha256:98edec08da37747932b0d98aa560d3b1836330b07f516b6355f5d0906df45a7a"
+    },
+    {
+      "codex_path": "schemas/json/comic-manifest/v1/comic-manifest.schema.json",
+      "platform_path": "tests/fixtures/comic-manifest-v1.schema.json",
+      "codex_blob_sha1": "fc36af0fda1c4021d84abc2c5156c736b9bf7bdb",
+      "byte_size": 30860,
+      "sha256": "sha256:7bd3c5392ae0db0c5baba553c233142d3d4427471f5850123eef7b87d4c8eaa4"
+    },
+    {
+      "codex_path": "fixtures/context-builder-v1.json",
+      "platform_path": "tests/fixtures/context-builder-v1.json",
+      "codex_blob_sha1": "be7635b814866ac92a91793df260459908102b3f",
+      "byte_size": 19808,
+      "sha256": "sha256:b1fe9076bd0d9637bdc638436de1cbab0a9d11916a9eb5e279fe60191c2aa743"
+    }
+  ],
+  "foundation_locks_unchanged": [
+    { "path": "release/contract-lock.json", "sha256": "sha256:6b4b515cc606f2c50b1baead50faaddd3d87d3a1d7b2c9b14e4170e36776dfab" },
+    { "path": "release/api-v1.json", "sha256": "sha256:d5937eb9f8e99a19346d76294ddb479bca61db9f7e24b01e2b64f481c90822cb" },
+    { "path": "release/context-builder-contract-lock.json", "sha256": "sha256:297dfa1e7e1e89b63eba0df5d3e012d6243f449bdcddc9e9e34714e786f7e595" },
+    { "path": "release/context-builder-api-v1.json", "sha256": "sha256:3f89c873c34194b2a24cec8411d89ed5a004fa7aa0b95b6d0a751763c51dfef2" },
+    { "path": "tests/fixtures/context-builder-contract-lock.json", "sha256": "sha256:159b9ee553601390231edc832a4bacd27813404fd2e7cc2476bd6a7969357cfc" },
+    { "path": "tests/fixtures/context-builder-reference-lock.json", "sha256": "sha256:8b56502eb82227c1a0a871a853bc3db0e9ea4f4dd4980e9b7a08d9b6b774a30f" },
+    { "path": "tests/fixtures/context-builder-reference-golden.json", "sha256": "sha256:913c7a7e851db09e1e698fbf527b4d7ccee57faa342295436171cf433f66b3f4" }
+  ],
+  "golden_files": [
+    { "path": "scenarios.json", "sha256": "sha256:f8cd38dac5bab069535fbfa34c2cda64a836a9d54c89bf78c92c7f4ff64d5a63" },
+    { "path": "v1/approved-fake-private-proposal.json", "sha256": "sha256:6b5e6e30def1e6ded862641c22930d8df0229d0c508ccbbe005cb7c8d050b4c6" },
+    { "path": "v1/deterministic-report.json", "sha256": "sha256:f0267c3b7f224d148d4b0ba18501320644d07c9e2eb6924f239430314036e410" },
+    { "path": "v1/failed-result-report.json", "sha256": "sha256:b5ed3dc3b885f3b7fa2567907632a5d0121b0e32546db75c4a1eda99302f6d0a" },
+    { "path": "v1/incomplete-result-report.json", "sha256": "sha256:b5ed3dc3b885f3b7fa2567907632a5d0121b0e32546db75c4a1eda99302f6d0a" },
+    { "path": "v1/public-only-complete-proposal.json", "sha256": "sha256:57d3a0b64b6e42e288037a8752dd99756add9cba368e033be22ae2549e666354" },
+    { "path": "v1/revision-correction-diff-report.json", "sha256": "sha256:bff0589f24313614fe83f71f9d033aad41f733b2f24dbf8e024b80b151012741" },
+    { "path": "v1/verified-report.json", "sha256": "sha256:f0267c3b7f224d148d4b0ba18501320644d07c9e2eb6924f239430314036e410" }
+  ],
+  "review_paths": [
+    ".github/CODEOWNERS",
+    "tests/fixtures/comic-manifest-goldens/**",
+    "tests/fixtures/comic-manifest-v1*.json",
+    "tests/support/comic-manifest-golden-oracle.js",
+    "docs/comic-manifest-conformance.md"
+  ]
+}

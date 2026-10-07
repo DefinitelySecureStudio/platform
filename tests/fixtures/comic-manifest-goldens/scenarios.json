@@ -1,0 +1,61 @@
+{
+  "suite": "Comic Manifest v1 reference and security conformance",
+  "status": "proposed-owner-review",
+  "owner_approved": false,
+  "normative_contract_change": false,
+  "source": {
+    "repository": "DefinitelySecureStudio/codex",
+    "commit": "8044643bf888067f5a6e0d212f843d72e8787f2b",
+    "fixture": "fixtures/comic-manifest-v1.json"
+  },
+  "scenarios": [
+    {
+      "id": "public-only-complete",
+      "transform": "Remove the synthetic private prompt/Context Package/Builder bindings, retain the public C(n) reference and its fixed text input, clear private transformation flags, remove the disclosure-reviewer fixture binding, and set private_context to {influenced:false}.",
+      "expected_classification": { "protected_evidence": "public", "proposal_release": "public" },
+      "expected_output": "v1/public-only-complete-proposal.json",
+      "redaction": ["production and build-result IDs/identities", "detached approval identities", "Context Package and Builder private references"],
+      "art_and_authority_claims": "The same reviewed synthetic text bytes are replayed; no renderer, model/provider, production authority, or canon write is involved."
+    },
+    {
+      "id": "approved-fake-private-complete",
+      "transform": "Use the reviewed synthetic internal production and build result, public release candidate, fake current approvals, and an opaque synthetic private-influence attestation from the offline reference fixture.",
+      "expected_classification": { "protected_evidence": "internal", "proposal_release": "public" },
+      "expected_output": "v1/approved-fake-private-proposal.json",
+      "redaction": ["production and build-result IDs/identities", "approval actors and decision IDs", "protected Context Package/Builder IDs and hashes", "build artifact locations"],
+      "art_and_authority_claims": "Synthetic callbacks return fixed decisions only; this is not production trust, private content access, or publication authority."
+    },
+    {
+      "id": "revision-correction",
+      "transform": "Advance the public synthetic release to revision 2, keep episode DS-0001, assign a new synthetic release ID, bind the exact fixture predecessor, and change the synthetic title.",
+      "expected_classification": { "previous": "public", "candidate": "public" },
+      "expected_output": "v1/revision-correction-diff-report.json",
+      "redaction": ["changed field values", "release IDs and hashes"],
+      "art_and_authority_claims": "The CLI emits only its fixed changed-category summary; no history lookup or approval renewal occurs."
+    },
+    {
+      "id": "incomplete-result",
+      "transform": "Change the synthetic build-result status to partial and use the existing OUTPUT_MISSING diagnostic.",
+      "expected_classification": { "proposal": "none" },
+      "expected_output": "v1/incomplete-result-report.json",
+      "redaction": ["record contents", "raw fixture diagnostic values", "paths, IDs, URIs, and hashes"],
+      "art_and_authority_claims": "The build-result boundary rejects before artifact reads or output writes."
+    },
+    {
+      "id": "failed-result",
+      "transform": "Change the synthetic build-result status to failed and use the existing VALIDATION_FAILED diagnostic.",
+      "expected_classification": { "proposal": "none" },
+      "expected_output": "v1/failed-result-report.json",
+      "redaction": ["record contents", "raw fixture diagnostic values", "paths, IDs, URIs, and hashes"],
+      "art_and_authority_claims": "The build-result boundary rejects before artifact reads or output writes."
+    },
+    {
+      "id": "repeated-deterministic-processing",
+      "transform": "Run the same approved fake-private synthetic fixture twice with a fixed action time and identical explicit output bytes.",
+      "expected_classification": { "protected_evidence": "internal", "proposal_release": "public" },
+      "expected_output": "v1/deterministic-report.json",
+      "redaction": ["same public proposal only", "protected evidence stays in an owner-only temporary file"],
+      "art_and_authority_claims": "The equality claim covers repeated processing of the checked-in text/byte fixture only, not uncontrolled generated art."
+    }
+  ]
+}

@@ -1,5 +1,10 @@
-# Context Builder golden/contract expectation changes require explicit owner review.
-# Repository branch rules determine whether requested owner approval is enforced.
+# Context Builder and Comic Manifest fixture/golden/contract expectation changes
+# require explicit owner review. Repository branch rules determine whether the
+# requested owner approval is enforced.
 /tests/fixtures/context-builder*.json @andrewperis
 /tests/support/context-builder-reference-scenarios.js @andrewperis
+/tests/fixtures/comic-manifest-*.json @andrewperis
+/tests/fixtures/comic-manifest-goldens/** @andrewperis
+/tests/support/comic-manifest-golden-oracle.js @andrewperis
+/docs/comic-manifest-conformance.md @andrewperis
 /.github/CODEOWNERS @andrewperis

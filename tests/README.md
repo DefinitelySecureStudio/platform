@@ -1,5 +1,20 @@
 # Tests
 
+## Comic Manifest v1 conformance
+
+Run `npm run test:comic-manifest-conformance` for the reusable offline reference
+reader suite, public-only and fake-private proposal goldens, correction and
+incomplete/failed result reports, SDK/Builder handoff checks, and the synthetic
+CLI reference flow. The runner blocks network operations and hashes every
+checked-in fixture before and after execution. Goldens are read-only; their
+Codex source pin, oracle derivation, scenario descriptions and SHA-256 values
+are under `fixtures/comic-manifest-goldens/`, with owner-review paths in
+`.github/CODEOWNERS`. The current goldens remain proposals until the owner
+reviews the exact PR head.
+
+See the [positive/negative Comic Manifest coverage map](../docs/comic-manifest-conformance.md)
+for the boundary-to-test mapping and determinism limits.
+
 ## Context Builder conformance
 
 `context-builder/release.test.js` pins the package API and tests fail-closed
