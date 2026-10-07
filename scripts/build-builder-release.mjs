@@ -13,6 +13,8 @@ export async function buildBuilderRelease(destination, { candidate = false } = {
   const output = resolve(destination), rel = relative(root, output);
   if (!rel || (!rel.startsWith('../') && !isAbsolute(rel))) throw Error('Output must be outside checkout.');
   if (git('status', '--porcelain').length) throw Error('Build requires a clean committed checkout.');
+  const packageVersion = JSON.parse(git('show', git('rev-parse', 'HEAD').toString().trim() + ':package.json')).version;
+  if (packageVersion !== '1.1.0') throw Error('The immutable Context Builder v1 artifact must be rebuilt only from its original package 1.1.0 source revision.');
   const readiness = await builderReleaseReadiness();
   if (!readiness.ready && !candidate) throw Error('Immutable contract adoption is not ready.');
   const commit = git('rev-parse', 'HEAD').toString().trim();

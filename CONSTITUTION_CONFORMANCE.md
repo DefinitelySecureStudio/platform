@@ -1,5 +1,35 @@
 # Constitution conformance record
 
+## Studio #99 Comic Manifest v1 release preparation — 2026-10-07
+
+Owner: @andrewperis. Constitution 1.0.0 at
+`a9cc8a503aa30e17820edc62ac95f7cbe10e0564`. Base: merged Platform Issue 98
+`64aba4c770903ef1b597e49ab9bec69828edb6fe`; Codex contract source candidate
+is the separate branch commit recorded in the candidate lock. Scope: separate
+Comic Manifest v1 contract catalog and additive Platform API/package candidate,
+release checks, documentation, and reproducible local artifacts. The historical
+SDK and Context Builder locks and published assets remain separate and unchanged.
+
+The owner's task-specific Epic #6 A3 AI-review exception applies to code-merge
+review only. It authorizes AI review within that merge scope; it does not
+authorize an A4 release decision, tag, release asset, or publication. No
+release/publication exception is provided. No separate human review of final
+release artifacts is claimed here; an explicit owner release approval remains
+required. The owner's chat acceptance at source head
+`97dcd990e87bd0368ddcbecf66d1a6718bc7629e`, recorded
+`2026-10-07T19:15:38Z`, is bounded to the Issue 98 golden packet; it is neither a
+submitted GitHub review nor approval of this release candidate.
+
+Evidence and remaining gates are tracked in
+`release/comic-manifest-verification.md`. This preparation does not create a
+tag, release, upload, npm publication, security/visibility change, or approval.
+Codex publication and fresh immutable-download verification, exact Platform
+adoption and validator regeneration, final post-merge builds, and owner approval
+of exact artifact tuples remain outstanding. Fresh audits of the current
+lockfiles report zero vulnerabilities after the Platform fast-uri update;
+rerun against the exact post-merge lock before publication.
+Status: proposed preparation; no release readiness or publication is asserted.
+
 ## Issue #86 verified contract adoption — 2026-09-16
 
 Owner: @andrewperis. Constitution 1.0.0 at

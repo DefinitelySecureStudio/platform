@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { constants } from 'node:fs';
 import { createHash as hashFactory } from 'node:crypto';
-import { open, lstat, unlink } from 'node:fs/promises';
+import { open, lstat, realpath, unlink } from 'node:fs/promises';
 import { dirname, isAbsolute, parse as parsePath, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
@@ -511,7 +511,8 @@ async function main(args) {
 
 const args = process.argv.slice(2);
 const wantsJson = args.includes('--json');
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+const invokedPath = process.argv[1] ? await realpath(process.argv[1]).catch(() => null) : null;
+if (invokedPath && import.meta.url === pathToFileURL(invokedPath).href) {
   try {
     const report = await main(args);
     if (report) {

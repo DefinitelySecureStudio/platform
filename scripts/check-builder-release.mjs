@@ -7,7 +7,7 @@ export const builderSchema = Object.freeze({ byte_size: 20802,
 export function checkBuilderRelease({ pkg, lock, headers = [] }) {
   const blockers = [], tag = 'contract/context-builder/v1.0.0';
   const prefix = 'https://github.com/DefinitelySecureStudio/codex/releases/download/' + encodeURIComponent(tag) + '/';
-  if (pkg?.version !== '1.1.0' || pkg?.private !== true ||
+  if (!['1.1.0', '1.2.0'].includes(pkg?.version) || pkg?.private !== true ||
       pkg?.exports?.['./context-builder'] !== './src/context-builder/index.js' ||
       pkg?.bin?.['studio-context'] !== './src/context-builder/cli.js') blockers.push('Public API/package metadata differs from the reviewed candidate.');
   if (lock?.repository !== 'DefinitelySecureStudio/codex' || lock?.contract !== 'context-builder' ||

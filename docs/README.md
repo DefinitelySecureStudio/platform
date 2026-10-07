@@ -22,6 +22,7 @@
 - [Comic Manifest build-result verification and public proposal](comic-manifest-build-results.md) covers exact lineage, bounded raw-byte verification, current approval, private attestation, and allowlisted proposals.
 - [Comic Manifest CLI and offline reference flow](comic-manifest-cli.md) covers bounded local inputs, safe validate/inspect/diff/verify reports, separately consented outputs, and the synthetic #96 handoff.
 - [Comic Manifest conformance and security reference suite](comic-manifest-conformance.md) maps positive/negative coverage, offline adapter tests, and owner-reviewed proposed goldens.
+- [Comic Manifest v1 API and release guide](comic-manifest-release.md) consolidates the package/CLI surface, host adapter boundary, review workflow, compatibility, limitations, release order, and Epic #101 handoff.
 
 This directory contains architecture decisions, public interfaces, operational
 guides, and deployment documentation for the production platform.
