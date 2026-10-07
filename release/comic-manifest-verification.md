@@ -29,6 +29,17 @@ PR, or owner acceptance of the Issue 98 golden packet into release approval.
   download verifier checks exact manifest bytes and the fixed asset allowlist.
   Candidate builds are deterministic and readiness is intentionally blocked
   by missing Codex publication and runtime-pin adoption.
+- The candidate builder accepts a supplied source identity only when its full
+  commit ID exists locally as a Git commit object, resolves to the supplied
+  tree, and that tree exactly matches the clean local checkout used to build
+  the bytes. Candidate mode does not bypass this check. Every builder Git
+  invocation sets `GIT_NO_REPLACE_OBJECTS=1` for object checks and source
+  reads, without changing global Git configuration. Isolated replacement-ref
+  regressions reject a replaced valid commit as a different tree and reject a
+  wrong commit that a replacement ref points at the local tree. Other
+  regression coverage rejects a commit-shaped missing object, a tree object
+  presented as a commit, and a real commit paired with a different tree. The
+  newest prep head's CI is required to pass before review proceeds.
 - The Platform lock retains Ajv 8.20.0, ajv-formats 3.0.1,
   fast-deep-equal 3.1.3 (MIT), json-schema-traverse 1.0.0 (MIT), and
   require-from-string 2.0.2 (MIT). The fresh audit identified one moderate

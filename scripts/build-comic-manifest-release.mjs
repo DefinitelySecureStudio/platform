@@ -7,8 +7,31 @@ import { createHash } from 'node:crypto';
 import { comicManifestReleaseReadiness } from './check-comic-manifest-release.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const git = (...args) => execFileSync('git', args, { cwd: root, maxBuffer: 32 * 1024 * 1024 });
+const gitAt = cwd => (...args) => execFileSync('git', args, {
+  cwd, env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }, maxBuffer: 32 * 1024 * 1024
+});
+const git = gitAt(root);
 const sha = bytes => 'sha256:' + createHash('sha256').update(bytes).digest('hex');
+
+export function verifySourceIdentity(sourceIdentity, localTree, checkoutRoot = root) {
+  const hasSourceIdentity = sourceIdentity?.commit !== undefined || sourceIdentity?.tree !== undefined;
+  if (!hasSourceIdentity) return false;
+  if (!/^[a-f0-9]{40}$/.test(sourceIdentity.commit ?? '') || !/^[a-f0-9]{40}$/.test(sourceIdentity.tree ?? '')) {
+    throw Error('Supplied source identity must use full Git commit and tree IDs.');
+  }
+  const checkoutGit = gitAt(checkoutRoot);
+  let verifiedTree;
+  try {
+    if (checkoutGit('cat-file', '-t', sourceIdentity.commit).toString().trim() !== 'commit') throw Error('not a commit object');
+    verifiedTree = checkoutGit('rev-parse', sourceIdentity.commit + '^{tree}').toString().trim();
+  } catch {
+    throw Error('Supplied source commit is not present as a verified local Git commit object.');
+  }
+  if (verifiedTree !== sourceIdentity.tree || verifiedTree !== localTree) {
+    throw Error('Supplied source commit must resolve to the exact matching local Git tree.');
+  }
+  return true;
+}
 
 export async function resolveExternalOutput(destination, checkoutRoot = root) {
   if (!destination) throw Error('Provide a new external output directory.');
@@ -43,11 +66,7 @@ export async function buildComicManifestRelease(destination, { candidate = false
   if (!readiness.ready && !candidate) throw Error('Codex contract publication/adoption is not ready.');
   const localCommit = git('rev-parse', 'HEAD').toString().trim();
   const tree = git('rev-parse', localCommit + '^{tree}').toString().trim();
-  const hasSourceIdentity = sourceIdentity?.commit !== undefined || sourceIdentity?.tree !== undefined;
-  if (hasSourceIdentity && (!/^[a-f0-9]{40}$/.test(sourceIdentity.commit ?? '') ||
-      !/^[a-f0-9]{40}$/.test(sourceIdentity.tree ?? '') || sourceIdentity.tree !== tree)) {
-    throw Error('Supplied source commit must be paired with its exact matching Git tree.');
-  }
+  const hasSourceIdentity = verifySourceIdentity(sourceIdentity, tree);
   const commit = hasSourceIdentity ? sourceIdentity.commit : localCommit;
   const scratch = await mkdtemp(join(tmpdir(), 'comic-manifest-pack-'));
   try {

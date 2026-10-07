@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as comicApi from '../../src/comic-manifest/index.js';
-import { buildComicManifestRelease, resolveExternalOutput } from '../../scripts/build-comic-manifest-release.mjs';
+import { buildComicManifestRelease, resolveExternalOutput, verifySourceIdentity } from '../../scripts/build-comic-manifest-release.mjs';
 import { checkComicManifestRelease, comicManifestReleaseReadiness } from '../../scripts/check-comic-manifest-release.mjs';
 import { verifyComicManifestDownloads } from '../../scripts/verify-comic-manifest-downloads.mjs';
 
@@ -81,16 +81,48 @@ test('release output path resolution rejects symlinked parents into the checkout
 test('Platform artifact provenance accepts a source commit only for the exact local Git tree', async t => {
   const temp = await mkdtemp(join(tmpdir(), 'comic-manifest-source-identity-'));
   t.after(() => rm(temp, { recursive: true, force: true }));
+  const sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
   const tree = execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { cwd: root, encoding: 'utf8' }).trim();
-  const sourceCommit = 'a'.repeat(40);
   const manifest = await buildComicManifestRelease(join(temp, 'matching'), {
     candidate: true, sourceIdentity: { commit: sourceCommit, tree }
   });
   assert.equal(manifest.commit, sourceCommit);
   assert.equal(manifest.tree, tree);
+
+  await assert.rejects(buildComicManifestRelease(join(temp, 'missing'), {
+    candidate: true, sourceIdentity: { commit: 'a'.repeat(40), tree }
+  }), /not present as a verified local Git commit object/);
+
+  await assert.rejects(buildComicManifestRelease(join(temp, 'non-commit-object'), {
+    candidate: true, sourceIdentity: { commit: tree, tree }
+  }), /not present as a verified local Git commit object/);
+
   await assert.rejects(buildComicManifestRelease(join(temp, 'mismatch'), {
     candidate: true, sourceIdentity: { commit: sourceCommit, tree: 'b'.repeat(40) }
-  }), /exact matching Git tree/);
+  }), /exact matching local Git tree/);
+});
+
+test('Platform source provenance ignores Git replacement refs in an isolated repository', async t => {
+  const temp = await mkdtemp(join(tmpdir(), 'comic-manifest-replace-ref-'));
+  t.after(() => rm(temp, { recursive: true, force: true }));
+  const isolated = join(temp, 'repo');
+  execFileSync('git', ['clone', '--local', '--no-hardlinks', root, isolated], { stdio: 'ignore' });
+  const git = (...args) => execFileSync('git', args, { cwd: isolated, encoding: 'utf8' }).trim();
+  const sourceCommit = git('rev-parse', 'HEAD');
+  const tree = git('rev-parse', 'HEAD^{tree}');
+  const emptyTree = execFileSync('git', ['mktree'], { cwd: isolated, encoding: 'utf8', input: '' }).trim();
+  const replacementCommit = execFileSync('git', [
+    '-c', 'user.name=Release Fixture', '-c', 'user.email=fixture@example.invalid',
+    'commit-tree', emptyTree, '-p', sourceCommit, '-m', 'replacement-ref provenance fixture'
+  ], { cwd: isolated, encoding: 'utf8' }).trim();
+
+  git('replace', sourceCommit, replacementCommit);
+  assert.equal(verifySourceIdentity({ commit: sourceCommit, tree }, tree, isolated), true,
+    'a replacement ref cannot change the verified tree of a valid source commit');
+  git('replace', '-d', sourceCommit);
+  git('replace', replacementCommit, sourceCommit);
+  assert.throws(() => verifySourceIdentity({ commit: replacementCommit, tree }, tree, isolated), /exact matching local Git tree/,
+    'a replacement ref cannot make a wrong commit appear to contain the checkout tree');
 });
 
 test('candidate artifacts build reproducibly with an exact manifest and declared media types', async t => {
