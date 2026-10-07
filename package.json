@@ -10,7 +10,8 @@
   },
   "bin": {
     "studio-prompt": "./src/prompt-sdk/cli.js",
-    "studio-context": "./src/context-builder/cli.js"
+    "studio-context": "./src/context-builder/cli.js",
+    "studio-comic": "./src/comic-manifest/cli.js"
   },
   "engines": {
     "node": ">=22"
