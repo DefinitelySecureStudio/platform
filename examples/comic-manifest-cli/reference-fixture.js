@@ -90,7 +90,7 @@ async function buildPolicy(value, artifactMap, at) {
     assignmentSource: raw(value.assignment),
     approvalSources: value.approvals.map(raw)
   });
-  if (result.valid !== true || captured.disclosure === null || captured.privateInfluence === null) {
+  if (result.valid !== true || captured.disclosure === null) {
     throw new Error('Synthetic reference fixture could not be bound.');
   }
   const approvals = captured.approvals.map(binding => ({
@@ -110,6 +110,30 @@ async function buildPolicy(value, artifactMap, at) {
     checked_at: at
   }));
   const evidenceDigest = records => digest(canonicalJson(records));
+  // The CLI's non-normative synthetic policy envelope has a fixed shape. When
+  // the fixture has no private influence, keep its unused private decision an
+  // explicit denial so this file cannot stand in for an attestation.
+  const privateInfluence = captured.privateInfluence === null
+    ? {
+        decision: 'deny',
+        attestation_reference: 'synthetic-not-applicable',
+        candidate_sha256: `sha256:${'0'.repeat(64)}`,
+        production_sha256: `sha256:${'0'.repeat(64)}`,
+        result_sha256: `sha256:${'0'.repeat(64)}`,
+        artifact_evidence_sha256: `sha256:${'0'.repeat(64)}`,
+        lineage_sha256: `sha256:${'0'.repeat(64)}`,
+        checked_at: at
+      }
+    : {
+        decision: 'allow',
+        attestation_reference: captured.privateInfluence.attestationReference,
+        candidate_sha256: captured.privateInfluence.candidateIdentity.sha256,
+        production_sha256: captured.privateInfluence.productionIdentity.sha256,
+        result_sha256: captured.privateInfluence.resultIdentity.sha256,
+        artifact_evidence_sha256: evidenceDigest(captured.privateInfluence.artifacts),
+        lineage_sha256: digest(canonicalJson(captured.privateInfluence.lineage)),
+        checked_at: at
+      };
   return {
     mode: 'offline-synthetic-cli-v1',
     evaluation_time: at,
@@ -123,16 +147,7 @@ async function buildPolicy(value, artifactMap, at) {
       scope_sha256: digest(canonicalJson(captured.disclosure.scope)),
       checked_at: at
     },
-    private_influence: {
-      decision: 'allow',
-      attestation_reference: captured.privateInfluence.attestationReference,
-      candidate_sha256: captured.privateInfluence.candidateIdentity.sha256,
-      production_sha256: captured.privateInfluence.productionIdentity.sha256,
-      result_sha256: captured.privateInfluence.resultIdentity.sha256,
-      artifact_evidence_sha256: evidenceDigest(captured.privateInfluence.artifacts),
-      lineage_sha256: digest(canonicalJson(captured.privateInfluence.lineage)),
-      checked_at: at
-    }
+    private_influence: privateInfluence
   };
 }
 
@@ -145,7 +160,11 @@ export async function writeReferenceFixture(directory, { actionTime = SYNTHETIC_
     release: clone(fixture.release),
     assignment: { production_id: fixture.production.production_id, episode_id: fixture.release.episode_id },
     approvals: clone(fixture.approvals.slice(1)),
-    bytes: Object.fromEntries(fixture.result.outputs.map(output => [output.rendition_id, Buffer.from(output.transcript)]))
+    bytes: Object.fromEntries(fixture.result.outputs.map(output => {
+      const explicitBytes = fixture.output_bytes[output.rendition_id];
+      if (typeof explicitBytes !== 'string') throw new Error('Synthetic reference fixture is incomplete.');
+      return [output.rendition_id, Buffer.from(explicitBytes, 'utf8')];
+    }))
   };
   mutate(value);
   bindScenario(value);

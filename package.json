@@ -19,6 +19,7 @@
   "scripts": {
     "test": "node --test",
     "check": "npm test",
+    "test:comic-manifest-conformance": "node scripts/check-comic-manifest-conformance.mjs",
     "validate:prompt": "node src/prompt-sdk/cli.js validate",
     "generate:prompt-schema": "node scripts/generate-prompt-schema-validator.mjs",
     "generate:execution-schema": "node scripts/generate-execution-schema-validator.mjs",
