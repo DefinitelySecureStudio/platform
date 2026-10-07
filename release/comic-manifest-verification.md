@@ -32,7 +32,8 @@ PR, or owner acceptance of the Issue 98 golden packet into release approval.
 - The candidate builder accepts a supplied source identity only when its full
   commit ID exists locally as a Git commit object, resolves to the supplied
   tree, and that tree exactly matches the clean local checkout used to build
-  the bytes. Candidate mode does not bypass this check. Every builder Git
+  the bytes. Source archives and lock/API snapshots are read from the verified
+  source commit. Candidate mode does not bypass this check. Every builder Git
   invocation sets `GIT_NO_REPLACE_OBJECTS=1` for object checks and source
   reads, without changing global Git configuration. Isolated replacement-ref
   regressions reject a replaced valid commit as a different tree and reject a

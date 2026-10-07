@@ -70,7 +70,7 @@ export async function buildComicManifestRelease(destination, { candidate = false
   const commit = hasSourceIdentity ? sourceIdentity.commit : localCommit;
   const scratch = await mkdtemp(join(tmpdir(), 'comic-manifest-pack-'));
   try {
-    const source = git('archive', '--format=tar.gz', '--prefix=platform/', localCommit);
+    const source = git('archive', '--format=tar.gz', '--prefix=platform/', commit);
     await writeFile(join(scratch, 'source.tar.gz'), source, { flag: 'wx' });
     execFileSync('tar', ['-xzf', join(scratch, 'source.tar.gz'), '-C', scratch]);
     const cwd = join(scratch, 'platform');
@@ -78,23 +78,23 @@ export async function buildComicManifestRelease(destination, { candidate = false
       '--json', '--pack-destination', scratch], { cwd, encoding: 'utf8' }));
     if (packed.length !== 1) throw Error('Expected exactly one offline package archive.');
     const packageBytes = await readFile(join(scratch, packed[0].filename));
-    const version = JSON.parse(git('show', localCommit + ':package.json')).version;
+    const version = JSON.parse(git('show', commit + ':package.json')).version;
     const tag = 'comic-manifest/v1.0.0';
     const prefix = 'comic-manifest-v1.0.0';
     const files = [
       [prefix + '.source.tar.gz', source, 'application/gzip'],
       [prefix + '.package.tgz', packageBytes, 'application/gzip'],
-      [prefix + '.package-lock.json', git('show', localCommit + ':package-lock.json'), 'application/json'],
-      [prefix + '.sdk-contract-lock.json', git('show', localCommit + ':release/contract-lock.json'), 'application/json'],
-      [prefix + '.context-builder-contract-lock.json', git('show', localCommit + ':release/context-builder-contract-lock.json'), 'application/json'],
-      [prefix + '.contract-lock.json', git('show', localCommit + ':release/comic-manifest-contract-lock.json'), 'application/json'],
-      [prefix + '.api-v1.json', git('show', localCommit + ':release/comic-manifest-api-v1.json'), 'application/json']
+      [prefix + '.package-lock.json', git('show', commit + ':package-lock.json'), 'application/json'],
+      [prefix + '.sdk-contract-lock.json', git('show', commit + ':release/contract-lock.json'), 'application/json'],
+      [prefix + '.context-builder-contract-lock.json', git('show', commit + ':release/context-builder-contract-lock.json'), 'application/json'],
+      [prefix + '.contract-lock.json', git('show', commit + ':release/comic-manifest-contract-lock.json'), 'application/json'],
+      [prefix + '.api-v1.json', git('show', commit + ':release/comic-manifest-api-v1.json'), 'application/json']
     ];
     const manifest = {
       repository: 'DefinitelySecureStudio/platform', component: 'comic-manifest', version: '1.0.0',
       package_version: version, tag, commit, tree, candidate, readiness,
       constitution_commit: 'a9cc8a503aa30e17820edc62ac95f7cbe10e0564',
-      codex_contract: JSON.parse(git('show', localCommit + ':release/comic-manifest-contract-lock.json')),
+      codex_contract: JSON.parse(git('show', commit + ':release/comic-manifest-contract-lock.json')),
       assets: files.map(([filename, bytes, media_type]) => ({ filename, media_type, byte_size: bytes.length, sha256: sha(bytes),
         artifact_uri: 'https://github.com/DefinitelySecureStudio/platform/releases/download/' + encodeURIComponent(tag) + '/' + filename }))
     };
