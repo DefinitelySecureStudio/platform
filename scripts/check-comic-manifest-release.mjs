@@ -37,7 +37,7 @@ export function checkComicManifestRelease({ pkg, lock, pin = COMIC_MANIFEST_CONT
       blockers.push('Invalid or missing Comic Manifest asset identity: ' + filename + '.');
     }
   }
-  if (lock?.status !== 'published' || publication?.immutable !== true ||
+  if (lock?.status !== 'published' || publication?.status !== 'published' || publication?.immutable !== true ||
       !Number.isFinite(Date.parse(publication?.verified_at ?? '')) ||
       publication?.release_url !== 'https://github.com/DefinitelySecureStudio/codex/releases/tag/contract/comic-manifest/v1.0.0') {
     blockers.push('Codex contract publication and independent immutable-download verification are not recorded.');

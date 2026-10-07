@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
+import { lstat, mkdtemp, mkdir, readFile, realpath, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { resolve, relative, isAbsolute, join } from 'node:path';
+import { resolve, relative, dirname, basename, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 import { comicManifestReleaseReadiness } from './check-comic-manifest-release.mjs';
@@ -10,10 +10,35 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const git = (...args) => execFileSync('git', args, { cwd: root, maxBuffer: 32 * 1024 * 1024 });
 const sha = bytes => 'sha256:' + createHash('sha256').update(bytes).digest('hex');
 
-export async function buildComicManifestRelease(destination, { candidate = false, sourceIdentity = {} } = {}) {
+export async function resolveExternalOutput(destination, checkoutRoot = root) {
   if (!destination) throw Error('Provide a new external output directory.');
-  const output = resolve(destination), rel = relative(root, output);
-  if (!rel || (!rel.startsWith('../') && !isAbsolute(rel))) throw Error('Output must be outside checkout.');
+  const requested = resolve(destination), missing = [];
+  let ancestor = requested;
+  while (true) {
+    try { await lstat(ancestor); break; }
+    catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      const parent = dirname(ancestor);
+      if (parent === ancestor) throw error;
+      missing.unshift(basename(ancestor));
+      ancestor = parent;
+    }
+  }
+  const stat = await lstat(ancestor);
+  if (!stat.isDirectory()) throw Error('Output path must descend from an existing directory.');
+  if (!missing.length) throw Error('Output directory must be new.');
+  const physicalAncestor = await realpath(ancestor);
+  const output = resolve(physicalAncestor, ...missing);
+  const checkout = await realpath(checkoutRoot);
+  const rel = relative(checkout, output);
+  if (!rel || rel === '..' || rel.startsWith('../') || rel.startsWith('..\\') || rel.startsWith('/')) {
+    throw Error('Output must be outside checkout.');
+  }
+  return output;
+}
+
+export async function buildComicManifestRelease(destination, { candidate = false, sourceIdentity = {} } = {}) {
+  const output = await resolveExternalOutput(destination);
   if (git('status', '--porcelain').length) throw Error('Build requires a clean committed checkout.');
   const readiness = await comicManifestReleaseReadiness();
   if (!readiness.ready && !candidate) throw Error('Codex contract publication/adoption is not ready.');
@@ -55,7 +80,7 @@ export async function buildComicManifestRelease(destination, { candidate = false
       assets: files.map(([filename, bytes, media_type]) => ({ filename, media_type, byte_size: bytes.length, sha256: sha(bytes),
         artifact_uri: 'https://github.com/DefinitelySecureStudio/platform/releases/download/' + encodeURIComponent(tag) + '/' + filename }))
     };
-    await mkdir(output);
+    await mkdir(output, { recursive: true });
     for (const [filename, bytes] of files) await writeFile(join(output, filename), bytes, { flag: 'wx' });
     await writeFile(join(output, prefix + '.manifest.json'), JSON.stringify(manifest, null, 2) + '\n', { flag: 'wx' });
     return manifest;

@@ -41,12 +41,21 @@ PR, or owner acceptance of the Issue 98 golden packet into release approval.
 - Codex publication: exact approved source commit and `contract/comic-manifest/v1.0.0` tag target; immutable release status; fresh downloads of schema, source bundle, and release manifest; declared and observed transport media types recorded separately; byte size and SHA-256 for each download.
 - Platform candidate: source commit, `comic-manifest/v1.0.0` component tag proposal, package version 1.2.0, source archive/package/lock/API inventory/contract locks, and artifact-manifest identities.
 - Verification: Codex tests; Platform `npm test`; offline Comic Manifest conformance with fixture snapshot; two clean Codex builds and two clean Platform builds compared byte-for-byte; extracted package API and CLI smoke flow; Node 22/24 CI results; fresh locked-dependency audit; LICENSE/NOTICE and third-party notice review.
+- After a future approved Platform publication, download the complete asset set
+  into a new directory and run
+  `node scripts/verify-comic-manifest-downloads.mjs /path/to/trusted-build-manifest.json /path/to/fresh-downloads`.
+  The trusted manifest must be the separately retained exact local build output.
+  The verifier checks the downloaded manifest bytes, exact asset allowlist,
+  regular files, declared media type, size, and SHA-256; it never extracts an
+  archive. Preserve GitHub's observed transport MIME as separate evidence.
 - Approval: owner decision attached to the exact merged Codex and Platform artifact identities, plus any required independent reviewer findings. The Issue 98 acceptance at Platform source head `97dcd990e87bd0368ddcbecf66d1a6718bc7629e`, recorded in chat at `2026-10-07T19:15:38Z`, applies only to its reviewed proposed goldens/catalog/oracle bytes. It is not a GitHub review or release approval.
 
 ## Candidate status and blocker
 
 The local release builder and lock use `candidate: true` until Codex's tag and
-assets have been published and independently verified. Platform's readiness
+assets have been published and independently verified. The checker requires
+both lock and nested publication statuses to say `published`, alongside the
+immutable verification evidence. Platform's readiness
 checker must return blocked while publication is absent, the runtime schema pin
 is still an unreleased source reference, or an exact published tuple differs.
 After Codex publication, Platform must adopt the exact downloaded tuple and
