@@ -9,21 +9,26 @@ PR, or owner acceptance of the Issue 98 golden packet into release approval.
 ## Preparation evidence — 2026-10-07
 
 - Codex prep branch `codex/issue-99-release-prep`, head
-  `edef7684d07f7b1f53ca7b077b521077a0a164d4`, tree
-  `87af93e4d96b603387dbcbfad87e7c7cd67f2bea`. All 246 Codex tests pass. Two
+  `36fd0a90230e4e8166f67248ba97b8fb6440d024`, tree
+  `d0c723b75cf214d4e6cac23d152638d070783fe2`. All 247 Codex tests pass. Two
   clean local builds matched byte-for-byte: schema 30,860 bytes
   (`7bd3c5392ae0db0c5baba553c233142d3d4427471f5850123eef7b87d4c8eaa4`),
-  source bundle 858,401 bytes
-  (`793256d94b5b87a00d8cdee957d4784fcf40aeff87fc6da66bff184764b5dd76`),
+  source bundle 862,769 bytes
+  (`3e786ed053e0d497e809076c4ccbdaad0544c26c004b24c20c5cf6210675080b`),
   release manifest 1,152 bytes
-  (`c8d8edd1d0d2db652bd41e2e05f58304e6859c2bc0cdec250966dd4c89b60ed8`).
-- Platform prep branch is based on Issue 98's merged tree
-  `e50bffc8aee795cf0ccb0c2dcab881cc943c3656`. The candidate package version is
+- Platform prep branch includes current main after the Studio #98 DNS lookup
+  guard merge, commit `1b5fd00189e6dcc3f3c7f1a76f4229029c9fb8ea`, tree
+  `ccc876bd1e8184d29e53b4aa4bec3d2d630cfd8e`. The candidate package version is
   `1.2.0`; component tag proposal is `comic-manifest/v1.0.0`. The npm package
   allowlist contains runtime sources and notices only; tests, examples, and
-  fixtures are excluded. Its extracted CLI validation uses only the synthetic
-  public release fixture. Candidate builds are deterministic and readiness is
-  intentionally blocked by missing Codex publication and runtime-pin adoption.
+  fixtures are excluded. Its offline smoke installs the local candidate
+  tarball into an isolated consumer using a separate generated lock and cache,
+  imports the package export, and invokes the installed `studio-comic` binary
+  with only the synthetic public release fixture. The external output guard
+  resolves symlinked ancestors before creating candidate outputs, and the new
+  download verifier checks exact manifest bytes and the fixed asset allowlist.
+  Candidate builds are deterministic and readiness is intentionally blocked
+  by missing Codex publication and runtime-pin adoption.
 - The Platform lock retains Ajv 8.20.0, ajv-formats 3.0.1,
   fast-deep-equal 3.1.3 (MIT), json-schema-traverse 1.0.0 (MIT), and
   require-from-string 2.0.2 (MIT). The fresh audit identified one moderate
@@ -31,16 +36,24 @@ PR, or owner acceptance of the Issue 98 golden packet into release approval.
   The lock now pins 3.1.8 within Ajv's existing range; `package.json` is
   unchanged and no dependency was added. NOTICE was updated to 3.1.8
   (BSD-3-Clause); project LICENSE/NOTICE are Apache-2.0.
-- After the lock update, fresh `npm audit --json` runs against both exact
-  lockfiles reported zero vulnerabilities. `npm ls --depth=1` confirms the
-  installed Platform tree matches the lock. Re-run the audit on the exact
-  post-merge lock before publication.
+- After the lock update and main integration, fresh `npm audit --json` runs
+  against both exact lockfiles reported zero vulnerabilities. The Codex lock
+  SHA-256 is `d655c146d12f82d5583ffe3a3c9740c1716cee4158035e8db5929977e1a48721`;
+  the Platform lock SHA-256 is
+  `ef90ff0593d91ed26980629ce896ac08294281ed2521db01d7e19ad89b5d87bd`.
+  `npm ls --depth=1` confirms the installed Platform tree matches the lock.
+  Re-run both audits on the exact post-merge release heads before publication.
 
 ## Evidence to bind to an exact head
 
 - Codex publication: exact approved source commit and `contract/comic-manifest/v1.0.0` tag target; immutable release status; fresh downloads of schema, source bundle, and release manifest; declared and observed transport media types recorded separately; byte size and SHA-256 for each download.
 - Platform candidate: source commit, `comic-manifest/v1.0.0` component tag proposal, package version 1.2.0, source archive/package/lock/API inventory/contract locks, and artifact-manifest identities.
-- Verification: Codex tests; Platform `npm test`; offline Comic Manifest conformance with fixture snapshot; two clean Codex builds and two clean Platform builds compared byte-for-byte; extracted package API and CLI smoke flow; Node 22/24 CI results; fresh locked-dependency audit; LICENSE/NOTICE and third-party notice review.
+- Verification: Codex 247/247 tests and CI run 17 on Node 22/24; Platform
+  699/699 tests, offline Comic Manifest conformance 324/324 with 29 fixtures
+  unchanged, and CI run 73 on Node 22/24; two clean builds per repository
+  compared byte-for-byte; isolated local-tarball consumer import and installed
+  CLI invocation; fresh zero-finding audits of both exact lockfiles;
+  LICENSE/NOTICE and third-party notice review.
 - After a future approved Platform publication, download the complete asset set
   into a new directory and run
   `node scripts/verify-comic-manifest-downloads.mjs /path/to/trusted-build-manifest.json /path/to/fresh-downloads`.
