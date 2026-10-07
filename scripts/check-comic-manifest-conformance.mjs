@@ -9,7 +9,10 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const tripwire = fileURLToPath(new URL('../tests/support/offline-network-tripwire.mjs', import.meta.url));
 const testPaths = [
-  'tests/comic-manifest',
+  ...(await readdir(join(root, 'tests/comic-manifest')))
+    .filter(path => path.endsWith('.test.js'))
+    .sort()
+    .map(path => join('tests/comic-manifest', path)),
   'tests/prompt-sdk/comic-manifest-contract.test.js',
   'tests/context-builder/handoff.test.js'
 ];
