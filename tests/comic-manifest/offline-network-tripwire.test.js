@@ -40,6 +40,12 @@ const attempts = [
     marker: 'dns.promises.lookupService',
     imports: "import * as dnsPromises from 'node:dns/promises';",
     expression: 'dnsPromises.lookupService()'
+  },
+  {
+    name: 'node:dns named lookupService export',
+    marker: 'dns.lookupService',
+    imports: "import * as dnsNamespace from 'node:dns';",
+    expression: 'dnsNamespace.lookupService()'
   }
 ];
 
@@ -52,6 +58,9 @@ const dnsEntries = [
   ...Object.keys((await import('node:dns')).default.promises)
     .filter(method => isDnsLookup(method))
     .map(method => ['dns.promises', method]),
+  ...Object.keys(await import('node:dns'))
+    .filter(method => isDnsLookup(method))
+    .map(method => ['dns.namespace', method]),
   ...Object.keys(await import('node:dns/promises'))
     .filter(method => isDnsLookup(method))
     .map(method => ['dns.promises.namespace', method])
@@ -59,10 +68,13 @@ const dnsEntries = [
 
 test('all exported DNS lookup and resolve functions are tripped', () => {
   const source = `import dns from 'node:dns';
+import * as dnsNamespace from 'node:dns';
 import * as dnsPromises from 'node:dns/promises';
 const entries = ${JSON.stringify(dnsEntries)};
 for (const [apiName, method] of entries) {
-  const api = apiName === 'dns' ? dns : apiName === 'dns.promises' ? dns.promises : dnsPromises;
+  const api = apiName === 'dns' ? dns
+    : apiName === 'dns.promises' ? dns.promises
+      : apiName === 'dns.namespace' ? dnsNamespace : dnsPromises;
   try { await api[method](); } catch {}
 }
 process.exitCode = 0;
