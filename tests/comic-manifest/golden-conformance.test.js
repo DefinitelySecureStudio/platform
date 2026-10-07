@@ -26,8 +26,14 @@ test('Codex source pins and proposed goldens match the owner-review lock', async
   assert.equal(catalog.status, 'proposed-owner-review');
   assert.equal(catalog.owner_approved, false);
   assert.equal(catalog.normative_contract_change, false);
-  assert.equal(lock.status, 'proposed-owner-review');
-  assert.equal(lock.owner_approved, false);
+  assert.equal(lock.status, 'owner-approved');
+  assert.equal(lock.owner_approved, true);
+  assert.deepEqual(lock.owner_approval, {
+    source_head: '97dcd990e87bd0368ddcbecf66d1a6718bc7629e',
+    approved_at: '2026-10-07T19:15:38Z',
+    channel: 'chat',
+    github_review_submitted: false
+  });
   assert.equal(lock.platform_base_commit, '94a538e9df7a003626ccaba5289bcb772bafe6ad');
   assert.equal(lock.oracle_path, 'tests/support/comic-manifest-golden-oracle.js');
   assert.equal(hash(await readFile(join(root, lock.oracle_path))), lock.oracle_sha256);

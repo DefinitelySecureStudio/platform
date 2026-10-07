@@ -49,11 +49,17 @@ compares serialized proposal buffers byte-for-byte across the two runs; it does
 not compare a runtime proposal buffer byte-for-byte with a golden file.
 
 All golden/catalog/oracle/lock changes are explicit owner-review paths in
-`.github/CODEOWNERS`. Their current status is `proposed-owner-review` and
-`owner_approved: false`. A green test, exact-head CI, draft PR, or merge does not
-mean the owner has approved these goldens. Branch rules determine whether a
-requested review is enforced; this change does not modify branch protections or
-workflow permissions.
+`.github/CODEOWNERS`. The owner approved the proposed goldens, scenario catalog,
+and independent oracle as they stood at source head
+`97dcd990e87bd0368ddcbecf66d1a6718bc7629e` in chat at `2026-10-07T19:15:38Z`.
+This acceptance came through chat; it was not a submitted GitHub review. The
+lock records the source head, time, channel, and GitHub-review status. The
+scenario catalog remains byte-identical to the reviewed proposal catalog, whose
+status fields describe its original review packet. The approval applies only to
+the pinned bytes at that source head; subsequent edits require separate review.
+A green test, exact-head CI, draft PR, or merge does not itself constitute owner
+approval. Branch rules determine whether a GitHub review is enforced; this
+change does not modify branch protections or workflow permissions.
 
 ## Offline execution and deterministic scope
 
