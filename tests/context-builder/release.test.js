@@ -31,6 +31,11 @@ test('verified immutable adoption passes readiness; complete synthetic evidence 
   assert.deepEqual(await builderReleaseReadiness(), { ready: true, blockers: [] });
   assert.deepEqual(checkBuilderRelease(evidence()), { ready: true, blockers: [] });
 });
+test('historical Builder v1 readiness accepts additive Platform 1.2.0 without changing its v1 lock', () => {
+  assert.deepEqual(checkBuilderRelease(evidence()), { ready: true, blockers: [] });
+  const candidate = evidence(); candidate.pkg.version = '1.2.0';
+  assert.deepEqual(checkBuilderRelease(candidate), { ready: true, blockers: [] });
+});
 test('release gate rejects missing, malformed, swapped, provisional and stale-generation evidence', () => {
   for (const mutate of [
     e => { delete e.lock; }, e => { e.lock.publication.immutable = false; }, e => { e.lock.commit = 'main'; },

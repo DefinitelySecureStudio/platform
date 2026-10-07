@@ -1,0 +1,39 @@
+{
+  "repository": "DefinitelySecureStudio/platform",
+  "component": "comic-manifest",
+  "component_version": "1.0.0",
+  "package_version": "1.2.0",
+  "tag": "comic-manifest/v1.0.0",
+  "codex_contract": {
+    "repository": "DefinitelySecureStudio/codex",
+    "contract": "comic-manifest",
+    "version": "1.0.0",
+    "tag": "contract/comic-manifest/v1.0.0"
+  },
+  "exports": [
+    "COMIC_BUILD_RESULT_LIMITS",
+    "COMIC_MANIFEST_CONTRACT",
+    "COMIC_MANIFEST_LIMITS",
+    "COMIC_REFERENCE_LIMITS",
+    "createComicApprovalBoundary",
+    "createComicBuildResultBoundary",
+    "createComicReferenceResolver",
+    "describeComicEpisode",
+    "diffComicRevision",
+    "parseComicManifestJson",
+    "planComicReferences",
+    "validateComicEpisodeMetadata",
+    "validateComicManifest",
+    "validateComicOutputCompatibility",
+    "validateComicPublicationBinding",
+    "validateComicRevision"
+  ],
+  "cli": {
+    "bin": "studio-comic",
+    "path": "./src/comic-manifest/cli.js",
+    "commands": ["validate", "inspect", "diff", "verify"],
+    "exit_codes": { "success": 0, "input_or_usage": 2, "synthetic_authority": 3, "integrity_or_revision": 4, "protected_output_io": 5 }
+  },
+  "contract_support": "exact-kind-and-version",
+  "publication_status": "candidate-unpublished"
+}

@@ -1,8 +1,15 @@
 {
   "name": "@definitely-secure-studio/platform",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
+  "files": [
+    "src/",
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "THIRD_PARTY_NOTICES"
+  ],
   "exports": {
     "./prompt-sdk": "./src/prompt-sdk/index.js",
     "./context-builder": "./src/context-builder/index.js",
