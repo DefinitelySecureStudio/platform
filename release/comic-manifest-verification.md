@@ -9,13 +9,13 @@ PR, or owner acceptance of the Issue 98 golden packet into release approval.
 ## Preparation evidence — 2026-10-07
 
 - Codex prep branch `codex/issue-99-release-prep`, head
-  `36fd0a90230e4e8166f67248ba97b8fb6440d024`, tree
-  `d0c723b75cf214d4e6cac23d152638d070783fe2`. All 247 Codex tests pass. Two
+  `028d5638e20d9283a2955aacbd38e1bfc6dca259`, tree
+  `cae3cbe3ae5945b53d544ef5be7dd19941e13689`. All 248 Codex tests pass. Two
   clean local builds matched byte-for-byte: schema 30,860 bytes
   (`7bd3c5392ae0db0c5baba553c233142d3d4427471f5850123eef7b87d4c8eaa4`),
-  source bundle 862,769 bytes
-  (`3e786ed053e0d497e809076c4ccbdaad0544c26c004b24c20c5cf6210675080b`),
-  release manifest 1,152 bytes
+  source bundle 865,650 bytes
+  (`661b2c2a0e7c478799551043fa704d936cec238a0e64fea8c4523a0775e67309`),
+  release manifest 1,152 bytes (`8875573aa251776b7133fb5af82e87ce37a6c4a735bffab80a7beed543cf11fc`)
 - Platform prep branch includes current main after the Studio #98 DNS lookup
   guard merge, commit `1b5fd00189e6dcc3f3c7f1a76f4229029c9fb8ea`, tree
   `ccc876bd1e8184d29e53b4aa4bec3d2d630cfd8e`. The candidate package version is
