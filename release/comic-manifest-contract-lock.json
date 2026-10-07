@@ -4,7 +4,7 @@
   "contract": "comic-manifest",
   "version": "1.0.0",
   "tag": "contract/comic-manifest/v1.0.0",
-  "commit": "edef7684d07f7b1f53ca7b077b521077a0a164d4",
+  "commit": "36fd0a90230e4e8166f67248ba97b8fb6440d024",
   "constitution_commit": "a9cc8a503aa30e17820edc62ac95f7cbe10e0564",
   "schema_id": "urn:definitely-secure:contract:comic-manifest:1.0.0:comic-manifest",
   "assets": [
@@ -19,15 +19,15 @@
       "filename": "comic-manifest-v1.0.0.bundle.json",
       "artifact_uri": "https://github.com/DefinitelySecureStudio/codex/releases/download/contract%2Fcomic-manifest%2Fv1.0.0/comic-manifest-v1.0.0.bundle.json",
       "media_type": "application/json",
-      "byte_size": 858401,
-      "sha256": "sha256:793256d94b5b87a00d8cdee957d4784fcf40aeff87fc6da66bff184764b5dd76"
+      "byte_size": 862769,
+      "sha256": "sha256:3e786ed053e0d497e809076c4ccbdaad0544c26c004b24c20c5cf6210675080b"
     },
     {
       "filename": "comic-manifest-v1.0.0.manifest.json",
       "artifact_uri": "https://github.com/DefinitelySecureStudio/codex/releases/download/contract%2Fcomic-manifest%2Fv1.0.0/comic-manifest-v1.0.0.manifest.json",
       "media_type": "application/json",
       "byte_size": 1152,
-      "sha256": "sha256:c8d8edd1d0d2db652bd41e2e05f58304e6859c2bc0cdec250966dd4c89b60ed8"
+      "sha256": "sha256:76148edcbcbb7de9a49aa40f2ac6c8f4b116ba9c5c98aa0b293ee5de7765596b"
     }
   ],
   "publication": {
