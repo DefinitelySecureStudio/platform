@@ -78,6 +78,40 @@ test('selected build outputs match declared profiles and the public release pres
   assert.deepEqual(compatibility(fixture, true), { valid: true, diagnostics: [] });
 });
 
+test('build-result classification cannot be lower than production; equal and higher levels remain valid', () => {
+  const controls = [
+    ['public', 'public'],
+    ['internal', 'internal'],
+    ['internal', 'confidential'],
+    ['confidential', 'confidential'],
+    ['confidential', 'restricted'],
+    ['restricted', 'restricted']
+  ];
+  for (const [productionClass, resultClass] of controls) {
+    const scenario = structuredClone(fixture);
+    scenario.production.classification = productionClass;
+    for (const prompt of scenario.production.inputs.prompts) {
+      if (prompt.context !== null) prompt.context.classification = 'public';
+    }
+    scenario.result.classification = resultClass;
+    rebindResultToProduction(scenario);
+    assert.equal(validateComicManifest(raw(scenario.production)).valid, true, `${productionClass} production`);
+    assert.equal(validateComicManifest(raw(scenario.result)).valid, true, `${resultClass} result`);
+    assert.equal(compatibility(scenario).valid, true, `${productionClass} → ${resultClass}`);
+  }
+
+  const downgrade = structuredClone(fixture);
+  downgrade.production.classification = 'internal';
+  for (const prompt of downgrade.production.inputs.prompts) {
+    if (prompt.context !== null) prompt.context.classification = 'public';
+  }
+  downgrade.result.classification = 'public';
+  rebindResultToProduction(downgrade);
+  assert.equal(validateComicManifest(raw(downgrade.production)).valid, true);
+  assert.equal(validateComicManifest(raw(downgrade.result)).valid, true);
+  assert.equal(compatibility(downgrade).diagnostics[0].code, 'CLASSIFICATION');
+});
+
 test('release output location may change while selected metadata and artifact identity stay exact', () => {
   const scenario = structuredClone(fixture);
   assert.notEqual(scenario.result.outputs[0].artifact.artifact_uri, scenario.release.outputs[0].artifact.artifact_uri);

@@ -525,6 +525,7 @@ export function createComicBuildResultBoundary({
     }
 
     const protectedEvidence = freezeTree({
+      classification: result.value.classification,
       production: {
         production_id: production.value.production_id,
         revision: production.value.revision,

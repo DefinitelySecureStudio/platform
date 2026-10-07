@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import {
   createComicApprovalBoundary,
   createComicBuildResultBoundary,
+  validateComicOutputCompatibility,
   validateComicManifest
 } from '../../src/comic-manifest/index.js';
 
@@ -165,6 +166,7 @@ test('complete result verifies every declared raw artifact and creates distinct 
     validateComicManifest(raw(value.production)).identity.sha256);
   assert.equal(result.protected_evidence.result.identity.sha256,
     validateComicManifest(raw(value.result)).identity.sha256);
+  assert.equal(result.protected_evidence.classification, value.result.classification);
   assert.equal(result.protected_evidence.candidate.identity.sha256,
     validateComicManifest(raw(value.release)).identity.sha256);
   assert.equal(result.protected_evidence.verified_artifacts.length, 2);
@@ -204,6 +206,37 @@ test('production identity, exact input tuple and C(n) cannot be substituted', as
     assert.equal(code(result), expected, name);
     assert.equal(harness.calls.filter(([kind]) => kind === 'artifact').length, 0, name);
   }
+});
+
+test('cross-record classification downgrades fail at output compatibility before artifact reads', async () => {
+  const value = scenario();
+  value.production.classification = 'internal';
+  value.production.inputs.prompts[0].context.classification = 'public';
+  value.result.classification = 'public';
+  rebind(value);
+
+  assert.equal(validateComicManifest(raw(value.production)).valid, true);
+  assert.equal(validateComicManifest(raw(value.result)).valid, true);
+  assert.equal(validateComicOutputCompatibility(raw(value.production), raw(value.result)).diagnostics[0].code,
+    'CLASSIFICATION');
+
+  const harness = boundary(value);
+  assert.equal(code(await harness.verifier.verify(harness.request())), 'CLASSIFICATION');
+  assert.equal(harness.calls.filter(([kind]) => kind === 'artifact').length, 0);
+});
+
+test('protected evidence classification reflects the more restrictive build-result level', async () => {
+  const value = scenario();
+  value.production.classification = 'internal';
+  value.production.inputs.prompts[0].context.classification = 'public';
+  value.result.classification = 'confidential';
+  rebind(value);
+  const harness = boundary(value);
+  const result = await harness.verifier.verify(harness.request());
+  assert.equal(result.valid, true, JSON.stringify(result.diagnostics));
+  assert.equal(result.protected_evidence.classification, 'confidential');
+  assert.equal(result.protected_evidence.production.record.classification, 'internal');
+  assert.equal(result.protected_evidence.result.record.classification, 'confidential');
 });
 
 test('declared dependency projection and execution lineage must match the exact build result', async () => {

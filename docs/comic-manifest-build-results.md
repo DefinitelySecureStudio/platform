@@ -63,7 +63,8 @@ The public candidate's `input_canon` must equal the production record's exact
 `inputs.canon` reference C(n). It cannot name a later C(n+1) snapshot containing
 this release. Its public dependencies must equal the ordered, exact-tuple-
 deduplicated list derived from production dependencies, prompt definitions, and
-public asset dependencies. Tool, workflow identity, start/end times,
+public asset dependencies. The result classification must be at least as
+restrictive as the production classification. Tool, workflow identity, start/end times,
 reproducibility, and ordered transformation step IDs must match the selected
 result. A non-passing gate in either the build result or candidate blocks a
 proposal.
@@ -131,9 +132,10 @@ publication action or declare canon.
 Success returns:
 
 - `protected_evidence`: complete parsed production, result, candidate, predecessor
-  and detached approval records; exact identities and input lineage; verified
-  artifact lengths/digests; and callback outcomes. Keep this object in restricted
-  storage and out of public logs.
+  and detached approval records; a top-level classification equal to the build
+  result classification (which is at least the production classification); exact
+  identities and input lineage; verified artifact lengths/digests; and callback
+  outcomes. Keep this object in restricted storage and out of public logs.
   - `proposal`: a newly built DTO from an explicit field allowlist. It includes only
     public release metadata, C(n), public dependencies, the selected outputs and
     their approved public hashes/locations, safe gate/execution fields, and the

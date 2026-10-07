@@ -97,7 +97,8 @@ normalized identity corruption.
 
 Comic Manifest build-result tests use synthetic text/binary artifacts and explicit
 offline byte, disclosure, attestation, and approval adapters. They cover exact
-production/result/C(n) linkage, declared outputs, actual byte-size/SHA-256 checks,
+production/result/C(n) linkage, monotone classification across records with valid
+equal/higher-level controls, declared outputs, actual byte-size/SHA-256 checks,
 missing/unrelated/incomplete results, mutation across asynchronous boundaries,
 current authorization, private-lineage binding, disclosure canaries, and the
 separate allowlisted proposal DTO. See
