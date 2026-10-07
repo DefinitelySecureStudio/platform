@@ -141,6 +141,10 @@ Platform publication and fresh verification. The current Platform lock remains
 candidate/unpublished and readiness stays blocked until the first two steps are
 complete. GitHub asset transport MIME may be `application/octet-stream`; record
 it separately from the declared content media type in the contract manifest.
+The local builder accepts an external commit identity only when its supplied
+40-character tree hash exactly matches the clean local source tree; both values
+are recorded in the artifact manifest. Rebuild and rebind those identities after
+the preparation PR is merged.
 
 Epic #101 receives the verified Codex and Platform artifact tuples, API/CLI and
 adapter limits, synthetic conformance evidence, source/package manifests, and

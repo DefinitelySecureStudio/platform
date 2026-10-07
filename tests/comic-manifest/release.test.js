@@ -60,6 +60,21 @@ test('candidate lock pins exact Codex bytes while readiness remains blocked unti
   assert.equal(checkComicManifestRelease({ pkg: packageJson, lock: published, pin }).ready, false);
 });
 
+test('Platform artifact provenance accepts a source commit only for the exact local Git tree', async t => {
+  const temp = await mkdtemp(join(tmpdir(), 'comic-manifest-source-identity-'));
+  t.after(() => rm(temp, { recursive: true, force: true }));
+  const tree = execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { cwd: root, encoding: 'utf8' }).trim();
+  const sourceCommit = 'a'.repeat(40);
+  const manifest = await buildComicManifestRelease(join(temp, 'matching'), {
+    candidate: true, sourceIdentity: { commit: sourceCommit, tree }
+  });
+  assert.equal(manifest.commit, sourceCommit);
+  assert.equal(manifest.tree, tree);
+  await assert.rejects(buildComicManifestRelease(join(temp, 'mismatch'), {
+    candidate: true, sourceIdentity: { commit: sourceCommit, tree: 'b'.repeat(40) }
+  }), /exact matching Git tree/);
+});
+
 test('candidate artifacts build reproducibly with an exact manifest and declared media types', async t => {
   const temp = await mkdtemp(join(tmpdir(), 'comic-manifest-release-'));
   t.after(() => rm(temp, { recursive: true, force: true }));
