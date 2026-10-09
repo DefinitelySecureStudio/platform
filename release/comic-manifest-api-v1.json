@@ -35,5 +35,6 @@
     "exit_codes": { "success": 0, "input_or_usage": 2, "synthetic_authority": 3, "integrity_or_revision": 4, "protected_output_io": 5 }
   },
   "contract_support": "exact-kind-and-version",
+  "upstream_contract_status": "published",
   "publication_status": "candidate-unpublished"
 }

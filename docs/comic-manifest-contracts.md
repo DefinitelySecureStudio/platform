@@ -1,17 +1,21 @@
 # Comic Manifest contract consumer proof (Studio #89)
 
-This is a **test-only consumer of an unreleased Codex 1.0.0 candidate**. It adds no
-Manifest runtime, orchestration, source retrieval, trust issuer or publication API.
-Codex owns the schema and semantics; public creative authority remains in Universe.
+Codex Comic Manifest 1.0.0 is published at immutable tag
+[`contract/comic-manifest/v1.0.0`](https://github.com/DefinitelySecureStudio/codex/releases/tag/contract/comic-manifest/v1.0.0).
+This is still a **test-only consumer proof**: it adds no Platform Manifest runtime,
+orchestration, source retrieval, trust issuer or publication API. Codex owns the
+schema and semantics; public creative authority remains in Universe.
 
-The [fixture lock](../tests/fixtures/comic-manifest-contract-lock.json) pins the
-owner-reviewed Codex candidate at commit
-`8044643bf888067f5a6e0d212f843d72e8787f2b` by full source paths, sizes and SHA-256
-digests. The schema and scenario are verbatim test artifacts, not local
-normative schema forks or production dependencies. The existing Context Builder
-fixture is identical to the pinned Codex bytes and is reused unchanged. All apparent
-private context, grants, IDs, publication numbers and URLs are synthetic. A fixed
-fixture UUID is not a production attestation or evidence of secure issuance.
+The [fixture lock](../tests/fixtures/comic-manifest-contract-lock.json) remains
+pinned to the owner-reviewed Codex source snapshot at commit
+`8044643bf888067f5a6e0d212f843d72e8787f2b`; it records historical test bytes, not
+the runtime release pin. The published Codex tag targets
+`12e437e30328a3bb9cd2d15e6307a70b4b7e0e2a`. Its schema has the same byte size and
+SHA-256 as the reviewed fixture, so this adoption leaves the fixture, golden,
+catalog and oracle bytes unchanged. Runtime metadata pins the published release
+tuple separately. All apparent private context, grants, IDs, publication numbers
+and URLs are synthetic. A fixed fixture UUID is not a production attestation or
+evidence of secure issuance.
 
 The [Codex specification](https://github.com/DefinitelySecureStudio/codex/blob/8044643bf888067f5a6e0d212f843d72e8787f2b/specs/manifests/comic-manifest-v1.md),
 RFC 0007 and RFC 0008 define three immutable payloads, exact-version support,
@@ -41,12 +45,13 @@ inspect free text, URLs, and output bytes; sentinel checks do not prove safety.
 
 ## Adoption and constitutional scope
 
-Merge the coordinated Codex contract PR before this proof. Refresh test pins only
-from reviewed exact Codex blobs and verify bytes; do not edit the copies by hand.
-Production adoption waits for #99's immutable contract and implementation releases
-and full verified artifact tuples. Source commit URLs are not release assets.
-Released Prompt SDK/Context Package/Context Builder code, schemas, lockfiles and
-artifacts remain unchanged. Rollback removes this test-only consumer.
+The Codex contract publication is complete and its exact immutable release tuple
+is recorded in the runtime lock. This test proof retains its separately reviewed
+historical fixture pins. Production use of the Platform implementation still waits
+for its own release, exact verified artifact tuples and separate owner approval.
+Source commit URLs are not release assets. Released Prompt SDK/Context Package/
+Context Builder code, schemas, lockfiles and artifacts remain unchanged. Rollback
+removes this test-only consumer.
 
 Constitution: v1.0.0, `constitution/v1.0.0`, Studio commit
 `a9cc8a503aa30e17820edc62ac95f7cbe10e0564`; Studio ADR 0018 at

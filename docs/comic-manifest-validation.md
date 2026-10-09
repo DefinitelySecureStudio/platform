@@ -1,9 +1,10 @@
 # Comic Manifest parsing and local validation (Studio #90)
 
 The **unreleased** `@definitely-secure-studio/platform/comic-manifest` entry point
-parses and validates explicit raw JSON against the owner-merged Codex candidate.
-It has no default source reader, network fetcher, execution engine, production
-trust provider or publisher. The explicit host-injected approval boundary is
+parses and validates explicit raw JSON against the published Codex Comic Manifest
+1.0.0 schema. The Platform package remains private and unreleased. The module has no
+default source reader, network fetcher, execution engine, production trust provider
+or publisher. The explicit host-injected approval boundary is
 described in [#95](comic-manifest-approvals.md). It does not mutate the released
 Prompt SDK or Context Builder.
 
@@ -33,7 +34,7 @@ if (!result.valid) {
 | `parseComicManifestJson(source)` | Bounded JSON grammar/encoding checks; success `{valid:true,value,diagnostics:[]}` does not establish a Comic Manifest schema |
 | `validateComicManifest(source)` | Parse, dispatch exact kind/version, validate the generated closed schema, check record-local invariants; success adds canonical `identity` |
 | `COMIC_MANIFEST_LIMITS` | Frozen contract maximums; callers may reject stricter limits before invoking the API |
-| `COMIC_MANIFEST_CONTRACT` | Frozen reviewed source commit, schema ID/size/digest and explicit `unreleased-development` status |
+| `COMIC_MANIFEST_CONTRACT` | Frozen published Codex tag/commit, schema ID, release asset URI, declared media type, byte size, digest and `released` status; this grants no execution or publication authority |
 | `createComicApprovalBoundary(...)` | Host-injected exact current approval evaluation for production review or release publication; no default trust adapter |
 | `createComicBuildResultBoundary(...)` | Explicit bounded artifact-byte verification, exact result/lineage checks, current disclosure/private-influence verification, final #95 approval check, and separate protected evidence/public proposal |
 | `diffComicRevision(candidate, previous)` | Deterministic value-free summary for an explicit unchanged/adjacent revision pair |
@@ -142,15 +143,20 @@ properties. Normative gaps return to Codex, not local schema edits.
 
 Normative source: [Codex specification](https://github.com/DefinitelySecureStudio/codex/blob/8044643bf888067f5a6e0d212f843d72e8787f2b/specs/manifests/comic-manifest-v1.md),
 RFC 0007 and [RFC 0008](https://github.com/DefinitelySecureStudio/codex/blob/8044643bf888067f5a6e0d212f843d72e8787f2b/rfcs/0008-comic-manifest-rendition-profiles.md),
-merged commit `8044643bf888067f5a6e0d212f843d72e8787f2b`.
-[Runtime metadata](../src/comic-manifest/contract.js) pins the exact schema bytes;
-[development fixture lock](../tests/fixtures/comic-manifest-validation-lock.json)
-pins schema, scenario, negative cases and approval-time matrix to that same merged
-Codex commit. The
-updated 1.0.0 candidate replaces the earlier unreleased #89 profile shape; the
-historical consumer proof remains pinned independently. These are candidate source
-references, **not immutable production release tuples**. #99 remains the release
-gate; no tag, registry publishing or production-ready claim is introduced here.
+merged commit `8044643bf888067f5a6e0d212f843d72e8787f2b`. The published immutable
+Codex contract tag targets `12e437e30328a3bb9cd2d15e6307a70b4b7e0e2a`; its schema
+asset is `comic-manifest-v1.0.0.schema.json` at the locked release URI in
+[Runtime metadata](../src/comic-manifest/contract.js). The schema bytes match the
+historical [development fixture lock](../tests/fixtures/comic-manifest-validation-lock.json)
+exactly; that lock's source commit remains unchanged for the owner-reviewed
+scenario, negative cases and approval-time matrix. The published runtime pin and
+the historical test fixtures therefore have separate provenance records.
+
+The Platform implementation remains an unreleased candidate. This PR updates only
+the runtime pin, generated validator provenance and release-adoption evidence; it
+does not change fixture, golden, catalog or oracle bytes or publish the Platform
+package. The readiness check covers the upstream Codex adoption gate only; it does
+not claim Platform publication, final artifact approval or release readiness.
 
 ```sh
 npm ci
@@ -161,12 +167,13 @@ npm test
 
 The generator verifies schema size/digest and the installed/locked Ajv 8.20.0 and
 ajv-formats 3.0.1 versions before writing standalone validators. It takes explicit
-local bytes and never fetches. The committed generated file must reproduce exactly;
-it is not hand-edited. This adoption changes only the unreleased Comic Manifest
-candidate and its local consumer fixtures. Released Prompt SDK v1, Context Package
-v1 and Context Builder v1 bytes and locks remain unchanged. Future normative profile
-changes return to Codex for review before an explicit Platform pin update and
-regeneration.
+local bytes and never fetches. The committed generated file reproduces from the
+freshly downloaded published schema; the existing fixture file is byte-identical
+to that asset and remains unchanged. This adoption updates only the unpublished
+Platform runtime pin, validator provenance and release evidence. Released Prompt SDK
+v1, Context Package v1 and Context Builder v1 bytes and locks remain unchanged.
+Future normative profile changes return to Codex for review before an explicit
+Platform pin update and regeneration.
 
 Tests cover reviewed positive/negative fixtures, rendition profile boundaries and
 cross-record output/episode compatibility, malformed grammar, duplicate and

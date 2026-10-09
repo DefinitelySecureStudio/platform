@@ -34,36 +34,40 @@ test('Comic Manifest inventory matches the public package API and additive packa
   assert.equal(packageJson.bin['studio-comic'], './src/comic-manifest/cli.js');
 });
 
-test('candidate lock pins exact Codex bytes while readiness remains blocked until publication and adoption', async () => {
-  assert.equal(lock.commit, '028d5638e20d9283a2955aacbd38e1bfc6dca259');
-  assert.equal(lock.status, 'candidate-unpublished');
-  assert.equal(lock.assets.length, 3);
-  const report = await comicManifestReleaseReadiness();
-  assert.equal(report.ready, false);
-  assert.ok(report.blockers.some(blocker => /publication/.test(blocker)));
-  assert.ok(report.blockers.some(blocker => /Runtime validator pin/.test(blocker)));
+test('published Codex lock adopts exact immutable tuples while Platform remains unpublished', async () => {
+  assert.equal(lock.commit, '12e437e30328a3bb9cd2d15e6307a70b4b7e0e2a');
+  assert.equal(lock.status, 'published');
+  assert.equal(lock.tag, 'contract/comic-manifest/v1.0.0');
+  assert.equal(lock.publication.status, 'published');
+  assert.equal(lock.publication.draft, false);
+  assert.equal(lock.publication.prerelease, false);
+  assert.equal(lock.publication.immutable, true);
+  assert.equal(lock.publication.tag_target, lock.commit);
+  assert.deepEqual(lock.assets.map(({ filename, media_type, byte_size, sha256 }) => ({ filename, media_type, byte_size, sha256 })), [
+    { filename: 'comic-manifest-v1.0.0.schema.json', media_type: 'application/schema+json', byte_size: 30860, sha256: 'sha256:7bd3c5392ae0db0c5baba553c233142d3d4427471f5850123eef7b87d4c8eaa4' },
+    { filename: 'comic-manifest-v1.0.0.bundle.json', media_type: 'application/json', byte_size: 865650, sha256: 'sha256:bb131a7dbb96692172b4e44b56a272d041309e53b136433cc71a24c8d1b934de' },
+    { filename: 'comic-manifest-v1.0.0.manifest.json', media_type: 'application/json', byte_size: 1152, sha256: 'sha256:56bba6d990c429384e16d8aa49af99b3a25ca8733efa96b5681be5932dcba878' }
+  ]);
+  assert.deepEqual(lock.publication.transport.map(({ filename, github_release_asset_content_type, public_download_http_status, public_download_content_type }) => ({ filename, github_release_asset_content_type, public_download_http_status, public_download_content_type })), [
+    { filename: 'comic-manifest-v1.0.0.schema.json', github_release_asset_content_type: 'application/json', public_download_http_status: 200, public_download_content_type: 'application/octet-stream' },
+    { filename: 'comic-manifest-v1.0.0.bundle.json', github_release_asset_content_type: 'application/json', public_download_http_status: 200, public_download_content_type: 'application/octet-stream' },
+    { filename: 'comic-manifest-v1.0.0.manifest.json', github_release_asset_content_type: 'application/json', public_download_http_status: 200, public_download_content_type: 'application/octet-stream' }
+  ]);
+  assert.equal(apiInventory.upstream_contract_status, 'published');
+  assert.equal(apiInventory.publication_status, 'candidate-unpublished');
+  assert.equal(packageJson.private, true);
+  assert.deepEqual(await comicManifestReleaseReadiness(), { ready: true, blockers: [] });
 
-  const published = structuredClone(lock);
-  published.status = 'published';
-  published.publication = {
-    status: 'published', immutable: true, verified_at: '2026-10-07T20:00:00Z',
-    release_url: 'https://github.com/DefinitelySecureStudio/codex/releases/tag/contract/comic-manifest/v1.0.0'
-  };
-  const schema = published.assets.find(asset => asset.filename.endsWith('.schema.json'));
-  const pin = {
-    status: 'released', repository: published.repository, version: published.version,
-    tag: published.tag, commit: published.commit, schema_id: published.schema_id,
-    artifact_uri: schema.artifact_uri, media_type: schema.media_type,
-    byte_size: schema.byte_size, sha256: schema.sha256
-  };
-  assert.deepEqual(checkComicManifestRelease({ pkg: packageJson, lock: published, pin }), { ready: true, blockers: [] });
-  published.publication.status = 'pending';
-  const contradictoryPublication = checkComicManifestRelease({ pkg: packageJson, lock: published, pin });
-  assert.equal(contradictoryPublication.ready, false, 'top-level published status cannot override pending publication evidence');
-  assert.ok(contradictoryPublication.blockers.some(blocker => /publication/.test(blocker)));
-  published.publication.status = 'published';
-  published.assets[1].sha256 = 'not-a-digest';
-  assert.equal(checkComicManifestRelease({ pkg: packageJson, lock: published, pin }).ready, false);
+  for (const mutate of [
+    candidate => { candidate.commit = '028d5638e20d9283a2955aacbd38e1bfc6dca259'; },
+    candidate => { candidate.publication.immutable = false; },
+    candidate => { candidate.assets[0].sha256 = 'sha256:' + '0'.repeat(64); },
+    candidate => { candidate.publication.transport[0].public_download_content_type = 'application/schema+json'; }
+  ]) {
+    const candidate = structuredClone(lock);
+    mutate(candidate);
+    assert.equal(checkComicManifestRelease({ pkg: packageJson, lock: candidate }).ready, false);
+  }
 });
 
 test('release output path resolution rejects symlinked parents into the checkout and returns physical external paths', async t => {

@@ -1,6 +1,6 @@
-// Generated from DefinitelySecureStudio/codex@8044643bf888067f5a6e0d212f843d72e8787f2b; unreleased reviewed candidate.
+// Generated from DefinitelySecureStudio/codex@12e437e30328a3bb9cd2d15e6307a70b4b7e0e2a; published contract/comic-manifest/v1.0.0.
 // Source sha256:7bd3c5392ae0db0c5baba553c233142d3d4427471f5850123eef7b87d4c8eaa4; 30860 bytes.
-// Rebuild with scripts/generate-comic-manifest-validator.mjs; do not edit.
+// Rebuild from fresh verified Codex release bytes with scripts/generate-comic-manifest-validator.mjs; do not edit.
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 "use strict";
