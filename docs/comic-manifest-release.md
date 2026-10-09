@@ -145,15 +145,67 @@ merge and exact-head CI, build and inspect the Platform source/package artifacts
 then obtain a separate owner approval naming their exact tuples. Only that later
 approval can authorize a Platform release and fresh verification. The readiness
 check in this repository covers Codex adoption only; it is not final Platform
-release readiness. The artifact builder only emits explicit candidate manifests
-until a post-merge owner approves exact Platform artifact tuples. GitHub asset metadata records `application/json` for these
-uploads and public downloads returned `application/octet-stream`; both are stored
-separately from each contract-declared media type.
+release readiness. After this PR is independently reviewed and merged, build the
+Platform release artifact set once from the exact merge commit into a new
+directory outside the checkout:
+
+```sh
+node scripts/build-comic-manifest-release.mjs /path/to/platform-release-candidate \
+  --source-commit "$MERGED_COMMIT" --source-tree "$MERGED_TREE"
+```
+
+The builder records `build_provenance` fields as facts about that build: the
+artifact set was built as an approval candidate while owner approval was absent
+and Platform publication had not happened. These fields are not live publication
+or approval state and are never changed after owner approval. The seven files in
+the manifest plus the manifest itself form the eight-file immutable release set.
+
+Generate the detached approval packet from that set:
+
+```sh
+node scripts/create-comic-manifest-approval-packet.mjs /path/to/platform-release-candidate \
+  > /path/to/platform-owner-approval.json
+```
+
+The packet starts with `status: "awaiting-owner-decision"` and
+`owner_approval: null`; it grants no approval. After the owner explicitly reviews
+the exact source identity and all eight filename/size/SHA-256 tuples, record the
+owner's decision in that separate packet by setting `status` to `approved` and
+filling `owner_approval` with `decision: "approve"`, `owner: "@andrewperis"`,
+an RFC 3339 `approved_at`, and a non-empty `decision_reference`, then run:
+
+```sh
+node scripts/verify-comic-manifest-approval.mjs /path/to/platform-release-candidate \
+  /path/to/platform-owner-approval.json
+```
+
+This verifier is read-only. It requires the explicit `@andrewperis` approval
+record, exact source commit/tree/tag, exactly eight regular files, and all eight
+matching filename/size/digest tuples. Missing, changed, extra, or symlinked files
+and mismatched approval fields fail closed. The verifier checks the declared
+approval record; it does not authenticate who wrote it or create an approval.
+The separate owner decision must be captured through the authorized review path.
+
+After approval, publish those same eight files unchanged; do not rebuild after
+approval. To verify a later fresh download, first download the full asset set to a
+new empty directory, then run:
+
+```sh
+node scripts/verify-comic-manifest-downloads.mjs \
+  /path/to/platform-release-candidate/comic-manifest-v1.0.0.manifest.json \
+  /path/to/fresh-downloads
+```
+
+This compares the fresh bytes to the separately retained approved build set and
+rejects missing or extra files. GitHub asset metadata records `application/json`
+for the Codex uploads and public downloads returned `application/octet-stream`;
+both are recorded separately from each contract-declared media type.
 
 The local builder accepts an external commit identity only when its supplied
 40-character tree hash exactly matches the clean local source tree; both values
 are recorded in the artifact manifest. The adoption PR does not create a Platform
-tag, release, upload or npm publication.
+tag, release, upload or npm publication. A pre-merge PR build is review evidence
+only; the owner approval packet must be generated from a fresh post-merge build.
 
 Epic #101 receives the verified Codex and Platform artifact tuples, API/CLI and
 adapter limits, synthetic conformance evidence, source/package manifests, and

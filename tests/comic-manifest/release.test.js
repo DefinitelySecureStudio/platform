@@ -9,6 +9,9 @@ import { fileURLToPath } from 'node:url';
 import * as comicApi from '../../src/comic-manifest/index.js';
 import { buildComicManifestRelease, resolveExternalOutput, verifySourceIdentity } from '../../scripts/build-comic-manifest-release.mjs';
 import { checkComicManifestRelease, comicManifestReleaseReadiness } from '../../scripts/check-comic-manifest-release.mjs';
+import {
+  createComicManifestApprovalPacket, PLATFORM_RELEASE_APPROVAL_FORMAT, verifyComicManifestApproval
+} from '../../scripts/comic-manifest-approval.mjs';
 import { verifyComicManifestDownloads } from '../../scripts/verify-comic-manifest-downloads.mjs';
 
 const root = resolve(fileURLToPath(new URL('../..', import.meta.url)));
@@ -88,21 +91,21 @@ test('Platform artifact provenance accepts a source commit only for the exact lo
   const sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
   const tree = execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { cwd: root, encoding: 'utf8' }).trim();
   const manifest = await buildComicManifestRelease(join(temp, 'matching'), {
-    candidate: true, sourceIdentity: { commit: sourceCommit, tree }
+    sourceIdentity: { commit: sourceCommit, tree }
   });
   assert.equal(manifest.commit, sourceCommit);
   assert.equal(manifest.tree, tree);
 
   await assert.rejects(buildComicManifestRelease(join(temp, 'missing'), {
-    candidate: true, sourceIdentity: { commit: 'a'.repeat(40), tree }
+    sourceIdentity: { commit: 'a'.repeat(40), tree }
   }), /not present as a verified local Git commit object/);
 
   await assert.rejects(buildComicManifestRelease(join(temp, 'non-commit-object'), {
-    candidate: true, sourceIdentity: { commit: tree, tree }
+    sourceIdentity: { commit: tree, tree }
   }), /not present as a verified local Git commit object/);
 
   await assert.rejects(buildComicManifestRelease(join(temp, 'mismatch'), {
-    candidate: true, sourceIdentity: { commit: sourceCommit, tree: 'b'.repeat(40) }
+    sourceIdentity: { commit: sourceCommit, tree: 'b'.repeat(40) }
   }), /exact matching local Git tree/);
 });
 
@@ -129,15 +132,18 @@ test('Platform source provenance ignores Git replacement refs in an isolated rep
     'a replacement ref cannot make a wrong commit appear to contain the checkout tree');
 });
 
-test('candidate artifacts build reproducibly with an exact manifest and declared media types', async t => {
+test('approval-candidate artifacts build reproducibly from a clean exact source identity', async t => {
   const temp = await mkdtemp(join(tmpdir(), 'comic-manifest-release-'));
   t.after(() => rm(temp, { recursive: true, force: true }));
   const outputA = join(temp, 'a'), outputB = join(temp, 'b');
-  await assert.rejects(buildComicManifestRelease(outputA), /not ready/);
-  const manifestA = await buildComicManifestRelease(outputA, { candidate: true });
-  const manifestB = await buildComicManifestRelease(outputB, { candidate: true });
-  assert.equal(manifestA.candidate, true);
-  assert.equal(manifestA.platform_release_status, 'candidate-awaiting-post-merge-owner-approval');
+  const sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+  const sourceTree = execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { cwd: root, encoding: 'utf8' }).trim();
+  const sourceIdentity = { commit: sourceCommit, tree: sourceTree };
+  const manifestA = await buildComicManifestRelease(outputA, { sourceIdentity });
+  const manifestB = await buildComicManifestRelease(outputB, { sourceIdentity });
+  assert.deepEqual(manifestA.build_provenance, {
+    mode: 'release-approval-candidate', owner_approval_status_at_build: 'not-approved', publication_status_at_build: 'not-published'
+  });
   assert.deepEqual(manifestA.codex_adoption, { ready: true, blockers: manifestB.codex_adoption.blockers });
   assert.equal(manifestA.component, 'comic-manifest');
   assert.equal(manifestA.version, '1.0.0');
@@ -221,23 +227,131 @@ test('candidate artifacts build reproducibly with an exact manifest and declared
   assert.equal(JSON.parse(await readFile(join(sourceRoot, 'release/comic-manifest-api-v1.json'), 'utf8')).tag, 'comic-manifest/v1.0.0');
 });
 
+test('detached owner approval binds the exact eight-file set and verification never mutates it', async t => {
+  const temp = await mkdtemp(join(tmpdir(), 'comic-manifest-approval-'));
+  t.after(() => rm(temp, { recursive: true, force: true }));
+  const artifacts = join(temp, 'artifacts'), packetPath = join(temp, 'approval.json');
+  await buildComicManifestRelease(artifacts);
+
+  const snapshot = async directory => {
+    const names = (await readdir(directory)).sort();
+    return Promise.all(names.map(async name => [name, await readFile(join(directory, name))]));
+  };
+  const beforeGeneration = await snapshot(artifacts);
+  const packet = await createComicManifestApprovalPacket(artifacts);
+  assert.equal(packet.format, PLATFORM_RELEASE_APPROVAL_FORMAT);
+  assert.equal(packet.status, 'awaiting-owner-decision');
+  assert.equal(packet.owner_approval, null);
+  assert.equal(packet.release.tag, 'comic-manifest/v1.0.0');
+  assert.match(packet.release.source_commit, /^[a-f0-9]{40}$/);
+  assert.match(packet.release.source_tree, /^[a-f0-9]{40}$/);
+  assert.equal(packet.artifacts.length, 8);
+  assert.equal(packet.artifacts.at(-1).filename, 'comic-manifest-v1.0.0.manifest.json');
+  assert.deepEqual(await snapshot(artifacts), beforeGeneration, 'packet generation is read-only');
+  const packetFromCli = JSON.parse(execFileSync(process.execPath, [
+    join(root, 'scripts/create-comic-manifest-approval-packet.mjs'), artifacts
+  ], { encoding: 'utf8' }));
+  assert.deepEqual(packetFromCli, packet);
+  await writeFile(packetPath, JSON.stringify(packet, null, 2) + '\n');
+  const beforeMissingApproval = await snapshot(artifacts);
+  await assert.rejects(verifyComicManifestApproval(artifacts, packetPath), /explicit owner decision/);
+  assert.deepEqual(await snapshot(artifacts), beforeMissingApproval, 'rejected verification does not mutate assets');
+
+  const approved = structuredClone(packet);
+  approved.status = 'approved';
+  approved.owner_approval = {
+    decision: 'approve', owner: '@andrewperis', approved_at: '2026-10-10T00:00:00Z',
+    decision_reference: 'synthetic-test-approval'
+  };
+  await writeFile(packetPath, JSON.stringify(approved, null, 2) + '\n');
+  const beforeVerification = await snapshot(artifacts), approvalBytes = await readFile(packetPath);
+  const report = await verifyComicManifestApproval(artifacts, packetPath);
+  assert.deepEqual(report, {
+    approved: true, repository: 'DefinitelySecureStudio/platform', component: 'comic-manifest',
+    version: '1.0.0', package_version: '1.2.0', tag: 'comic-manifest/v1.0.0',
+    commit: packet.release.source_commit, tree: packet.release.source_tree, artifacts: 8
+  });
+  assert.deepEqual(await snapshot(artifacts), beforeVerification, 'successful verification does not mutate assets');
+  assert.deepEqual(await readFile(packetPath), approvalBytes, 'successful verification does not rewrite the approval');
+  assert.deepEqual(JSON.parse(execFileSync(process.execPath, [
+    join(root, 'scripts/verify-comic-manifest-approval.mjs'), artifacts, packetPath
+  ], { encoding: 'utf8' })), report);
+
+  const changedPackets = [
+    record => { record.release.source_commit = '0'.repeat(40); },
+    record => { record.release.source_tree = '0'.repeat(40); },
+    record => { record.release.tag = 'comic-manifest/v2.0.0'; },
+    record => { record.artifacts[0].byte_size += 1; },
+    record => { record.artifacts[0].sha256 = 'sha256:' + '0'.repeat(64); },
+    record => { record.artifacts.pop(); },
+    record => { record.artifacts.push(structuredClone(record.artifacts[0])); },
+    record => { record.owner_approval = null; },
+    record => { record.owner_approval.owner = '@someone-else'; },
+    record => { record.owner_approval.decision = 'deny'; },
+    record => { record.owner_approval.approved_at = 'invalid'; },
+    record => { record.owner_approval.decision_reference = ''; }
+  ];
+  for (const mutate of changedPackets) {
+    const changed = structuredClone(approved);
+    mutate(changed);
+    await writeFile(packetPath, JSON.stringify(changed, null, 2) + '\n');
+    const filesBefore = await snapshot(artifacts), packetBefore = await readFile(packetPath);
+    await assert.rejects(verifyComicManifestApproval(artifacts, packetPath));
+    assert.deepEqual(await snapshot(artifacts), filesBefore, 'rejected verification does not alter artifacts');
+    assert.deepEqual(await readFile(packetPath), packetBefore, 'rejected verification does not alter the packet');
+  }
+
+  await writeFile(packetPath, JSON.stringify(approved, null, 2) + '\n');
+  const changedAsset = join(artifacts, packet.artifacts[0].filename);
+  const originalAsset = await readFile(changedAsset);
+  await writeFile(changedAsset, Buffer.concat([originalAsset, Buffer.from('x')]));
+  const tamperedBefore = await snapshot(artifacts);
+  await assert.rejects(verifyComicManifestApproval(artifacts, packetPath), /differs from its manifest tuple/);
+  assert.deepEqual(await snapshot(artifacts), tamperedBefore, 'tamper rejection leaves the changed file untouched');
+  await writeFile(changedAsset, originalAsset);
+
+  const manifestFile = join(artifacts, 'comic-manifest-v1.0.0.manifest.json');
+  const originalManifest = await readFile(manifestFile);
+  await writeFile(manifestFile, Buffer.concat([originalManifest, Buffer.from('\n')]));
+  const changedManifestBefore = await snapshot(artifacts);
+  await assert.rejects(verifyComicManifestApproval(artifacts, packetPath), /artifact tuple mismatch/);
+  assert.deepEqual(await snapshot(artifacts), changedManifestBefore, 'manifest mismatch is rejected without rewriting it');
+  await writeFile(manifestFile, originalManifest);
+
+  const extraFile = join(artifacts, 'unexpected.txt');
+  await writeFile(extraFile, 'extra');
+  const extraBefore = await snapshot(artifacts);
+  await assert.rejects(verifyComicManifestApproval(artifacts, packetPath), /exactly the eight release files/);
+  assert.deepEqual(await snapshot(artifacts), extraBefore, 'extra-file rejection is read-only');
+  await rm(extraFile);
+
+  const missingFile = join(artifacts, packet.artifacts[0].filename);
+  await rm(missingFile);
+  const missingBefore = await snapshot(artifacts);
+  await assert.rejects(verifyComicManifestApproval(artifacts, packetPath), /exactly the eight release files/);
+  assert.deepEqual(await snapshot(artifacts), missingBefore, 'missing-file rejection does not restore or rewrite files');
+});
+
 test('fresh-download verifier checks trusted manifest bytes, exact allowlist, regular files, size and SHA-256', async t => {
   const temp = await mkdtemp(join(tmpdir(), 'comic-manifest-download-'));
   t.after(() => rm(temp, { recursive: true, force: true }));
   const source = join(temp, 'source'), downloads = join(temp, 'downloads');
   await mkdir(downloads);
-  const manifest = await buildComicManifestRelease(source, { candidate: true });
-  const trusted = structuredClone(manifest);
-  trusted.candidate = false; trusted.readiness = { ready: true, blockers: [] };
-  const trustedBytes = Buffer.from(JSON.stringify(trusted, null, 2) + '\n');
+  const built = await buildComicManifestRelease(source);
+  const downloadedManifest = 'comic-manifest-v1.0.0.manifest.json';
+  const trustedBytes = await readFile(join(source, downloadedManifest));
+  const trusted = JSON.parse(trustedBytes);
+  assert.deepEqual(trusted, built);
   const trustedPath = join(temp, 'trusted-build-manifest.json');
   await writeFile(trustedPath, trustedBytes);
   for (const asset of trusted.assets) await writeFile(join(downloads, asset.filename), await readFile(join(source, asset.filename)));
-  const downloadedManifest = 'comic-manifest-v1.0.0.manifest.json';
   await writeFile(join(downloads, downloadedManifest), trustedBytes);
   assert.deepEqual(await verifyComicManifestDownloads(trustedPath, downloads), {
     verified: true, commit: trusted.commit, assets: trusted.assets.length + 1
   });
+  await writeFile(join(downloads, 'unexpected.txt'), 'extra');
+  await assert.rejects(verifyComicManifestDownloads(trustedPath, downloads), /complete trusted approval-candidate/);
+  await rm(join(downloads, 'unexpected.txt'));
 
   const tampered = join(temp, 'tampered'); await mkdir(tampered);
   for (const asset of trusted.assets) await writeFile(join(tampered, asset.filename), await readFile(join(source, asset.filename)));

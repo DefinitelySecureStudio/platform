@@ -52,8 +52,15 @@ is byte-identical to the already reviewed fixture schema.
 `package.json` remains `1.2.0` and `private: true`; no package is published. The
 current readiness check confirms only upstream Codex publication/adoption. Even
 when that check passes, the Platform artifact is still a candidate and requires
-independent PR review, merge, exact-head CI, a fresh post-merge build, and separate
-owner approval of its exact artifacts before any later Platform publication.
+independent PR review, merge, and exact-head CI. After merge, build once from the
+exact merge commit into a new external directory and generate a detached owner
+approval packet from that exact eight-file set. Its manifest records candidate,
+approval, and publication facts as build-time provenance, not live status. The
+owner must separately approve that packet's exact source commit/tree/tag and all
+eight filenames, sizes, and hashes. The read-only verifier rejects missing,
+changed, extra, or symlinked files and does not rewrite the packet or artifacts.
+After approval, publish those exact files unchanged; rebuilding after approval
+would create a different set and require a new approval.
 
 ### Historical preparation and checks
 

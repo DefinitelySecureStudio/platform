@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { lstat, readFile } from 'node:fs/promises';
+import { lstat, readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -22,13 +22,18 @@ export async function verifyComicManifestDownloads(trustedManifestPath, director
   const manifest = JSON.parse(expectedBytes);
   const rootStat = await lstat(directory);
   if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) throw Error('Download directory must be a regular directory.');
+  const expectedFiles = [...expected, prefix + '.manifest.json'].sort();
+  const downloadedFiles = (await readdir(directory)).sort();
   if (manifest.repository !== 'DefinitelySecureStudio/platform' || manifest.component !== 'comic-manifest' ||
       manifest.version !== '1.0.0' || manifest.package_version !== '1.2.0' || manifest.tag !== tag ||
       !/^[a-f0-9]{40}$/.test(manifest.commit ?? '') || !/^[a-f0-9]{40}$/.test(manifest.tree ?? '') ||
-      manifest.candidate !== false || manifest.readiness?.ready !== true ||
+      manifest.build_provenance?.mode !== 'release-approval-candidate' ||
+      manifest.build_provenance?.owner_approval_status_at_build !== 'not-approved' ||
+      manifest.build_provenance?.publication_status_at_build !== 'not-published' || manifest.codex_adoption?.ready !== true ||
+      JSON.stringify(downloadedFiles) !== JSON.stringify(expectedFiles) ||
       !Array.isArray(manifest.assets) || manifest.assets.length !== expected.length ||
       new Set(manifest.assets.map(asset => asset?.filename)).size !== expected.length) {
-    throw Error('Not a release-ready trusted manifest.');
+    throw Error('Not a complete trusted approval-candidate manifest and asset set.');
   }
 
   async function bytes(filename) {
