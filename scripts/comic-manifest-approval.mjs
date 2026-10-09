@@ -156,7 +156,9 @@ export async function verifyComicManifestApproval(directory, approvalPacketPath)
   }
 
   return {
-    approved: true,
+    approval_record_matches: true,
+    owner_identity_authenticated: false,
+    external_owner_authentication_required: true,
     repository: inspected.release.repository,
     component: inspected.release.component,
     version: inspected.release.version,

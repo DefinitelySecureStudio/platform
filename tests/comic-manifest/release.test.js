@@ -267,7 +267,8 @@ test('detached owner approval binds the exact eight-file set and verification ne
   const beforeVerification = await snapshot(artifacts), approvalBytes = await readFile(packetPath);
   const report = await verifyComicManifestApproval(artifacts, packetPath);
   assert.deepEqual(report, {
-    approved: true, repository: 'DefinitelySecureStudio/platform', component: 'comic-manifest',
+    approval_record_matches: true, owner_identity_authenticated: false, external_owner_authentication_required: true,
+    repository: 'DefinitelySecureStudio/platform', component: 'comic-manifest',
     version: '1.0.0', package_version: '1.2.0', tag: 'comic-manifest/v1.0.0',
     commit: packet.release.source_commit, tree: packet.release.source_tree, artifacts: 8
   });
@@ -276,6 +277,37 @@ test('detached owner approval binds the exact eight-file set and verification ne
   assert.deepEqual(JSON.parse(execFileSync(process.execPath, [
     join(root, 'scripts/verify-comic-manifest-approval.mjs'), artifacts, packetPath
   ], { encoding: 'utf8' })), report);
+
+  const linkedDirectory = join(temp, 'linked-artifacts');
+  await symlink(artifacts, linkedDirectory, 'dir');
+  const directoryBefore = await snapshot(artifacts);
+  await assert.rejects(createComicManifestApprovalPacket(linkedDirectory), /regular directory/);
+  await assert.rejects(verifyComicManifestApproval(linkedDirectory, packetPath), /regular directory/);
+  assert.equal((await lstat(linkedDirectory)).isSymbolicLink(), true);
+  assert.deepEqual(await snapshot(artifacts), directoryBefore, 'directory symlink rejection is read-only');
+
+  const linkedPacket = join(temp, 'approval-symlink.json');
+  await symlink(packetPath, linkedPacket);
+  const packetBeforeSymlinkCheck = await readFile(packetPath), filesBeforePacketSymlinkCheck = await snapshot(artifacts);
+  await assert.rejects(verifyComicManifestApproval(artifacts, linkedPacket), /regular file/);
+  assert.equal((await lstat(linkedPacket)).isSymbolicLink(), true);
+  assert.deepEqual(await readFile(packetPath), packetBeforeSymlinkCheck);
+  assert.deepEqual(await snapshot(artifacts), filesBeforePacketSymlinkCheck, 'packet symlink rejection is read-only');
+
+  const symlinkAsset = join(artifacts, packet.artifacts[0].filename);
+  const symlinkTarget = join(temp, 'external-approval-artifact');
+  const originalSymlinkAsset = await readFile(symlinkAsset);
+  await writeFile(symlinkTarget, originalSymlinkAsset);
+  await rm(symlinkAsset);
+  await symlink(symlinkTarget, symlinkAsset);
+  const filesBeforeArtifactSymlinkCheck = await snapshot(artifacts), packetBeforeArtifactSymlinkCheck = await readFile(packetPath);
+  await assert.rejects(createComicManifestApprovalPacket(artifacts), /regular file/);
+  await assert.rejects(verifyComicManifestApproval(artifacts, packetPath), /regular file/);
+  assert.equal((await lstat(symlinkAsset)).isSymbolicLink(), true);
+  assert.deepEqual(await snapshot(artifacts), filesBeforeArtifactSymlinkCheck, 'artifact symlink rejection is read-only');
+  assert.deepEqual(await readFile(packetPath), packetBeforeArtifactSymlinkCheck);
+  await rm(symlinkAsset);
+  await writeFile(symlinkAsset, originalSymlinkAsset);
 
   const changedPackets = [
     record => { record.release.source_commit = '0'.repeat(40); },

@@ -59,6 +59,11 @@ approval, and publication facts as build-time provenance, not live status. The
 owner must separately approve that packet's exact source commit/tree/tag and all
 eight filenames, sizes, and hashes. The read-only verifier rejects missing,
 changed, extra, or symlinked files and does not rewrite the packet or artifacts.
+Its success result means only that the declared decision record matches those
+bytes (`approval_record_matches: true`); it marks
+`owner_identity_authenticated: false` and
+`external_owner_authentication_required: true`. Confirm the decision through the
+external authenticated owner-review path before publication.
 After approval, publish those exact files unchanged; rebuilding after approval
 would create a different set and require a new approval.
 

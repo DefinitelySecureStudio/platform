@@ -10,16 +10,30 @@ Run `node scripts/check-comic-manifest-release.mjs` to verify the exact publishe
 Codex lock, immutable tag target, fresh-download tuple and regenerated runtime pin.
 This is only the upstream contract-adoption gate. Platform remains private and
 unpublished; a successful check does not approve or publish the Platform package.
-The candidate builder can be rehearsed locally with `--candidate`, but it never
-creates tags, releases, uploads, changes publication status, or grants approval.
+After merge, the builder produces an approval-candidate set from the exact merge
+commit/tree; it never creates tags, releases, uploads, changes publication status,
+or grants approval. Its status fields describe the state when the files were built.
 
 `comic-manifest-verification.md` records the exact evidence required for a
-post-merge candidate. The API inventory is `comic-manifest-api-v1.json`.
-`node scripts/build-comic-manifest-release.mjs /absolute/new/output --candidate`
-produces the source archive, package archive, lock/API snapshots, and a
-deterministic artifact manifest. See the
-[API/release guide](../docs/comic-manifest-release.md) for owner gates,
-artifact media-type handling, and the Codex-before-Platform order.
+post-merge candidate. The API inventory is `comic-manifest-api-v1.json`. Build
+into a new external directory from the exact merge commit and tree:
+
+```sh
+node scripts/build-comic-manifest-release.mjs /absolute/new/output \
+  --source-commit "$MERGED_COMMIT" --source-tree "$MERGED_TREE"
+```
+
+`node scripts/create-comic-manifest-approval-packet.mjs /absolute/new/output`
+prints a detached packet with no owner decision. After an external authenticated
+owner decision, record it in that packet and run
+`node scripts/verify-comic-manifest-approval.mjs /absolute/new/output /path/to/owner-approval.json`.
+The verifier's `approval_record_matches: true` result means the record matches
+the exact eight files; `owner_identity_authenticated: false` and
+`external_owner_authentication_required: true` make clear that it does not
+authenticate the owner or authorize publication. Upload the approved files
+unchanged without rebuilding.
+See the [API/release guide](../docs/comic-manifest-release.md) for the full
+workflow, artifact media-type handling, and Codex-before-Platform order.
 
 ## Context Builder v1 preparation (#86)
 

@@ -182,9 +182,12 @@ node scripts/verify-comic-manifest-approval.mjs /path/to/platform-release-candid
 This verifier is read-only. It requires the explicit `@andrewperis` approval
 record, exact source commit/tree/tag, exactly eight regular files, and all eight
 matching filename/size/digest tuples. Missing, changed, extra, or symlinked files
-and mismatched approval fields fail closed. The verifier checks the declared
-approval record; it does not authenticate who wrote it or create an approval.
-The separate owner decision must be captured through the authorized review path.
+and mismatched approval fields fail closed. `approval_record_matches: true`
+means the declared record matches those bytes; `owner_identity_authenticated:
+false` and `external_owner_authentication_required: true` mean the verifier does
+not authenticate who wrote it or create an approval. Before publication, confirm
+the same owner decision through the external authenticated review path and retain
+its reference in `decision_reference`.
 
 After approval, publish those same eight files unchanged; do not rebuild after
 approval. To verify a later fresh download, first download the full asset set to a
