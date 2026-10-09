@@ -1,9 +1,10 @@
 # Comic Manifest v1 API and release guide
 
-Status: implementation is an unreleased candidate for Studio #99. The proposed
-Platform component tag is `comic-manifest/v1.0.0`; the additive Platform npm
-package version candidate is `1.2.0`. The package remains private. Neither tag
-nor package is published by this change.
+Status: Codex Comic Manifest 1.0.0 is published immutably and its exact release
+has been independently downloaded and verified. The Platform implementation is
+still an unreleased Studio #99 candidate. Its proposed component tag is
+`comic-manifest/v1.0.0`; the additive Platform npm package version is `1.2.0` and
+the package remains private. The Platform tag and package have not been published.
 
 Codex owns normative meanings and the exact contract at
 `contract/comic-manifest/v1.0.0`. Platform owns the implementation, CLI,
@@ -86,12 +87,14 @@ bytes.
 The owner accepted the proposed Issue 98 golden packet at source head
 `97dcd990e87bd0368ddcbecf66d1a6718bc7629e` in chat at
 `2026-10-07T19:15:38Z`; PR #41 records that it was not a submitted GitHub review.
-That acceptance applies only to the pinned golden packet. It is not evidence of
-human review of the present release candidate or of final release approval.
-The current public Constitution exception register lists no active Article 12
-exception. No AI-review exception is claimed or relied on; AI-assisted review
-and automation remain advisory and cannot replace the required qualified-human
-decisions in Constitution Section 9.4.
+That acceptance applies only to the pinned golden packet. The separate owner A4
+decision approved the exact Codex commit, tag and asset tuples for Codex publication;
+it did not approve Platform publication and is not represented as a human technical
+review of the released artifacts.
+The task-specific Epic #6 A3 AI-review exception covered code-merge review only
+and did not authorize the A4 release decision. No separate human review of final
+release artifacts is claimed. Platform publication still requires its own owner
+decision on exact built artifact tuples.
 
 ## Compatibility, deprecation, and support
 
@@ -134,17 +137,78 @@ establish Canon, permission, public disclosure, or release approval.
 
 ## Release order and Epic #101 handoff
 
-The release sequence is Codex publication and fresh exact-download/immutability
-verification; reviewed Platform adoption of those exact published tuples and
-validator regeneration; Platform source/package build and owner approval; then
-Platform publication and fresh verification. The current Platform lock remains
-candidate/unpublished and readiness stays blocked until the first two steps are
-complete. GitHub asset transport MIME may be `application/octet-stream`; record
-it separately from the declared content media type in the contract manifest.
+The Codex publication and fresh immutable-download verification are complete.
+This Platform adoption PR pins those exact published tuples and regenerates the
+validator from the fresh download. The Platform package remains private and the
+API inventory still records `candidate-unpublished`. After independent review,
+merge and exact-head CI, build and inspect the Platform source/package artifacts,
+then obtain a separate owner approval naming their exact tuples. Only that later
+approval can authorize a Platform release and fresh verification. The readiness
+check in this repository covers Codex adoption only; it is not final Platform
+release readiness. After this PR is independently reviewed and merged, build the
+Platform release artifact set once from the exact merge commit into a new
+directory outside the checkout:
+
+```sh
+node scripts/build-comic-manifest-release.mjs /path/to/platform-release-candidate \
+  --source-commit "$MERGED_COMMIT" --source-tree "$MERGED_TREE"
+```
+
+The builder records `build_provenance` fields as facts about that build: the
+artifact set was built as an approval candidate while owner approval was absent
+and Platform publication had not happened. These fields are not live publication
+or approval state and are never changed after owner approval. The seven files in
+the manifest plus the manifest itself form the eight-file immutable release set.
+
+Generate the detached approval packet from that set:
+
+```sh
+node scripts/create-comic-manifest-approval-packet.mjs /path/to/platform-release-candidate \
+  > /path/to/platform-owner-approval.json
+```
+
+The packet starts with `status: "awaiting-owner-decision"` and
+`owner_approval: null`; it grants no approval. After the owner explicitly reviews
+the exact source identity and all eight filename/size/SHA-256 tuples, record the
+owner's decision in that separate packet by setting `status` to `approved` and
+filling `owner_approval` with `decision: "approve"`, `owner: "@andrewperis"`,
+an RFC 3339 `approved_at`, and a non-empty `decision_reference`, then run:
+
+```sh
+node scripts/verify-comic-manifest-approval.mjs /path/to/platform-release-candidate \
+  /path/to/platform-owner-approval.json
+```
+
+This verifier is read-only. It requires the explicit `@andrewperis` approval
+record, exact source commit/tree/tag, exactly eight regular files, and all eight
+matching filename/size/digest tuples. Missing, changed, extra, or symlinked files
+and mismatched approval fields fail closed. `approval_record_matches: true`
+means the declared record matches those bytes; `owner_identity_authenticated:
+false` and `external_owner_authentication_required: true` mean the verifier does
+not authenticate who wrote it or create an approval. Before publication, confirm
+the same owner decision through the external authenticated review path and retain
+its reference in `decision_reference`.
+
+After approval, publish those same eight files unchanged; do not rebuild after
+approval. To verify a later fresh download, first download the full asset set to a
+new empty directory, then run:
+
+```sh
+node scripts/verify-comic-manifest-downloads.mjs \
+  /path/to/platform-release-candidate/comic-manifest-v1.0.0.manifest.json \
+  /path/to/fresh-downloads
+```
+
+This compares the fresh bytes to the separately retained approved build set and
+rejects missing or extra files. GitHub asset metadata records `application/json`
+for the Codex uploads and public downloads returned `application/octet-stream`;
+both are recorded separately from each contract-declared media type.
+
 The local builder accepts an external commit identity only when its supplied
 40-character tree hash exactly matches the clean local source tree; both values
-are recorded in the artifact manifest. Rebuild and rebind those identities after
-the preparation PR is merged.
+are recorded in the artifact manifest. The adoption PR does not create a Platform
+tag, release, upload or npm publication. A pre-merge PR build is review evidence
+only; the owner approval packet must be generated from a fresh post-merge build.
 
 Epic #101 receives the verified Codex and Platform artifact tuples, API/CLI and
 adapter limits, synthetic conformance evidence, source/package manifests, and

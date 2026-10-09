@@ -1,34 +1,31 @@
-# Constitution conformance record
-
-## Studio #99 Comic Manifest v1 release preparation — 2026-10-07
+## Studio #99 Codex publication and Platform adoption — 2026-10-09
 
 Owner: @andrewperis. Constitution 1.0.0 at
-`a9cc8a503aa30e17820edc62ac95f7cbe10e0564`. Base: merged Platform Issue 98
-`64aba4c770903ef1b597e49ab9bec69828edb6fe`; Codex contract source candidate
-is the separate branch commit recorded in the candidate lock. Scope: separate
-Comic Manifest v1 contract catalog and additive Platform API/package candidate,
-release checks, documentation, and reproducible local artifacts. The historical
-SDK and Context Builder locks and published assets remain separate and unchanged.
+`a9cc8a503aa30e17820edc62ac95f7cbe10e0564`. Platform base:
+`9476aeb27246230d982bd8cfde7cfc0d82939de7`, including merged preparation PR #42.
+The Codex Comic Manifest 1.0.0 tag targets
+`12e437e30328a3bb9cd2d15e6307a70b4b7e0e2a` and is published with immutable
+status. The owner explicitly approved that exact Codex commit, tag and asset
+tuples for publication. This A4 decision is not represented as a human technical
+review of the release assets.
 
-The owner's task-specific Epic #6 A3 AI-review exception applies to code-merge
-review only. It authorizes AI review within that merge scope; it does not
-authorize an A4 release decision, tag, release asset, or publication. No
-release/publication exception is provided. No separate human review of final
-release artifacts is claimed here; an explicit owner release approval remains
-required. The owner's chat acceptance at source head
-`97dcd990e87bd0368ddcbecf66d1a6718bc7629e`, recorded
-`2026-10-07T19:15:38Z`, is bounded to the Issue 98 golden packet; it is neither a
-submitted GitHub review nor approval of this release candidate.
+The task-specific Epic #6 A3 AI-review exception covered code-merge review only.
+It did not authorize this A4 release decision or any Platform release. The owner
+acceptance recorded at `2026-10-07T19:15:38Z` for Platform source head
+`97dcd990e87bd0368ddcbecf66d1a6718bc7629e` remains bounded to the Issue 98
+golden/catalog/oracle packet; it is neither a GitHub review nor publication
+approval. No separate human review of the final Codex assets is claimed.
 
-Evidence and remaining gates are tracked in
-`release/comic-manifest-verification.md`. This preparation does not create a
-tag, release, upload, npm publication, security/visibility change, or approval.
-Codex publication and fresh immutable-download verification, exact Platform
-adoption and validator regeneration, final post-merge builds, and owner approval
-of exact artifact tuples remain outstanding. Fresh audits of the current
-lockfiles report zero vulnerabilities after the Platform fast-uri update;
-rerun against the exact post-merge lock before publication.
-Status: proposed preparation; no release readiness or publication is asserted.
+This PR adopts the exact immutable Codex release tuples and regenerates the
+Platform validator from a fresh public schema download. It preserves the historical
+SDK and Context Builder locks/assets and the reviewed Comic Manifest fixture,
+golden, catalog, oracle and source bytes. The Platform package remains private and
+unpublished; this adoption does not create a Platform tag/release, upload assets,
+publish to npm, change security/visibility settings, or close Issue #99/Epic #6.
+The owner must separately approve exact Platform artifacts after merge and a
+post-merge build. Evidence is tracked in `release/comic-manifest-verification.md`.
+Status: Codex publication verified; Platform adoption proposed for independent
+review. No final Platform release readiness or publication is asserted.
 
 ## Issue #86 verified contract adoption — 2026-09-16
 

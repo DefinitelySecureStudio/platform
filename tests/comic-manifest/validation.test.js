@@ -60,7 +60,7 @@ test('validation never equates local validity with build success, authorization 
   const blocked=structuredClone(fixture.release);blocked.gates[0].disposition='fail';assert.equal(check(blocked).valid,true);
   // Structurally coherent historical approvals remain historical, irrespective of today's date.
   assert.equal(check(fixture.approvals[1]).valid,true);
-  assert.equal(COMIC_MANIFEST_CONTRACT.status,'unreleased-development');
+  assert.equal(COMIC_MANIFEST_CONTRACT.status,'released');
 });
 test('dates are calendar-validated, preserve fractional ordering and accept UTC leap-second syntax',()=>{
   const r=structuredClone(fixture.result);r.execution.started_at='2026-02-30T12:00:00Z';assert.equal(check(r).valid,false);

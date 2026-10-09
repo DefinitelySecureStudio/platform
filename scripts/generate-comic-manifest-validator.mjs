@@ -25,6 +25,7 @@ const ajv = new Ajv2020({ strict: true, strictRequired: false, strictTypes: fals
 addFormats(ajv);
 ajv.addSchema(schema);
 const exports = Object.fromEntries(['production', 'result', 'release', 'approval'].map(name => [name, `${schema.$id}#/$defs/${name}`]));
-const header = `// Generated from ${pin.repository}@${pin.commit}; unreleased reviewed candidate.\n// Source ${pin.sha256}; ${pin.byte_size} bytes.\n// Rebuild with scripts/generate-comic-manifest-validator.mjs; do not edit.\nimport { createRequire } from 'node:module';\nconst require = createRequire(import.meta.url);\n`;
+const sourceStatus = pin.status === 'released' ? `published ${pin.tag}` : 'unreleased reviewed candidate';
+const header = `// Generated from ${pin.repository}@${pin.commit}; ${sourceStatus}.\n// Source ${pin.sha256}; ${pin.byte_size} bytes.\n// Rebuild from fresh verified Codex release bytes with scripts/generate-comic-manifest-validator.mjs; do not edit.\nimport { createRequire } from 'node:module';\nconst require = createRequire(import.meta.url);\n`;
 const output = process.argv[3] ?? new URL('../src/comic-manifest/generated/schema-v1.js', import.meta.url);
 await writeFile(output, header + standaloneCode(ajv, exports));

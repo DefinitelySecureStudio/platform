@@ -9,9 +9,17 @@ import { fileURLToPath } from 'node:url';
 import { COMIC_MANIFEST_CONTRACT as pin } from '../../src/comic-manifest/index.js';
 const root=fileURLToPath(new URL('../../',import.meta.url));
 const hash=b=>'sha256:'+createHash('sha256').update(b).digest('hex');
-test('reviewed Codex artifacts match exact merged source pins',async()=>{
+test('historical fixtures remain pinned while runtime uses identical published Codex schema bytes',async()=>{
   const lock=JSON.parse(await readFile(join(root,'tests/fixtures/comic-manifest-validation-lock.json')));
-  assert.equal(lock.commit,pin.commit);assert.equal(lock.status,'unreleased-development');
+  assert.equal(lock.repository,'DefinitelySecureStudio/codex');
+  assert.equal(lock.commit,'8044643bf888067f5a6e0d212f843d72e8787f2b');
+  assert.equal(lock.status,'unreleased-development');
+  assert.equal(pin.repository,'DefinitelySecureStudio/codex');
+  assert.equal(pin.commit,'12e437e30328a3bb9cd2d15e6307a70b4b7e0e2a');
+  assert.equal(pin.status,'released');
+  assert.equal(pin.tag,'contract/comic-manifest/v1.0.0');
+  const fixtureSchema=JSON.parse(await readFile(join(root,'tests/fixtures/comic-manifest-v1.schema.json'),'utf8'));
+  assert.equal(fixtureSchema.$id,pin.schema_id);
   for(const a of lock.artifacts){const bytes=await readFile(join(root,a.path));assert.equal(bytes.length,a.byte_size);assert.equal(hash(bytes),a.sha256);assert.equal(a.artifact_uri,`https://github.com/${lock.repository}/blob/${lock.commit}/${a.source_path}`);}
   assert.equal(lock.artifacts[0].sha256,pin.sha256);assert.equal(lock.artifacts[0].byte_size,pin.byte_size);
 });

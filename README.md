@@ -130,7 +130,7 @@ Third-party material remains subject to its own terms. Examples and fixtures
 must be synthetic, properly licensed, or already public.
 
 The [Comic Manifest contract consumer proof](docs/comic-manifest-contracts.md)
-checks the unreleased Codex candidate against the released SDK using offline
+checks the published Codex contract against the released SDK using offline
 synthetic fixtures; it does not add a Manifest runtime or production dependency.
 
 The unreleased [Comic Manifest validation API](docs/comic-manifest-validation.md)
