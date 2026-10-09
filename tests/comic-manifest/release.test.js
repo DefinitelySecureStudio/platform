@@ -137,7 +137,8 @@ test('candidate artifacts build reproducibly with an exact manifest and declared
   const manifestA = await buildComicManifestRelease(outputA, { candidate: true });
   const manifestB = await buildComicManifestRelease(outputB, { candidate: true });
   assert.equal(manifestA.candidate, true);
-  assert.deepEqual(manifestA.readiness, { ready: false, blockers: manifestB.readiness.blockers });
+  assert.equal(manifestA.platform_release_status, 'candidate-awaiting-post-merge-owner-approval');
+  assert.deepEqual(manifestA.codex_adoption, { ready: true, blockers: manifestB.codex_adoption.blockers });
   assert.equal(manifestA.component, 'comic-manifest');
   assert.equal(manifestA.version, '1.0.0');
   assert.equal(manifestA.package_version, '1.2.0');

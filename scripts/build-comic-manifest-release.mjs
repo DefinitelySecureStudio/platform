@@ -63,7 +63,8 @@ export async function buildComicManifestRelease(destination, { candidate = false
   const output = await resolveExternalOutput(destination);
   if (git('status', '--porcelain').length) throw Error('Build requires a clean committed checkout.');
   const readiness = await comicManifestReleaseReadiness();
-  if (!readiness.ready && !candidate) throw Error('Codex contract publication/adoption is not ready.');
+  if (!candidate) throw Error('Final Platform release build is not ready: post-merge owner approval of exact artifact tuples is required.');
+  if (!readiness.ready) throw Error('Codex contract publication/adoption is not ready.');
   const localCommit = git('rev-parse', 'HEAD').toString().trim();
   const tree = git('rev-parse', localCommit + '^{tree}').toString().trim();
   const hasSourceIdentity = verifySourceIdentity(sourceIdentity, tree);
@@ -92,7 +93,9 @@ export async function buildComicManifestRelease(destination, { candidate = false
     ];
     const manifest = {
       repository: 'DefinitelySecureStudio/platform', component: 'comic-manifest', version: '1.0.0',
-      package_version: version, tag, commit, tree, candidate, readiness,
+      package_version: version, tag, commit, tree, candidate,
+      platform_release_status: 'candidate-awaiting-post-merge-owner-approval',
+      codex_adoption: readiness,
       constitution_commit: 'a9cc8a503aa30e17820edc62ac95f7cbe10e0564',
       codex_contract: JSON.parse(git('show', commit + ':release/comic-manifest-contract-lock.json')),
       assets: files.map(([filename, bytes, media_type]) => ({ filename, media_type, byte_size: bytes.length, sha256: sha(bytes),

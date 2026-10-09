@@ -145,7 +145,8 @@ merge and exact-head CI, build and inspect the Platform source/package artifacts
 then obtain a separate owner approval naming their exact tuples. Only that later
 approval can authorize a Platform release and fresh verification. The readiness
 check in this repository covers Codex adoption only; it is not final Platform
-release readiness. GitHub asset metadata records `application/json` for these
+release readiness. The artifact builder only emits explicit candidate manifests
+until a post-merge owner approves exact Platform artifact tuples. GitHub asset metadata records `application/json` for these
 uploads and public downloads returned `application/octet-stream`; both are stored
 separately from each contract-declared media type.
 
