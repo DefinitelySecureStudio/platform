@@ -93,10 +93,13 @@ That acceptance applies only to the pinned golden packet. The separate owner A4
 decision approved the exact Codex commit, tag and asset tuples for Codex publication;
 it did not approve Platform publication and is not represented as a human technical
 review of the released artifacts.
-The task-specific Epic #6 A3 AI-review exception covered code-merge review only
-and did not authorize the A4 release decision. No separate human review of final
-release artifacts is claimed. The owner separately approved Platform publication for the exact built artifact
-tuples now listed in the publication verification record.
+The owner's October 6 AI-review/merge instruction was not registered as a formal
+Constitutional exception. It does not establish human technical review of final
+release artifacts or authorize A4 publication. No separate human review of the
+final artifacts is claimed. The owner separately approved Platform publication
+for the exact built artifact tuples listed in the publication verification
+record. This Platform release guide makes no claim about Studio architecture
+acceptance.
 
 ## Compatibility, deprecation, and support
 

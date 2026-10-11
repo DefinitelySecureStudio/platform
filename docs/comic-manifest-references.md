@@ -1,6 +1,6 @@
 # Comic Manifest immutable reference verification (#92)
 
-The unreleased `./comic-manifest` module adds `planComicReferences`,
+The immutable Platform Comic Manifest v1.0.0 GitHub release includes the `./comic-manifest` module with `planComicReferences`,
 `createComicReferenceResolver` and `COMIC_REFERENCE_LIMITS`. They implement the
 Codex v1 reference semantics, now pinned to the owner-reviewed
 [specification at merge 8044643](https://github.com/DefinitelySecureStudio/codex/blob/8044643bf888067f5a6e0d212f843d72e8787f2b/specs/manifests/comic-manifest-v1.md),
@@ -226,8 +226,10 @@ Constitution v1.0.0, tag `constitution/v1.0.0`, commit
 `a9cc8a503aa30e17820edc62ac95f7cbe10e0564`; Studio ADR 0018 at
 `7b5065cef76bea9580609caba356b0d8fe7cc17c`. Owner @andrewperis reviews the exact
 change. Universal, repository/production-system and automated-workflow profiles
-apply to these controlled effects. The module remains unreleased, with production
-adoption gated by #99. Existing normative schemas and foundation releases are
-unchanged. Rollback removes the new resolver/planner exports and installed adapters;
-it never rewrites historical artifacts or restores revoked permission. Reassess on
+apply to these controlled effects. The implementation is included in the immutable
+GitHub release, but the npm package remains private and unpublished to npm.
+Production trust onboarding remains separately scoped; this release does not
+provide production authorization. Existing normative schemas and foundation
+releases are unchanged. Rollback removes consumer integration; it never rewrites
+historical artifacts or restores revoked permission. Reassess on
 source, trust, classification, policy-clock, containment or downstream-use changes.

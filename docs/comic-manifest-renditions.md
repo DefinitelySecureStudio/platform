@@ -1,7 +1,8 @@
 # Comic Manifest rendition and publication outputs (#94)
 
-The unreleased `./comic-manifest` validator adopts the exact schema and synthetic
-fixtures from Codex merge `8044643bf888067f5a6e0d212f843d72e8787f2b`. It enforces
+The immutable Platform Comic Manifest v1.0.0 GitHub release includes the
+`./comic-manifest` validator, which adopts the exact schema and synthetic fixtures
+from Codex merge `8044643bf888067f5a6e0d212f843d72e8787f2b`. It enforces
 the owner-approved rendition profile catalog, declared output limits and
 production/result/release metadata relationships. It does not retrieve, render,
 decode or distribute media, grant publication permission, decide rights, or promote
