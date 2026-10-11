@@ -1,10 +1,10 @@
 # Comic Manifest v1 API and release guide
 
-Status: Codex Comic Manifest 1.0.0 is published immutably and its exact release
-has been independently downloaded and verified. The Platform implementation is
-still an unreleased Studio #99 candidate. Its proposed component tag is
-`comic-manifest/v1.0.0`; the additive Platform npm package version is `1.2.0` and
-the package remains private. The Platform tag and package have not been published.
+Status: Codex Comic Manifest 1.0.0 and Platform Comic Manifest 1.0.0 are
+published immutably, and their exact public release assets have been independently
+downloaded and verified. The Platform component tag is `comic-manifest/v1.0.0`;
+the additive Platform package version is `1.2.0` and remains private. The package
+was not published to npm.
 
 Codex owns normative meanings and the exact contract at
 `contract/comic-manifest/v1.0.0`. Platform owns the implementation, CLI,
@@ -16,8 +16,10 @@ Context Builder assets. See the [Codex contract guide](comic-manifest-contracts.
 [approvals](comic-manifest-approvals.md),
 [build results](comic-manifest-build-results.md),
 [CLI](comic-manifest-cli.md),
-[conformance](comic-manifest-conformance.md), and
-[renditions](comic-manifest-renditions.md) for detailed behavior.
+[conformance](comic-manifest-conformance.md),
+[renditions](comic-manifest-renditions.md), and
+[Platform v1.0.0 publication verification](comic-manifest-platform-release-v1.0.0.md)
+for detailed behavior and exact release evidence.
 
 ## Library API
 
@@ -81,7 +83,7 @@ schema/test result establishes only its bounded machine predicate. Qualified
 human reviewers remain responsible for creative/editorial meaning, canon,
 rights, accessibility experience, disclosure, and publication authority.
 Changes to golden/catalog/oracle/source expectations require the owner review
-paths already recorded by Issue 98; this release candidate does not edit those
+paths already recorded by Issue 98; the released Platform source did not edit those
 bytes.
 
 The owner accepted the proposed Issue 98 golden packet at source head
@@ -93,8 +95,8 @@ it did not approve Platform publication and is not represented as a human techni
 review of the released artifacts.
 The task-specific Epic #6 A3 AI-review exception covered code-merge review only
 and did not authorize the A4 release decision. No separate human review of final
-release artifacts is claimed. Platform publication still requires its own owner
-decision on exact built artifact tuples.
+release artifacts is claimed. The owner separately approved Platform publication for the exact built artifact
+tuples now listed in the publication verification record.
 
 ## Compatibility, deprecation, and support
 
@@ -137,82 +139,62 @@ establish Canon, permission, public disclosure, or release approval.
 
 ## Release order and Epic #101 handoff
 
-The Codex publication and fresh immutable-download verification are complete.
-This Platform adoption PR pins those exact published tuples and regenerates the
-validator from the fresh download. The Platform package remains private and the
-API inventory still records `candidate-unpublished`. After independent review,
-merge and exact-head CI, build and inspect the Platform source/package artifacts,
-then obtain a separate owner approval naming their exact tuples. Only that later
-approval can authorize a Platform release and fresh verification. The readiness
-check in this repository covers Codex adoption only; it is not final Platform
-release readiness. After this PR is independently reviewed and merged, build the
-Platform release artifact set once from the exact merge commit into a new
-directory outside the checkout:
+
+The v1 release sequence is complete. Codex Comic Manifest 1.0.0 was published
+and its exact immutable assets were independently downloaded before Platform
+adopted those published tuples. Platform source commit
+`f0672d90a47473da6a27614cad07abc175546d67` (tree `b876a434e5f557d88d254cd1e75a8121f23c4ba3`) produced the approved candidate set.
+The owner approved those exact eight tuples before publication. GitHub published
+`comic-manifest/v1.0.0` immutably; its tag resolves to the source commit, and all eight
+public downloads match the approved sizes and SHA-256 values. See the [Platform
+v1.0.0 publication verification](comic-manifest-platform-release-v1.0.0.md)
+for the release URL, exact hashes, and declared/upload/download media types.
+
+The additive Platform package remains private; no npm publication occurred.
+The candidate manifest's `build_provenance` records build-time facts: at build
+time, owner approval was absent and Platform publication had not happened. It
+was not rewritten after approval or publication. The detached approval verifier
+matched the owner record to the exact source and eight files; it does not
+authenticate the identity of the person who supplied that record. The
+repository readiness check covers Codex adoption only, not Platform release
+readiness.
+
+For a future Platform component release, build once from its exact reviewed
+merge commit into a clean directory outside the checkout:
 
 ```sh
-node scripts/build-comic-manifest-release.mjs /path/to/platform-release-candidate \
-  --source-commit "$MERGED_COMMIT" --source-tree "$MERGED_TREE"
+node scripts/build-comic-manifest-release.mjs /path/to/platform-release-candidate --source-commit "$MERGED_COMMIT" --source-tree "$MERGED_TREE"
 ```
 
-The builder records `build_provenance` fields as facts about that build: the
-artifact set was built as an approval candidate while owner approval was absent
-and Platform publication had not happened. These fields are not live publication
-or approval state and are never changed after owner approval. The seven files in
-the manifest plus the manifest itself form the eight-file immutable release set.
-
-Generate the detached approval packet from that set:
+Generate a detached approval packet from those bytes:
 
 ```sh
-node scripts/create-comic-manifest-approval-packet.mjs /path/to/platform-release-candidate \
-  > /path/to/platform-owner-approval.json
+node scripts/create-comic-manifest-approval-packet.mjs /path/to/platform-release-candidate > /path/to/platform-owner-approval.json
 ```
 
-The packet starts with `status: "awaiting-owner-decision"` and
-`owner_approval: null`; it grants no approval. After the owner explicitly reviews
-the exact source identity and all eight filename/size/SHA-256 tuples, record the
-owner's decision in that separate packet by setting `status` to `approved` and
-filling `owner_approval` with `decision: "approve"`, `owner: "@andrewperis"`,
-an RFC 3339 `approved_at`, and a non-empty `decision_reference`, then run:
+After the owner reviews the exact source identity and all eight filename/size/
+SHA-256 tuples, record the decision in the separate packet and run the read-only
+verifier:
 
 ```sh
-node scripts/verify-comic-manifest-approval.mjs /path/to/platform-release-candidate \
-  /path/to/platform-owner-approval.json
+node scripts/verify-comic-manifest-approval.mjs /path/to/platform-release-candidate /path/to/platform-owner-approval.json
 ```
 
-This verifier is read-only. It requires the explicit `@andrewperis` approval
-record, exact source commit/tree/tag, exactly eight regular files, and all eight
-matching filename/size/digest tuples. Missing, changed, extra, or symlinked files
-and mismatched approval fields fail closed. `approval_record_matches: true`
-means the declared record matches those bytes; `owner_identity_authenticated:
-false` and `external_owner_authentication_required: true` mean the verifier does
-not authenticate who wrote it or create an approval. Before publication, confirm
-the same owner decision through the external authenticated review path and retain
-its reference in `decision_reference`.
+The verifier requires the exact owner, source commit/tree/tag, eight regular
+files, and all matching digest tuples. `approval_record_matches: true` means
+the supplied record matches the bytes; it does not authenticate the person who
+wrote the record or create approval. Confirm owner approval through the
+authenticated review path before publication. After approval, publish those
+same eight files unchanged. Verify the tag target and release state, then
+download every public asset fresh and compare its size and SHA-256 with the
+approved tuples. Record GitHub upload and public-download MIME separately from
+the declared media types.
 
-After approval, publish those same eight files unchanged; do not rebuild after
-approval. To verify a later fresh download, first download the full asset set to a
-new empty directory, then run:
-
-```sh
-node scripts/verify-comic-manifest-downloads.mjs \
-  /path/to/platform-release-candidate/comic-manifest-v1.0.0.manifest.json \
-  /path/to/fresh-downloads
-```
-
-This compares the fresh bytes to the separately retained approved build set and
-rejects missing or extra files. GitHub asset metadata records `application/json`
-for the Codex uploads and public downloads returned `application/octet-stream`;
-both are recorded separately from each contract-declared media type.
-
-The local builder accepts an external commit identity only when its supplied
-40-character tree hash exactly matches the clean local source tree; both values
-are recorded in the artifact manifest. The adoption PR does not create a Platform
-tag, release, upload or npm publication. A pre-merge PR build is review evidence
-only; the owner approval packet must be generated from a fresh post-merge build.
-
-Epic #101 receives the verified Codex and Platform artifact tuples, API/CLI and
-adapter limits, synthetic conformance evidence, source/package manifests, and
-known production-trust/approval gates. It owns orchestration design; this
-package adds no scheduling, retries, resumable jobs, provider routing,
-generation, rendering, or distribution automation. Epic #6 and Issue #99 close
-only after actual publication and fresh-download verification.
+The Epic #101 handoff includes the verified Codex and Platform release tuples,
+API/CLI and adapter responsibilities and limits, synthetic conformance
+coverage, source/package manifests, and the production-trust and approval
+gates. Epic #101 owns orchestration design; this package adds no scheduling,
+retries, resumable jobs, provider routing, generation, rendering, or
+distribution automation. Issue #99 and Epic #6 closeout remain separate owner
+actions after independent verification; this documentation change does not
+close either.

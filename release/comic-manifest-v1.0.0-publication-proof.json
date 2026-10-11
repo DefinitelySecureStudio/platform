@@ -1,0 +1,103 @@
+{
+  "format": "DefinitelySecureStudio.PlatformComicManifestPublicationProof/v1",
+  "repository": "DefinitelySecureStudio/platform",
+  "release_id": 408977943,
+  "release_url": "https://github.com/DefinitelySecureStudio/platform/releases/tag/comic-manifest/v1.0.0",
+  "title": "Comic Manifest Platform v1.0.0",
+  "tag": "comic-manifest/v1.0.0",
+  "source_commit": "f0672d90a47473da6a27614cad07abc175546d67",
+  "source_tree": "b876a434e5f557d88d254cd1e75a8121f23c4ba3",
+  "tag_resolved_commit": "f0672d90a47473da6a27614cad07abc175546d67",
+  "draft": false,
+  "prerelease": false,
+  "immutable": true,
+  "published_at": "2026-10-10T13:46:16Z",
+  "verified_at": "2026-10-10T13:46:51.832250+00:00",
+  "immutable_release_setting": {
+    "enabled": true,
+    "enforced_by_owner": false
+  },
+  "verification_method": "GitHub release/ref API metadata plus unauthenticated HTTPS downloads of all eight public assets",
+  "artifacts": [
+    {
+      "filename": "comic-manifest-v1.0.0.source.tar.gz",
+      "byte_size": 491339,
+      "sha256": "sha256:b383cee702b4ceba0c4090bceee0c2f6c451bce18c148162543b4e1316226501",
+      "declared_media_type": "application/gzip",
+      "github_upload_content_type": "application/x-gtar",
+      "public_download_content_type": "application/octet-stream",
+      "download_http_status": 200,
+      "download_url": "https://github.com/DefinitelySecureStudio/platform/releases/download/comic-manifest/v1.0.0/comic-manifest-v1.0.0.source.tar.gz"
+    },
+    {
+      "filename": "comic-manifest-v1.0.0.package.tgz",
+      "byte_size": 225334,
+      "sha256": "sha256:98f9ad51546620a2197672b2bfd21e6bc31f72b274dc56bb3c50590edfe493ec",
+      "declared_media_type": "application/gzip",
+      "github_upload_content_type": "application/x-gtar",
+      "public_download_content_type": "application/octet-stream",
+      "download_http_status": 200,
+      "download_url": "https://github.com/DefinitelySecureStudio/platform/releases/download/comic-manifest/v1.0.0/comic-manifest-v1.0.0.package.tgz"
+    },
+    {
+      "filename": "comic-manifest-v1.0.0.package-lock.json",
+      "byte_size": 3149,
+      "sha256": "sha256:ef90ff0593d91ed26980629ce896ac08294281ed2521db01d7e19ad89b5d87bd",
+      "declared_media_type": "application/json",
+      "github_upload_content_type": "application/json",
+      "public_download_content_type": "application/octet-stream",
+      "download_http_status": 200,
+      "download_url": "https://github.com/DefinitelySecureStudio/platform/releases/download/comic-manifest/v1.0.0/comic-manifest-v1.0.0.package-lock.json"
+    },
+    {
+      "filename": "comic-manifest-v1.0.0.sdk-contract-lock.json",
+      "byte_size": 7588,
+      "sha256": "sha256:6b4b515cc606f2c50b1baead50faaddd3d87d3a1d7b2c9b14e4170e36776dfab",
+      "declared_media_type": "application/json",
+      "github_upload_content_type": "application/json",
+      "public_download_content_type": "application/octet-stream",
+      "download_http_status": 200,
+      "download_url": "https://github.com/DefinitelySecureStudio/platform/releases/download/comic-manifest/v1.0.0/comic-manifest-v1.0.0.sdk-contract-lock.json"
+    },
+    {
+      "filename": "comic-manifest-v1.0.0.context-builder-contract-lock.json",
+      "byte_size": 1366,
+      "sha256": "sha256:297dfa1e7e1e89b63eba0df5d3e012d6243f449bdcddc9e9e34714e786f7e595",
+      "declared_media_type": "application/json",
+      "github_upload_content_type": "application/json",
+      "public_download_content_type": "application/octet-stream",
+      "download_http_status": 200,
+      "download_url": "https://github.com/DefinitelySecureStudio/platform/releases/download/comic-manifest/v1.0.0/comic-manifest-v1.0.0.context-builder-contract-lock.json"
+    },
+    {
+      "filename": "comic-manifest-v1.0.0.contract-lock.json",
+      "byte_size": 2678,
+      "sha256": "sha256:d74950fc19669f1187aca54669b80f32c332685ef4f3a4a8361c4a9dd1a12e7a",
+      "declared_media_type": "application/json",
+      "github_upload_content_type": "application/json",
+      "public_download_content_type": "application/octet-stream",
+      "download_http_status": 200,
+      "download_url": "https://github.com/DefinitelySecureStudio/platform/releases/download/comic-manifest/v1.0.0/comic-manifest-v1.0.0.contract-lock.json"
+    },
+    {
+      "filename": "comic-manifest-v1.0.0.api-v1.json",
+      "byte_size": 1317,
+      "sha256": "sha256:5f3d3e069a99f3533fb17d795d636cd9960c67ebd0be925d063652d3cfb71238",
+      "declared_media_type": "application/json",
+      "github_upload_content_type": "application/json",
+      "public_download_content_type": "application/octet-stream",
+      "download_http_status": 200,
+      "download_url": "https://github.com/DefinitelySecureStudio/platform/releases/download/comic-manifest/v1.0.0/comic-manifest-v1.0.0.api-v1.json"
+    },
+    {
+      "filename": "comic-manifest-v1.0.0.manifest.json",
+      "byte_size": 6159,
+      "sha256": "sha256:7e01965f6b7f2ba341073d3854185f46a95a3ed13af3862fb26f656839e4f1d6",
+      "declared_media_type": "application/json",
+      "github_upload_content_type": "application/json",
+      "public_download_content_type": "application/octet-stream",
+      "download_http_status": 200,
+      "download_url": "https://github.com/DefinitelySecureStudio/platform/releases/download/comic-manifest/v1.0.0/comic-manifest-v1.0.0.manifest.json"
+    }
+  ]
+}
