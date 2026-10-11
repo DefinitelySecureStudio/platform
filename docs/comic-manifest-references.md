@@ -224,8 +224,9 @@ are involved. Existing offline Builder conformance remains part of regression ch
 
 Constitution v1.0.0, tag `constitution/v1.0.0`, commit
 `a9cc8a503aa30e17820edc62ac95f7cbe10e0564`; Studio ADR 0018 at
-`7b5065cef76bea9580609caba356b0d8fe7cc17c`. Owner @andrewperis reviews the exact
-change. Universal, repository/production-system and automated-workflow profiles
+`7b5065cef76bea9580609caba356b0d8fe7cc17c`. Owner @andrewperis must review the
+exact change; this guide records no Studio architecture acceptance. Universal,
+repository/production-system and automated-workflow profiles
 apply to these controlled effects. The implementation is included in the immutable
 GitHub release, but the npm package remains private and unpublished to npm.
 Production trust onboarding remains separately scoped; this release does not
