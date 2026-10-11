@@ -1,11 +1,6 @@
 # Comic Manifest v1 verification record — Studio #99
 
-> **Historical snapshot: 2026-10-09, before Platform publication.** The state
-> and open gates below describe that date. The AI-review wording is clarified to
-> avoid implying a formal Constitutional exception. This is not current publication
-> status; see the [immutable Platform release proof](comic-manifest-v1.0.0-publication-proof.json).
-
-## Historical state as of 2026-10-09 (before Platform publication)
+> **Historical snapshot: 2026-10-09, before Platform publication.** The
 
 Codex Comic Manifest 1.0.0 is published as an immutable GitHub release. The
 Platform #42 preparation PR is merged; this branch prepares the separate Platform
@@ -27,9 +22,9 @@ has occurred.
 - Repository immutable-release policy was read as `enabled: true`; no security
   setting was changed.
 - Owner A4 approval covered this exact Codex commit, tag and three asset tuples.
-  It is distinct from the October 6 AI-review/merge instruction, which was not
-  registered as a formal Constitutional exception and did not authorize release.
-  It is also distinct from the Issue 98 golden acceptance.
+  It is distinct from the October 6 AI-review/merge instruction; that instruction
+  was not registered as a formal Constitutional exception and did not authorize
+  release. The Issue 98 golden acceptance is separate as well.
 
 | Asset | Declared media type | Bytes | SHA-256 | GitHub asset metadata | Public download |
 |---|---|---:|---|---|---|
