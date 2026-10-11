@@ -161,8 +161,7 @@ PR updated only the runtime pin, generated validator provenance and release-adop
 evidence; it did not change fixture, golden, catalog or oracle bytes or publish the
 package to npm. The readiness check covers only the upstream Codex adoption gate;
 it is not current Platform publication status or final artifact approval. Platform
-v1.0.0 was later published immutably; see the [publication proof]
-(../release/comic-manifest-v1.0.0-publication-proof.json).
+v1.0.0 was later published immutably; see the [publication proof](../release/comic-manifest-v1.0.0-publication-proof.json).
 
 ```sh
 npm ci
