@@ -1,10 +1,12 @@
 # Comic Manifest revision diffs and approval boundary (#95)
 
-The unreleased `./comic-manifest` module adds `diffComicRevision` and
-`createComicApprovalBoundary`. Both operate on explicit bounded raw JSON. They
-do not read revision history, persist decisions, publish a release or promote
-canon. Trust is injected by host code for each evaluation; no production trust
-provider is installed here.
+The immutable Platform Comic Manifest v1.0.0 GitHub release includes the
+`./comic-manifest` module, with `diffComicRevision` and
+`createComicApprovalBoundary`. The npm package remains private and was not
+published to npm. Both functions operate on explicit bounded raw JSON. They do
+not read revision history, persist decisions, publish a release or promote canon.
+Trust is injected by host code for each evaluation; no production trust provider
+is installed here.
 
 ## Current approval evaluation
 

@@ -1,10 +1,14 @@
 # Comic Manifest parsing and local validation (Studio #90)
 
-The **unreleased** `@definitely-secure-studio/platform/comic-manifest` entry point
-parses and validates explicit raw JSON against the published Codex Comic Manifest
-1.0.0 schema. The Platform package remains private and unreleased. The module has no
-default source reader, network fetcher, execution engine, production trust provider
-or publisher. The explicit host-injected approval boundary is
+The Platform Comic Manifest v1.0.0 implementation is included in the immutable
+[GitHub release](https://github.com/DefinitelySecureStudio/platform/releases/tag/comic-manifest/v1.0.0).
+The `@definitely-secure-studio/platform` npm package remains private and was not
+published to npm. This `comic-manifest` entry point parses and validates explicit
+raw JSON against the published Codex Comic Manifest 1.0.0 schema. The module has
+no default source reader, network fetcher, execution engine, production trust
+provider or publisher. The current tag and asset status is recorded in the
+[publication proof](../release/comic-manifest-v1.0.0-publication-proof.json).
+The explicit host-injected approval boundary is
 described in [#95](comic-manifest-approvals.md). It does not mutate the released
 Prompt SDK or Context Builder.
 
@@ -152,11 +156,12 @@ exactly; that lock's source commit remains unchanged for the owner-reviewed
 scenario, negative cases and approval-time matrix. The published runtime pin and
 the historical test fixtures therefore have separate provenance records.
 
-The Platform implementation remains an unreleased candidate. This PR updates only
-the runtime pin, generated validator provenance and release-adoption evidence; it
-does not change fixture, golden, catalog or oracle bytes or publish the Platform
-package. The readiness check covers the upstream Codex adoption gate only; it does
-not claim Platform publication, final artifact approval or release readiness.
+At the time of the adoption PR, the Platform implementation was a candidate. That
+PR updated only the runtime pin, generated validator provenance and release-adoption
+evidence; it did not change fixture, golden, catalog or oracle bytes or publish the
+package to npm. The readiness check covers only the upstream Codex adoption gate;
+it is not current Platform publication status or final artifact approval. Platform
+v1.0.0 was later published immutably; see the [publication proof](../release/comic-manifest-v1.0.0-publication-proof.json).
 
 ```sh
 npm ci
@@ -169,9 +174,12 @@ The generator verifies schema size/digest and the installed/locked Ajv 8.20.0 an
 ajv-formats 3.0.1 versions before writing standalone validators. It takes explicit
 local bytes and never fetches. The committed generated file reproduces from the
 freshly downloaded published schema; the existing fixture file is byte-identical
-to that asset and remains unchanged. This adoption updates only the unpublished
-Platform runtime pin, validator provenance and release evidence. Released Prompt SDK
-v1, Context Package v1 and Context Builder v1 bytes and locks remain unchanged.
+to that asset and remains unchanged. The adoption updated only the Platform runtime
+pin, validator provenance and release evidence. The committed API inventory keeps
+`publication_status: candidate-unpublished` as a build-time candidate record; it is
+neither current GitHub release status nor npm status and is intentionally unchanged.
+Current release state is in the publication proof. Released Prompt SDK v1, Context
+Package v1 and Context Builder v1 bytes and locks remain unchanged.
 Future normative profile changes return to Codex for review before an explicit
 Platform pin update and regeneration.
 
@@ -193,6 +201,7 @@ repository/production-system and automated-workflow implementation profiles appl
 to this bounded module. Tests support parsing, privacy and effect-boundary review;
 owner review of the exact PR remains required. No creative/canon decision, real
 private-source access, production trust onboarding or release conformance is
-claimed. Rollback removes the unreleased entry point and its development consumer;
-it does not alter historical contracts or revive permission. Reassess on contract,
+claimed. Rollback removes the development consumer and its integration; it does
+not alter historical contracts, retract or replace the immutable GitHub release, or
+revive permission. Reassess on contract,
 resource-limit, diagnostic, effect or authority-boundary changes.

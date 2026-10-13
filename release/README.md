@@ -1,22 +1,38 @@
 # Reviewed release inputs
 
-## Comic Manifest v1 preparation (#99)
+## Comic Manifest v1 publication status and build provenance (#99)
 
-The additive component candidate is `comic-manifest/v1.0.0` in package
-`1.2.0`. Its independent Codex contract lock is
-`comic-manifest-contract-lock.json`; it must not be appended to the historical
-five-contract Prompt SDK lock or the separately verified Context Builder lock.
-Run `node scripts/check-comic-manifest-release.mjs` to verify the exact published
-Codex lock, immutable tag target, fresh-download tuple and regenerated runtime pin.
-This is only the upstream contract-adoption gate. Platform remains private and
-unpublished; a successful check does not approve or publish the Platform package.
-After merge, the builder produces an approval-candidate set from the exact merge
-commit/tree; it never creates tags, releases, uploads, changes publication status,
-or grants approval. Its status fields describe the state when the files were built.
+The Platform Comic Manifest v1.0.0 component was published immutably at the
+[release tag `comic-manifest/v1.0.0`](https://github.com/DefinitelySecureStudio/platform/releases/tag/comic-manifest/v1.0.0),
+from source commit `f0672d90a47473da6a27614cad07abc175546d67` and tree
+`b876a434e5f557d88d254cd1e75a8121f23c4ba3`. The exact release state and all
+eight public asset hashes, sizes and MIME observations are in the
+[publication proof](comic-manifest-v1.0.0-publication-proof.json). The additive
+package is version `1.2.0`, remains private, and was not published to npm.
 
-`comic-manifest-verification.md` records the exact evidence required for a
-post-merge candidate. The API inventory is `comic-manifest-api-v1.json`. Build
-into a new external directory from the exact merge commit and tree:
+The independent Codex contract lock is `comic-manifest-contract-lock.json`;
+do not append it to the historical five-contract Prompt SDK lock or the
+separately verified Context Builder lock. Run
+`node scripts/check-comic-manifest-release.mjs` to verify the published Codex
+lock, immutable tag target, fresh-download tuple and regenerated runtime pin.
+This is only the upstream contract-adoption gate. A passing result is not current
+Platform publication status, Platform package approval, or npm publication.
+
+The committed API inventory `comic-manifest-api-v1.json` retains
+`publication_status: candidate-unpublished`. This is build-time candidate
+metadata and is intentionally preserved; it is not the current GitHub release
+status or npm publication status. The candidate artifact and its provenance are
+not rewritten after owner approval or publication. Use the publication proof
+above for current release state. The dated
+[verification record](comic-manifest-verification.md) remains a historical
+pre-publication snapshot.
+
+### Candidate build and approval procedure
+
+For v1, the builder produced an approval-candidate set from the exact merged
+commit/tree. It never creates tags, releases or uploads, and its provenance fields
+describe the state when those files were built. To prepare a future version, build
+into a new external directory from its exact reviewed merge commit and tree:
 
 ```sh
 node scripts/build-comic-manifest-release.mjs /absolute/new/output \
@@ -24,16 +40,16 @@ node scripts/build-comic-manifest-release.mjs /absolute/new/output \
 ```
 
 `node scripts/create-comic-manifest-approval-packet.mjs /absolute/new/output`
-prints a detached packet with no owner decision. After an external authenticated
-owner decision, record it in that packet and run
+prints a detached packet with no owner decision. After the owner reviews the exact
+source and eight file tuples, record that decision in the detached packet and run
 `node scripts/verify-comic-manifest-approval.mjs /absolute/new/output /path/to/owner-approval.json`.
-The verifier's `approval_record_matches: true` result means the record matches
-the exact eight files; `owner_identity_authenticated: false` and
-`external_owner_authentication_required: true` make clear that it does not
-authenticate the owner or authorize publication. Upload the approved files
-unchanged without rebuilding.
-See the [API/release guide](../docs/comic-manifest-release.md) for the full
-workflow, artifact media-type handling, and Codex-before-Platform order.
+The verifier's `approval_record_matches: true` means the record matches all eight
+files; `owner_identity_authenticated: false` and
+`external_owner_authentication_required: true` mean it does not authenticate the
+owner or authorize publication. Publish only those approved files, unchanged and
+without rebuilding.
+See the [API/release guide](../docs/comic-manifest-release.md) for detailed
+versioning, provenance, review and media-type guidance.
 
 ## Context Builder v1 preparation (#86)
 

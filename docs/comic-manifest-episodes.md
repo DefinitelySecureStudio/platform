@@ -1,10 +1,12 @@
 # Comic Manifest episode structure and revision relationships (#91)
 
-The unreleased `./comic-manifest` module now adds four pure functions on top of
-[#90's raw-input validator](comic-manifest-validation.md). They consume explicit
-bounded JSON strings/Buffer/Uint8Array, return fixed value-free diagnostics on
-failure, and perform no storage, retrieval, generation, rendering or publication.
-The owner-merged Codex schema and released SDK/Builder bytes are unchanged.
+The immutable Platform Comic Manifest v1.0.0 GitHub release includes the
+`./comic-manifest` module and its four pure episode/revision functions, built on
+[#90's raw-input validator](comic-manifest-validation.md). The npm package remains
+private and was not published to npm. These functions consume explicit bounded
+JSON strings/Buffer/Uint8Array, return fixed value-free diagnostics on failure,
+and perform no storage, retrieval, generation, rendering or publication. The
+owner-merged Codex schema and released SDK/Builder bytes are unchanged.
 
 ```js
 import {

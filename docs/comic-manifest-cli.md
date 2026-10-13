@@ -1,11 +1,13 @@
 # Comic Manifest authoring CLI and offline reference flow (#97)
 
-The unreleased `studio-comic` CLI is a local authoring and review aid over the
-existing Comic Manifest APIs. It performs no network access, reference retrieval,
-provider invocation, credential discovery, scheduling, retry, publication, or
-canon write. The CLI does not load adapter modules. Production trust integrations
-must call the library APIs from a separately reviewed host that installs current
-approval, disclosure, attestation, and byte readers.
+The `studio-comic` CLI is included in the immutable Platform Comic Manifest
+v1.0.0 GitHub release. It is a local authoring and review aid over the existing
+Comic Manifest APIs and performs no network access, reference retrieval, provider
+invocation, credential discovery, scheduling, retry, publication, or canon write.
+The CLI does not load adapter modules. The npm package remains private and was not
+published to npm. Production trust integrations must call the library APIs from a
+separately reviewed host that installs current approval, disclosure, attestation,
+and byte readers.
 
 The implementation is additive to the package bin map. In a source checkout:
 
@@ -14,8 +16,9 @@ npm ci
 node src/comic-manifest/cli.js --help
 ```
 
-The `studio-comic` executable is available when this private package is linked or
-installed into a local workspace. No registry publication is part of this task.
+The `studio-comic` executable can be used when this private package is linked or
+installed into a local workspace; its package archive is also a GitHub release
+asset. The package was not published to npm.
 
 ## Commands
 
