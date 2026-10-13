@@ -1,3 +1,12 @@
+# Andrew Peris is the sole Code Owner of every repository path.
+# Default ownership; replace or extend with teams as the maintainer group grows.
+* @andrewperis
+
+# Sensitive operational and repository-control surfaces.
+/.github/ @andrewperis
+/automation/ @andrewperis
+/SECURITY.md @andrewperis
+
 # Context Builder and Comic Manifest fixture/golden/contract expectation changes
 # require explicit owner review. Repository branch rules determine whether the
 # requested owner approval is enforced.
