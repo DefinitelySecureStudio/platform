@@ -27,30 +27,49 @@ above for current release state. The dated
 [verification record](comic-manifest-verification.md) remains a historical
 pre-publication snapshot.
 
-### Candidate build and approval procedure
+### Reconstruct and verify the released v1 candidate
 
-For v1, the builder produced an approval-candidate set from the exact merged
-commit/tree. It never creates tags, releases or uploads, and its provenance fields
-describe the state when those files were built. To prepare a future version, build
-into a new external directory from its exact reviewed merge commit and tree:
+The builder and approval verifier are fixed to Platform Comic Manifest v1.0.0:
+they hard-code component version `1.0.0`, tag `comic-manifest/v1.0.0`, and
+filename prefix `comic-manifest-v1.0.0`. The exact v1 source tree uses package
+version `1.2.0`. Use these commands only to reconstruct and verify the
+approval-candidate set for the already-published v1 release. They do not prepare
+a future version.
+
+Start from a clean checkout of released source commit
+`f0672d90a47473da6a27614cad07abc175546d67` (tree
+`b876a434e5f557d88d254cd1e75a8121f23c4ba3`) and write artifacts outside the
+checkout:
 
 ```sh
-node scripts/build-comic-manifest-release.mjs /absolute/new/output \
-  --source-commit "$MERGED_COMMIT" --source-tree "$MERGED_TREE"
+node scripts/build-comic-manifest-release.mjs /absolute/v1.0.0-reconstruction \
+  --source-commit f0672d90a47473da6a27614cad07abc175546d67 \
+  --source-tree b876a434e5f557d88d254cd1e75a8121f23c4ba3
+node scripts/create-comic-manifest-approval-packet.mjs /absolute/v1.0.0-reconstruction \
+  > /absolute/v1.0.0-reconstructed-packet.json
 ```
 
-`node scripts/create-comic-manifest-approval-packet.mjs /absolute/new/output`
-prints a detached packet with no owner decision. After the owner reviews the exact
-source and eight file tuples, record that decision in the detached packet and run
-`node scripts/verify-comic-manifest-approval.mjs /absolute/new/output /path/to/owner-approval.json`.
+Packet creation emits no owner decision. To check the reconstructed files against
+the separately retained owner-approved v1 packet, run the read-only verifier:
+
+```sh
+node scripts/verify-comic-manifest-approval.mjs /absolute/v1.0.0-reconstruction \
+  /path/to/owner-approved-v1.0.0-packet.json
+```
+
 The verifier's `approval_record_matches: true` means the record matches all eight
 files; `owner_identity_authenticated: false` and
 `external_owner_authentication_required: true` mean it does not authenticate the
-owner or authorize publication. Publish only those approved files, unchanged and
-without rebuilding.
-See the [API/release guide](../docs/comic-manifest-release.md) for detailed
-versioning, provenance, review and media-type guidance.
+owner or authorize publication. These commands do not create or move tags, create
+releases, upload files, replace release assets, or publish. Do not move
+`comic-manifest/v1.0.0` or publish replacement assets.
 
+A future component or package version requires a separately reviewed,
+version-aware workflow that binds the requested component version, tag, package
+version, filenames, and approval verification rules, with tests for that version.
+Do not use these v1-only commands to prepare a future release. See the
+[API/release guide](../docs/comic-manifest-release.md) for the versioning and
+provenance boundary.
 ## Context Builder v1 preparation (#86)
 
 See [release/integration guide](../docs/context-builder-v1.md). The independent

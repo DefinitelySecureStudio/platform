@@ -162,37 +162,47 @@ authenticate the identity of the person who supplied that record. The
 repository readiness check covers Codex adoption only, not Platform release
 readiness.
 
-For a future Platform component release, build once from its exact reviewed
-merge commit into a clean directory outside the checkout:
+### Reconstruct and verify the released v1 candidate
+
+The builder fixes the component version at `1.0.0`, the tag at
+`comic-manifest/v1.0.0`, and the artifact filename prefix at
+`comic-manifest-v1.0.0`. The approval verifier accepts only that v1 release
+tuple and package version `1.2.0`. Use these tools only to reconstruct and
+verify the approval-candidate bytes for the already-published v1 release.
+
+Start from a clean checkout of released source commit
+`f0672d90a47473da6a27614cad07abc175546d67` (tree
+`b876a434e5f557d88d254cd1e75a8121f23c4ba3`) and build outside the checkout:
 
 ```sh
-node scripts/build-comic-manifest-release.mjs /path/to/platform-release-candidate --source-commit "$MERGED_COMMIT" --source-tree "$MERGED_TREE"
+node scripts/build-comic-manifest-release.mjs /absolute/v1.0.0-reconstruction \
+  --source-commit f0672d90a47473da6a27614cad07abc175546d67 \
+  --source-tree b876a434e5f557d88d254cd1e75a8121f23c4ba3
+node scripts/create-comic-manifest-approval-packet.mjs /absolute/v1.0.0-reconstruction \
+  > /absolute/v1.0.0-reconstructed-packet.json
 ```
 
-Generate a detached approval packet from those bytes:
+Packet creation emits no owner decision. To check the reconstructed files against
+the separately retained owner-approved v1 packet, run the read-only verifier:
 
 ```sh
-node scripts/create-comic-manifest-approval-packet.mjs /path/to/platform-release-candidate > /path/to/platform-owner-approval.json
-```
-
-After the owner reviews the exact source identity and all eight filename/size/
-SHA-256 tuples, record the decision in the separate packet and run the read-only
-verifier:
-
-```sh
-node scripts/verify-comic-manifest-approval.mjs /path/to/platform-release-candidate /path/to/platform-owner-approval.json
+node scripts/verify-comic-manifest-approval.mjs /absolute/v1.0.0-reconstruction \
+  /path/to/owner-approved-v1.0.0-packet.json
 ```
 
 The verifier requires the exact owner, source commit/tree/tag, eight regular
-files, and all matching digest tuples. `approval_record_matches: true` means
-the supplied record matches the bytes; it does not authenticate the person who
-wrote the record or create approval. Confirm owner approval through the
-authenticated review path before publication. After approval, publish those
-same eight files unchanged. Verify the tag target and release state, then
-download every public asset fresh and compare its size and SHA-256 with the
-approved tuples. Record GitHub upload and public-download MIME separately from
-the declared media types.
+files, and matching digest tuples. `approval_record_matches: true` only means
+the record matches the bytes; it does not authenticate the person who supplied
+it or create approval.
 
+These commands reconstruct and check v1 bytes only. They do not create or move
+tags, create releases, upload files, replace release assets, or publish. Never
+move the existing `comic-manifest/v1.0.0` tag or publish replacement assets.
+
+A future component or package version requires a separately reviewed,
+version-aware builder, packet generator, and verifier, with tests that bind the
+requested component version, tag, package version, and artifact filenames.
+Do not reuse these v1-only tools to prepare a future release.
 The Epic #101 handoff includes the verified Codex and Platform release tuples,
 API/CLI and adapter responsibilities and limits, synthetic conformance
 coverage, source/package manifests, and the production-trust and approval
