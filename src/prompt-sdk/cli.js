@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFile } from "node:fs/promises";
+import { open } from "node:fs/promises";
 import { stdin } from "node:process";
 import { CONTRACT } from "./diagnostics.js";
 import { parsePromptJson } from "./parse-json.js";
@@ -11,11 +11,20 @@ function usage() {
 }
 
 async function readSource(path) {
-  if (path !== "-") return readFile(path, "utf8");
-  let source = "";
-  stdin.setEncoding("utf8");
-  for await (const chunk of stdin) source += chunk;
-  return source;
+  if (path === "-") {
+    let source = "";
+    stdin.setEncoding("utf8");
+    for await (const chunk of stdin) source += chunk;
+    return source;
+  }
+
+  const file = await open(path, "r");
+  try {
+    if ((await file.stat()).isDirectory()) throw new Error("Prompt source must not be a directory.");
+    return await file.readFile("utf8");
+  } finally {
+    await file.close();
+  }
 }
 
 function parseArguments(arguments_) {

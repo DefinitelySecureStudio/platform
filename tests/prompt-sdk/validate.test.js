@@ -196,7 +196,7 @@ test("CLI emits JSON and uses warnings-as-errors as a CI quality gate", () => {
   assert.equal(output.summary.warnings, 1);
 });
 
-test("validate and lint report source-read I/O failures with exit code 2", async (t) => {
+test("validate and lint map unreadable sources to exit code 2 on every platform", async (t) => {
   const cli = fileURLToPath(new URL("../../src/prompt-sdk/cli.js", import.meta.url));
   const directory = await mkdtemp(join(tmpdir(), "prompt-source-read-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
