@@ -54,10 +54,15 @@ async function main() {
   const documents = [];
   const parsedDefinitions = [];
   const sourceByDefinition = [];
+  let sourceReadFailed = false;
   for (const sourceName of options.files) {
     let source;
     try { source = await readSource(sourceName); }
-    catch { documents.push({ source: sourceName, diagnostics: [{ severity: "error", code: "SOURCE_READ", message: "Prompt source could not be read.", path: "", details: {} }] }); continue; }
+    catch {
+      sourceReadFailed = true;
+      documents.push({ source: sourceName, diagnostics: [{ severity: "error", code: "SOURCE_READ", message: "Prompt source could not be read.", path: "", details: {} }] });
+      continue;
+    }
     const parsed = parsePromptJson(source);
     documents.push({ source: sourceName, diagnostics: [...parsed.diagnostics] });
     if (parsed.value !== undefined) {
@@ -85,7 +90,7 @@ async function main() {
     for (const entry of diagnostics) console.log(`${entry.source}:${entry.severity}:${entry.code}:${entry.path || "/"} ${entry.message}`);
     console.log(`${valid ? "PASS" : "FAIL"}: ${errors} error(s), ${warnings} warning(s)`);
   }
-  return valid ? 0 : 1;
+  return sourceReadFailed ? 2 : valid ? 0 : 1;
 }
 
 process.exitCode = await main();
