@@ -5,6 +5,29 @@ import {
 
 const MAX_TIMER_DELAY_MS = 2_147_483_647;
 const OPTION_NAMES = new Set(['adapter', 'preflightTimeoutMs', 'signal', 'clock', 'observer', 'observerTimeoutMs', 'provenance']);
+const EXECUTION_REQUEST_KIND = 'execution-request';
+const ADAPTER_DESCRIPTOR_KIND = 'provider-adapter-descriptor';
+
+function requestKindValidation(validation) {
+  const diagnostic = {
+    severity: 'error',
+    code: 'EXPECTED_EXECUTION_REQUEST',
+    message: `Execution request must have kind "${EXECUTION_REQUEST_KIND}".`,
+    path: '/kind',
+    details: { expected: EXECUTION_REQUEST_KIND }
+  };
+  const diagnostics = [...validation.diagnostics, diagnostic].sort((left, right) =>
+    (left.severity === 'error' ? 0 : 1) - (right.severity === 'error' ? 0 : 1)
+    || left.path.localeCompare(right.path)
+    || left.code.localeCompare(right.code)
+    || left.message.localeCompare(right.message));
+  return {
+    ...validation,
+    valid: false,
+    summary: { errors: validation.summary.errors + 1, warnings: validation.summary.warnings },
+    diagnostics
+  };
+}
 
 function freezeDeep(value) {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) {
@@ -18,6 +41,12 @@ function snapshotRequest(request) {
   const validation = validateExecutionDocument(request);
   if (!validation.valid) {
     throw new ExecutionValidationError('Execution request does not satisfy the provider-neutral contract.', validation);
+  }
+  if (request.kind !== EXECUTION_REQUEST_KIND) {
+    throw new ExecutionValidationError(
+      'Execution request does not satisfy the provider-neutral contract.',
+      requestKindValidation(validation)
+    );
   }
   try {
     return freezeDeep(JSON.parse(canonicalJson(request)));
@@ -116,7 +145,7 @@ function validateOptions(options) {
 function snapshotDescriptor(descriptor) {
   try {
     const validation = validateExecutionDocument(descriptor);
-    if (!validation.valid) return undefined;
+    if (!validation.valid || descriptor?.kind !== ADAPTER_DESCRIPTOR_KIND) return undefined;
     return freezeDeep(JSON.parse(canonicalJson(descriptor)));
   } catch {
     // The SDK will classify this as an invalid descriptor through the facade.

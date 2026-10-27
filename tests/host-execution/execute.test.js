@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import {
-  ExecutionValidationError, MockTextAdapter, createExecutionRequest,
+  ExecutionValidationError, MockTextAdapter, createExecutionRequest, executePrompt,
   mockTextAdapterDescriptor, renderPrompt
 } from '../../src/prompt-sdk/index.js';
 import { executePromptWithPreflight } from '../../src/host-execution/index.js';
@@ -128,6 +128,31 @@ test('validates the original request before options, then snapshots it synchrono
   const proxyOutcome = await executePromptWithPreflight(proxiedRequest, options(new MockTextAdapter()));
   assert.equal(proxyOutcome.kind, 'execution');
   assert.equal(proxyOutcome.result.execution_id, 'exec_host_0003');
+});
+
+test('rejects descriptor and result union members as requests before preflight or observation', async () => {
+  const descriptorAsRequest = mockTextAdapterDescriptor();
+  const resultAsRequest = await executePrompt(request(), { adapter: new MockTextAdapter() });
+
+  for (const [input, preAborted] of [[descriptorAsRequest, false], [resultAsRequest, true]]) {
+    let descriptions = 0;
+    const records = [];
+    const adapter = {
+      describe() { descriptions += 1; return mockTextAdapterDescriptor(); },
+      execute: async () => ({ content: 'unused' })
+    };
+    await assert.rejects(() => executePromptWithPreflight(input, options(adapter, {
+      signal: preAborted ? fakeSignal(true) : undefined,
+      observer: { observe: record => records.push(record) }
+    })), error => {
+      assert.ok(error instanceof ExecutionValidationError);
+      assert.equal(error.report.valid, false);
+      assert.ok(error.report.diagnostics.some(({ code, path }) => code === 'EXPECTED_EXECUTION_REQUEST' && path === '/kind'));
+      return true;
+    });
+    assert.equal(descriptions, 0);
+    assert.deepEqual(records, []);
+  }
 });
 
 test('validates adapter shape and invocation options before descriptor acquisition', async () => {
@@ -258,6 +283,30 @@ test('invalid and non-JSON descriptors retain SDK invalid-descriptor classificat
     assert.equal(outcome.result.error.code, 'INVALID_ADAPTER_DESCRIPTOR');
     assert.equal(records.length, 1);
     assert.equal(records[0].record.status, 'failed');
+  }
+});
+
+test('request and result union members returned as descriptors retain SDK classification and observer provenance', async () => {
+  const result = await executePrompt(request(), { adapter: new MockTextAdapter() });
+  for (const value of [request(), result]) {
+    const records = [];
+    let descriptions = 0;
+    let executions = 0;
+    const adapter = {
+      describe() { descriptions += 1; return value; },
+      async execute() { executions += 1; return { content: 'unused' }; }
+    };
+    const outcome = await executePromptWithPreflight(request(), options(adapter, {
+      observer: { observe: record => records.push(record) }
+    }));
+    assert.equal(descriptions, 1);
+    assert.equal(executions, 0);
+    assert.equal(outcome.kind, 'execution');
+    assert.equal(outcome.result.status, 'failed');
+    assert.equal(outcome.result.error.code, 'INVALID_ADAPTER_DESCRIPTOR');
+    assert.equal(records.length, 1);
+    assert.equal(records[0].record.status, 'failed');
+    assert.equal(records[0].kind, 'execution-provenance');
   }
 });
 
