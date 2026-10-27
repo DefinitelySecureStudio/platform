@@ -123,6 +123,11 @@ test('validates the original request before options, then snapshots it synchrono
   assert.equal(outcome.kind, 'execution');
   assert.equal(outcome.result.execution_id, 'exec_host_0001');
   assert.equal(outcome.result.status, 'succeeded');
+
+  const proxiedRequest = new Proxy(structuredClone(request({ execution_id: 'exec_host_0003' })), {});
+  const proxyOutcome = await executePromptWithPreflight(proxiedRequest, options(new MockTextAdapter()));
+  assert.equal(proxyOutcome.kind, 'execution');
+  assert.equal(proxyOutcome.result.execution_id, 'exec_host_0003');
 });
 
 test('validates adapter shape and invocation options before descriptor acquisition', async () => {

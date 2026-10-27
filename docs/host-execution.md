@@ -15,8 +15,9 @@ Pass `adapter` and a required `preflightTimeoutMs` in the range 1 through
 delay; larger values are coerced to a one-millisecond delay. There is no default
 preflight budget. [Node.js timer documentation](https://nodejs.org/download/release/v22.18.0/docs/api/timers.html#scheduling-timers)
 
-The wrapper validates the original request before snapshotting it and checks the
-adapter and invocation options before calling `describe()`. It acquires one
+The wrapper validates the original request before synchronously snapshotting it
+as canonical JSON, then checks the adapter and invocation options before calling
+`describe()`. It acquires one
 descriptor for each attempt. The exported SDK document validator gates the JSON
 snapshot; the SDK then validates the cached snapshot again and performs
 compatibility negotiation, execution, result normalization, and ordinary

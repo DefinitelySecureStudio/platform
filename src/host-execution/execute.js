@@ -19,7 +19,15 @@ function snapshotRequest(request) {
   if (!validation.valid) {
     throw new ExecutionValidationError('Execution request does not satisfy the provider-neutral contract.', validation);
   }
-  return freezeDeep(structuredClone(request));
+  try {
+    return freezeDeep(JSON.parse(canonicalJson(request)));
+  } catch {
+    const currentValidation = validateExecutionDocument(request);
+    if (!currentValidation.valid) {
+      throw new ExecutionValidationError('Execution request does not satisfy the provider-neutral contract.', currentValidation);
+    }
+    throw new TypeError('Execution request could not be snapshotted as JSON.');
+  }
 }
 
 function validateOptions(options) {
