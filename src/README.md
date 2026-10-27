@@ -13,6 +13,10 @@ Provider Execution v1 validation, preflight negotiation, synchronous execution,
 normalized results/errors, and the provider-free mock adapter also live in the
 Prompt SDK. Vendor SDK integrations remain outside this core boundary.
 
+The separate `host-execution/` entry point bounds host-side descriptor
+acquisition and hands a frozen per-attempt descriptor to the SDK. Its host
+outcomes and timing remain outside Provider Execution results and persistence.
+
 The Prompt SDK registry discovers contract-valid `*.prompt.json` files from
 explicit approved roots and resolves versions independently of rendering or
 execution. Storage adapters must not redefine Codex identity or lifecycle rules.
