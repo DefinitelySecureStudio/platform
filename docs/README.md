@@ -18,6 +18,7 @@
 
 - [Execution provenance](execution-provenance.md) covers metadata policy and pluggable observers.
 - [Observer decision](adr/0007-execution-observers.md) records the failure-isolated boundary.
+- [Host-side descriptor preflight](host-execution.md) covers a separate host deadline without changing Provider Execution v1.
 - [Comic Manifest rendition and publication outputs](comic-manifest-renditions.md) covers exact profiles, output compatibility and declaration limits.
 - [Comic Manifest build-result verification and public proposal](comic-manifest-build-results.md) covers exact lineage, bounded raw-byte verification, current approval, private attestation, and allowlisted proposals.
 - [Comic Manifest CLI and offline reference flow](comic-manifest-cli.md) covers bounded local inputs, safe validate/inspect/diff/verify reports, separately consented outputs, and the synthetic #96 handoff.

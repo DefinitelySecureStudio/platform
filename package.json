@@ -13,7 +13,8 @@
   "exports": {
     "./prompt-sdk": "./src/prompt-sdk/index.js",
     "./context-builder": "./src/context-builder/index.js",
-    "./comic-manifest": "./src/comic-manifest/index.js"
+    "./comic-manifest": "./src/comic-manifest/index.js",
+    "./host-execution": "./src/host-execution/index.js"
   },
   "bin": {
     "studio-prompt": "./src/prompt-sdk/cli.js",
