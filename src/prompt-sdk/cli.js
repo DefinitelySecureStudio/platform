@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFile } from "node:fs/promises";
+import { open } from "node:fs/promises";
 import { stdin } from "node:process";
 import { CONTRACT } from "./diagnostics.js";
 import { parsePromptJson } from "./parse-json.js";
@@ -11,11 +11,20 @@ function usage() {
 }
 
 async function readSource(path) {
-  if (path !== "-") return readFile(path, "utf8");
-  let source = "";
-  stdin.setEncoding("utf8");
-  for await (const chunk of stdin) source += chunk;
-  return source;
+  if (path === "-") {
+    let source = "";
+    stdin.setEncoding("utf8");
+    for await (const chunk of stdin) source += chunk;
+    return source;
+  }
+
+  const file = await open(path, "r");
+  try {
+    if ((await file.stat()).isDirectory()) throw new Error("Prompt source must not be a directory.");
+    return await file.readFile("utf8");
+  } finally {
+    await file.close();
+  }
 }
 
 function parseArguments(arguments_) {
@@ -54,10 +63,15 @@ async function main() {
   const documents = [];
   const parsedDefinitions = [];
   const sourceByDefinition = [];
+  let sourceReadFailed = false;
   for (const sourceName of options.files) {
     let source;
     try { source = await readSource(sourceName); }
-    catch { documents.push({ source: sourceName, diagnostics: [{ severity: "error", code: "SOURCE_READ", message: "Prompt source could not be read.", path: "", details: {} }] }); continue; }
+    catch {
+      sourceReadFailed = true;
+      documents.push({ source: sourceName, diagnostics: [{ severity: "error", code: "SOURCE_READ", message: "Prompt source could not be read.", path: "", details: {} }] });
+      continue;
+    }
     const parsed = parsePromptJson(source);
     documents.push({ source: sourceName, diagnostics: [...parsed.diagnostics] });
     if (parsed.value !== undefined) {
@@ -85,7 +99,7 @@ async function main() {
     for (const entry of diagnostics) console.log(`${entry.source}:${entry.severity}:${entry.code}:${entry.path || "/"} ${entry.message}`);
     console.log(`${valid ? "PASS" : "FAIL"}: ${errors} error(s), ${warnings} warning(s)`);
   }
-  return valid ? 0 : 1;
+  return sourceReadFailed ? 2 : valid ? 0 : 1;
 }
 
 process.exitCode = await main();

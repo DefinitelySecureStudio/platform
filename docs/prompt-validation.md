@@ -138,9 +138,12 @@ Exit codes:
 | --- | --- |
 | `0` | No errors; and no warnings when `--warnings-as-errors` is active |
 | `1` | Validation/lint quality gate failed |
-| `2` | CLI usage error |
+| `2` | CLI usage error or source-read I/O failure |
 
-Unreadable input files produce a structured `SOURCE_READ` error and exit `1`.
+Unreadable input files produce a structured `SOURCE_READ` diagnostic and exit
+`2`. The validation report shape is unchanged. When a command processes multiple
+inputs, any source-read failure takes exit-status precedence over validation or
+lint quality failures in the other inputs.
 
 ## Rebuilding the compiled schema
 

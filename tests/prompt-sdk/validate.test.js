@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { parsePromptJson, validatePromptDefinition, validatePromptDefinitions } from "../../src/prompt-sdk/index.js";
@@ -192,4 +194,35 @@ test("CLI emits JSON and uses warnings-as-errors as a CI quality gate", () => {
   assert.equal(output.valid, false);
   assert.equal(output.summary.errors, 0);
   assert.equal(output.summary.warnings, 1);
+});
+
+test("validate and lint map unreadable sources to exit code 2 on every platform", async (t) => {
+  const cli = fileURLToPath(new URL("../../src/prompt-sdk/cli.js", import.meta.url));
+  const directory = await mkdtemp(join(tmpdir(), "prompt-source-read-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const unreadableDirectory = join(directory, "is-a-directory");
+  await mkdir(unreadableDirectory);
+  const sources = [join(directory, "missing.json"), unreadableDirectory];
+
+  for (const command of ["validate", "lint"]) {
+    for (const source of sources) {
+      const jsonResult = spawnSync(process.execPath, [cli, command, "--format", "json", source], { encoding: "utf8" });
+      assert.equal(jsonResult.status, 2, jsonResult.stderr);
+      const report = JSON.parse(jsonResult.stdout);
+      assert.equal(report.valid, false);
+      assert.equal(report.summary.errors, 1);
+      assert.equal(report.diagnostics[0].code, "SOURCE_READ");
+      assert.equal(report.diagnostics[0].source, source);
+
+      const textResult = spawnSync(process.execPath, [cli, command, source], { encoding: "utf8" });
+      assert.equal(textResult.status, 2, textResult.stderr);
+      assert.match(textResult.stdout, /:error:SOURCE_READ:/);
+    }
+  }
+
+  const mixedResult = spawnSync(process.execPath, [cli, "validate", "--format", "json", fileURLToPath(schemaInvalidPath), sources[0]], { encoding: "utf8" });
+  assert.equal(mixedResult.status, 2, mixedResult.stderr);
+  const mixedReport = JSON.parse(mixedResult.stdout);
+  assert.ok(mixedReport.diagnostics.some(({ code }) => code === "SOURCE_READ"));
+  assert.ok(mixedReport.diagnostics.some(({ code }) => code.startsWith("SCHEMA_")));
 });
