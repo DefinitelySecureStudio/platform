@@ -48,8 +48,9 @@ function snapshotRequest(request) {
       requestKindValidation(validation)
     );
   }
+  let snapshot;
   try {
-    return freezeDeep(JSON.parse(canonicalJson(request)));
+    snapshot = JSON.parse(canonicalJson(request));
   } catch {
     const currentValidation = validateExecutionDocument(request);
     if (!currentValidation.valid) {
@@ -57,6 +58,18 @@ function snapshotRequest(request) {
     }
     throw new TypeError('Execution request could not be snapshotted as JSON.');
   }
+
+  const snapshotValidation = validateExecutionDocument(snapshot);
+  if (!snapshotValidation.valid) {
+    throw new ExecutionValidationError('Execution request does not satisfy the provider-neutral contract.', snapshotValidation);
+  }
+  if (snapshot.kind !== EXECUTION_REQUEST_KIND) {
+    throw new ExecutionValidationError(
+      'Execution request does not satisfy the provider-neutral contract.',
+      requestKindValidation(snapshotValidation)
+    );
+  }
+  return freezeDeep(snapshot);
 }
 
 function validateOptions(options) {
@@ -146,7 +159,10 @@ function snapshotDescriptor(descriptor) {
   try {
     const validation = validateExecutionDocument(descriptor);
     if (!validation.valid || descriptor?.kind !== ADAPTER_DESCRIPTOR_KIND) return undefined;
-    return freezeDeep(JSON.parse(canonicalJson(descriptor)));
+    const snapshot = JSON.parse(canonicalJson(descriptor));
+    const snapshotValidation = validateExecutionDocument(snapshot);
+    if (!snapshotValidation.valid || snapshot.kind !== ADAPTER_DESCRIPTOR_KIND) return undefined;
+    return freezeDeep(snapshot);
   } catch {
     // The SDK will classify this as an invalid descriptor through the facade.
     return undefined;

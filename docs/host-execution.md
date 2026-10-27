@@ -24,10 +24,14 @@ Execution document kinds raise `ExecutionValidationError` before options are
 checked or `describe()` is called. Descriptor snapshots must have kind
 `provider-adapter-descriptor`; other union members are represented as an invalid
 descriptor so the SDK returns its normal `INVALID_ADAPTER_DESCRIPTOR` result.
-The SDK validates a valid cached descriptor again and performs compatibility
-negotiation, execution, result normalization, and ordinary observer delivery.
-The facade delegates `execute()` to the captured original method with the
-original adapter as its receiver. Descriptors are never cached across attempts.
+The wrapper validates and kind-checks the parsed JSON request snapshot again
+before options or descriptor acquisition, and validates and kind-checks each
+parsed descriptor snapshot before handing it to the SDK. This keeps mutable input
+values from changing document kinds during snapshotting. The SDK validates a
+valid cached descriptor again and performs compatibility negotiation, execution,
+result normalization, and ordinary observer delivery. The facade delegates
+`execute()` to the captured original method with the original adapter as its
+receiver. Descriptors are never cached across attempts.
 
 The returned host envelope has one of these forms:
 

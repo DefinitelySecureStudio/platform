@@ -97,6 +97,26 @@ function fakeSignal(initiallyAborted = false) {
 
 const options = (adapter, extra = {}) => ({ adapter, preflightTimeoutMs: 100, ...extra });
 
+function changingSnapshotProxy(initial, replacement, guardName) {
+  let current = initial;
+  return new Proxy({}, {
+    getPrototypeOf: () => Object.getPrototypeOf(current),
+    ownKeys: () => Reflect.ownKeys(current),
+    getOwnPropertyDescriptor(_target, key) {
+      if (!Object.hasOwn(current, key)) return undefined;
+      return { configurable: true, enumerable: true, writable: true, value: current[key] };
+    },
+    get(_target, key) {
+      if (key === 'then') return undefined;
+      const value = current?.[key];
+      // Flip after the direct kind guard returns, without depending on source line numbers.
+      const directCaller = new Error().stack?.split('\n')[2] ?? '';
+      if (key === 'kind' && directCaller.includes(`at ${guardName} (`)) current = replacement;
+      return value;
+    }
+  });
+}
+
 test('validates the original request before options, then snapshots it synchronously', async () => {
   let descriptions = 0;
   const adapter = { describe() { descriptions += 1; return mockTextAdapterDescriptor(); }, execute: async () => ({ content: 'ok' }) };
@@ -153,6 +173,27 @@ test('rejects descriptor and result union members as requests before preflight o
     assert.equal(descriptions, 0);
     assert.deepEqual(records, []);
   }
+});
+
+test('rejects a request proxy that changes into a descriptor during snapshotting', async () => {
+  const validRequest = request();
+  const validDescriptor = mockTextAdapterDescriptor();
+  const changingRequest = changingSnapshotProxy(validRequest, validDescriptor, 'snapshotRequest');
+  let descriptions = 0;
+  let executions = 0;
+  const adapter = {
+    describe() { descriptions += 1; return validDescriptor; },
+    async execute() { executions += 1; return { content: 'unused' }; }
+  };
+
+  await assert.rejects(() => executePromptWithPreflight(changingRequest, options(adapter)), error => {
+    assert.ok(error instanceof ExecutionValidationError);
+    assert.equal(error.report.valid, false);
+    assert.ok(error.report.diagnostics.some(({ code, path }) => code === 'EXPECTED_EXECUTION_REQUEST' && path === '/kind'));
+    return true;
+  });
+  assert.equal(descriptions, 0);
+  assert.equal(executions, 0);
 });
 
 test('validates adapter shape and invocation options before descriptor acquisition', async () => {
@@ -308,6 +349,31 @@ test('request and result union members returned as descriptors retain SDK classi
     assert.equal(records[0].record.status, 'failed');
     assert.equal(records[0].kind, 'execution-provenance');
   }
+});
+
+test('returns SDK invalid-descriptor classification if a descriptor proxy changes into a request during snapshotting', async () => {
+  const validRequest = request();
+  const validDescriptor = mockTextAdapterDescriptor();
+  const changingDescriptor = changingSnapshotProxy(validDescriptor, validRequest, 'snapshotDescriptor');
+  const records = [];
+  let descriptions = 0;
+  let executions = 0;
+  const adapter = {
+    describe() { descriptions += 1; return changingDescriptor; },
+    async execute() { executions += 1; return { content: 'unused' }; }
+  };
+
+  const outcome = await executePromptWithPreflight(validRequest, options(adapter, {
+    observer: { observe: record => records.push(record) }
+  }));
+  assert.equal(descriptions, 1);
+  assert.equal(executions, 0);
+  assert.equal(outcome.kind, 'execution');
+  assert.equal(outcome.result.status, 'failed');
+  assert.equal(outcome.result.error.code, 'INVALID_ADAPTER_DESCRIPTOR');
+  assert.equal(records.length, 1);
+  assert.equal(records[0].kind, 'execution-provenance');
+  assert.equal(records[0].record.status, 'failed');
 });
 
 test('sync throws and async description failures retain SDK normalization and provenance', async () => {
