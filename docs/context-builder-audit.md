@@ -1,7 +1,8 @@
 # Required audit and public attestation boundary
 
-Studio #82 adds an unreleased `createAuditedContextBuilder` facade. Its
-`build({ request, prompt, callerId, signal })` returns the reviewed Codex candidate
+Studio #82 introduced the `createAuditedContextBuilder` facade included in the
+immutable Context Builder v1.0.0 package release. Its
+`build({ request, prompt, callerId, signal })` returns the published Codex
 `context-build-result`, prepared or failed. It snapshots validated inputs before
 awaiting an adapter. Invalid/unsupported input fails at the API boundary without
 fabricating a request identity. No immutable Codex/Context Package/SDK changes or
@@ -135,7 +136,8 @@ the resulting package binds with the independent fixture grant and fails without
 
 Run `node --test tests/context-builder/audit.test.js`, `npm test` and
 `node scripts/check-sdk-release.mjs`. The result/receipt validators are generated
-from reviewed Codex candidate `291453e2a957fb83dedb0c209ed2cdd14ba90c0e`, checking
+from the published Codex contract commit
+`2301597014f6fefe8a3cf772e2e02527cda6a254`, checking
 Builder schema SHA-256 `4adebedcef5a26e009e1d53ec9c480d372a31b73211fec1c53d6509ebc7929a3`
 and published Context Package schema SHA-256
 `d81e88780511c31099b2dd925f31aff26d6ba75e1173e953b98a37298764b617`:
@@ -149,4 +151,5 @@ required delivery failures, timeout/cancellation, exact acknowledgments, final
 revocation/expiry/narrowing, input mutation, independent publication approval and
 resolver denial. No real private content or production signing is used. See
 [ADR 0014](adr/0014-builder-audit-attestation.md); SDK/CLI integration and immutable
-publication remain later tasks.
+v1 publication are included in the released package. Production signing remains
+separately reviewed.

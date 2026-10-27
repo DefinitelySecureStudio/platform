@@ -1,7 +1,8 @@
 # Protected artifact lifecycle, optional caching and replay
 
-Studio #81 extends the unreleased [preparation/assembly pipeline](context-builder-assembly.md).
-No released SDK, Context Package or Codex contract changes. Default operation uses
+Studio #81 extends the [preparation/assembly pipeline](context-builder-assembly.md),
+which is included in the immutable Context Builder v1.0.0 package release. No
+separately released Prompt SDK or Context Package contract bytes change. Default operation uses
 only memory and retains no shared cache. There is no filesystem, network storage,
 implicit clock, timer, source refresh or background cleanup.
 

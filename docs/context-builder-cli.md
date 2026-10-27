@@ -1,9 +1,11 @@
 # Context Builder CLI and authoring/review workflow
 
-Studio #84 adds `node src/context-builder/cli.js`, an **unreleased offline synthetic
-authoring CLI** over the Builder development API. It does not install a package bin
-or change the released Prompt SDK CLI/export map. Production trust, secure-store
-deployment and immutable publication remain separately reviewed work.
+Studio #84 introduced `node src/context-builder/cli.js`, the offline synthetic
+authoring CLI included in the immutable Context Builder v1.0.0 release as the
+`studio-context` package command. It does not change the separate Prompt SDK CLI or
+export map. Production trust and secure-store deployment remain separate reviewed
+work; the Platform package remains private and is not published to npm. See the
+[release status and evidence](context-builder-v1.md).
 
 ## Commands and explicit inputs
 
@@ -125,12 +127,13 @@ promotes Canon or assumes Manifest/Orchestrator authority.
    constitutional assessment and documented trust/retention boundaries.
 4. Validate/plan locally, supply an explicitly reviewed synthetic decision, build
    into a protected destination, verify and replay, and review the exact package.
-5. Obtain independent production trust/use approval only through approved services;
-   immutable release/publication remains separate work, not a CLI subcommand.
+5. Obtain independent production trust/use approval only through approved services.
+   Release publication is managed outside this CLI; it has no publication command.
 
 `npm ci && npm test` is the offline-after-install CI path; existing Node 22/24 CI
 already runs the new subprocess suite. No paid services, credentials, real private
 access or artifact upload is required. Run `node --test tests/context-builder/cli.test.js`
 for focused tests and `node scripts/check-sdk-release.mjs` for baseline preservation.
-See [ADR 0016](adr/0016-context-builder-authoring-cli.md). Suite consolidation (#85)
-and reviewed immutable release (#86) remain next tasks.
+See [ADR 0016](adr/0016-context-builder-authoring-cli.md). Suite consolidation and
+immutable v1 publication are complete; see the [release record](context-builder-v1.md).
+The CLI's build/replay operations remain synthetic-only.

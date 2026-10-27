@@ -70,16 +70,15 @@ version, filenames, and approval verification rules, with tests for that version
 Do not use these v1-only commands to prepare a future release. See the
 [API/release guide](../docs/comic-manifest-release.md) for the versioning and
 provenance boundary.
-## Context Builder v1 preparation (#86)
+## Context Builder v1 publication
 
-See [release/integration guide](../docs/context-builder-v1.md). The independent
-API inventory is `context-builder-api-v1.json`. Run
-`node scripts/check-builder-release.mjs`; it now passes following actual immutable
-contract publication, verified lock adoption and validator regeneration. See
-[verification evidence](context-builder-verification.md). The original SDK lock
-below is unchanged. Owner merge and CI are required before implementation
-publication; `--candidate` rehearsals remain explicitly nonpublishable. No script
-grants approval or performs network publication.
+Context Builder v1.0.0 is published immutably at the exact source/tag commit
+recorded on the [release page](https://github.com/DefinitelySecureStudio/platform/releases/tag/context-builder/v1.0.0).
+See the [release and integration guide](../docs/context-builder-v1.md), independent
+API inventory (`context-builder-api-v1.json`), and [Codex contract verification
+record](context-builder-verification.md). The original Prompt SDK lock is unchanged.
+The Platform package remains private and is not published to npm. Local release
+verification scripts do not grant approval or perform network publication.
 
 ## Prompt SDK v1 inputs
 

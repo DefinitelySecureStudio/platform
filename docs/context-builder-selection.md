@@ -1,11 +1,11 @@
 # Deterministic context selection
 
-Studio #79 adds `gate.selectSources({ request, prompt, callerId, signal })` to the
-[preparation gate](context-builder-preparation.md). This is a development-only
-interface under `src/context-builder/`, not a package export, released API or
-finished Context Package. [ADR 0011](adr/0011-deterministic-context-selection.md)
-records the decision. It implements the reviewed Codex Context Builder v1 candidate
-at `291453e2a957fb83dedb0c209ed2cdd14ba90c0e`; no normative contract changes.
+Studio #79 introduced `gate.selectSources({ request, prompt, callerId, signal })`
+on the [preparation gate](context-builder-preparation.md). It is included in the
+immutable Context Builder v1.0.0 package release; it produces selected candidates,
+not a finished Context Package. [ADR 0011](adr/0011-deterministic-context-selection.md)
+records the decision. The implementation follows the published v1 contract; see the
+[release record](context-builder-v1.md). No normative contract changes are made here.
 
 ## Boundary and protected result
 
@@ -104,8 +104,9 @@ source, content or digest; the protected request is needed to repair them.
 Slot byte budgets, joined sections, total package budgets and lineage assembly are
 #80. Selection returns whole candidates even when they exceed a slot byte budget;
 that is **not** a successful assembled build. Lifecycle persistence, durable audit,
-SDK/CLI handoff and release remain #81–#86. No public package or use authorization
-is produced here. Embeddings, semantic scoring, LLM summaries, remote indexes and
+SDK/CLI handoff and immutable v1 publication are covered by the released package;
+see the [release record](context-builder-v1.md). No public package or use authorization
+is produced by selection itself. Embeddings, semantic scoring, LLM summaries, remote indexes and
 automatic supersession would need separate owner review, versioned policy/contracts,
 determinism and safety evidence before integration—not an option on these v1 modes.
 

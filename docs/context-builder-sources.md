@@ -1,9 +1,11 @@
 # Verified sources and normalization
 
 Studio #78 extends the [preparation gate](context-builder-preparation.md) with
-offline source adapters and `gate.normalizeSources(input)`. This is an unreleased
-development API in `src/context-builder/`, not a package export or a production
-release. No Codex contract, Prompt SDK behavior or immutable release is changed.
+offline source adapters and `gate.normalizeSources(input)`. These APIs are included
+in the immutable Context Builder v1.0.0 package release. The shipped adapters do
+not onboard a real private-source backend or provide production trust. No Prompt
+SDK behavior or existing immutable contract bytes are changed. See the
+[release status and limits](context-builder-v1.md).
 
 ## Source inventory and readers
 
@@ -136,14 +138,17 @@ INVALID_SOURCE describes encoding/parsing/fragment failures; SOURCE_INTEGRITY,
 SOURCE_UNAVAILABLE and BUDGET_EXCEEDED distinguish identity/access/resource failures.
 Normalized documents contain protected content and private content identities;
 never log or publish them. Only the existing value-free audit/error projections
-are reader-safe. Durable audit/public attestation issuance remains #82, and a
-normalized source does not authorize package use, execution or publication.
+are reader-safe. Durable audit and public-receipt boundaries are documented in the
+released [audit facade](context-builder-audit.md); synthetic attestors are not
+production signers. A normalized source does not authorize package use, execution
+or publication.
 
 ## Reproduction and verification
 
-Source/normalized validators use the same reviewed Codex candidate commit
-`291453e2a957fb83dedb0c209ed2cdd14ba90c0e` as #76/#77. The generator checks Builder
-schema SHA-256 `4adebedcef5a26e009e1d53ec9c480d372a31b73211fec1c53d6509ebc7929a3`
+Source/normalized validators use the published Codex contract commit
+`2301597014f6fefe8a3cf772e2e02527cda6a254`, recorded in the
+[contract lock](../release/context-builder-contract-lock.json). The generator
+checks Builder schema SHA-256 `4adebedcef5a26e009e1d53ec9c480d372a31b73211fec1c53d6509ebc7929a3`
 and Context Package schema SHA-256
 `d81e88780511c31099b2dd925f31aff26d6ba75e1173e953b98a37298764b617` before compiling.
 No normative schema copy or new dependency is added. Given those exact schema blobs:
@@ -159,4 +164,5 @@ fake private exports. They cover exact Codex fixture equivalence, fragment ident
 repeated/reordered reads, identity-before-parse, hostile JSON/UTF-8, ceilings,
 immutable conflicts, safe pointers, traversal/symlinks, denial-before-I/O and
 revocation/cancellation before normalized handoff. Production private exports and
-trust onboarding remain separately approved; immutable publication remains #86.
+trust onboarding remain separately reviewed; the immutable v1 publication is
+complete. See the [release record](context-builder-v1.md).

@@ -1,11 +1,11 @@
 # Budgeted Context Package assembly
 
-Studio #80 adds development-only `gate.assemblePackage({ request, prompt, callerId,
-signal })`. It runs the existing preparation, verified-source normalization and
+Studio #80 introduced `gate.assemblePackage({ request, prompt, callerId, signal })`,
+included in the immutable Context Builder v1.0.0 package release. It runs the
+existing preparation, verified-source normalization and
 [selection](context-builder-selection.md) stages; callers cannot supply a selection
-or cached authorization to bypass them. No package export or immutable release is
-added. Codex Context Builder candidate `291453e2a957fb83dedb0c209ed2cdd14ba90c0e`
-and the released Context Package v1 contract remain unchanged.
+or cached authorization to bypass them. It does not change the published Codex
+contract or released Context Package v1 bytes. See the [release record](context-builder-v1.md).
 
 ## Whole candidates and budgets
 
@@ -70,8 +70,9 @@ Failures expose only existing value-free diagnostics, not SDK validation details
 This method does **not** issue use authorization, publish material, establish Canon,
 or create a final audited Codex build-result/evidence reference. A preparation
 reference describes preparation only. Consumers still require independently
-obtained package-use permission. Persistent lifecycle, audit, SDK/CLI integration
-and release remain #81–#86; see [ADR 0012](adr/0012-budgeted-context-assembly.md).
+obtained package-use permission. Persistent lifecycle, audit, and SDK/CLI handoff
+are included in the immutable v1 package release; see [ADR 0012](adr/0012-budgeted-context-assembly.md)
+and the [release record](context-builder-v1.md).
 
 ## Verification
 

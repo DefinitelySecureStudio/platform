@@ -3,11 +3,13 @@
 The [source/normalization guide](context-builder-sources.md) adds concrete #78
 bindings and the gate's `normalizeSources` method without changing preparation authority.
 
-Studio #77 implements the **unreleased development** authorization boundary in
-`src/context-builder/`. It has no package export and is not a production release.
-It uses the accepted-but-unreleased Codex Context Builder 1.0.0 candidate; #86
-must supply immutable release tuples before production adoption. Prompt SDK v1
-exports, generated validators and release lock remain unchanged.
+Studio #77 introduced the preparation authorization boundary in `src/context-builder/`;
+it is included in the immutable Context Builder v1.0.0 package release. The API and
+synthetic verifier are not a production trust service. They use the published
+Codex Context Builder 1.0.0 contract recorded in the
+[release lock](../release/context-builder-contract-lock.json). Prompt SDK v1
+exports, generated validators and original release lock remain unchanged. See the
+[release status and limits](context-builder-v1.md).
 
 ## Trusted host versus request data
 
@@ -135,18 +137,23 @@ cannot claim required-audit completion or successful package assembly.
 
 Preparation is distinct from separate exact-instance Context Package use
 authorization. Nothing here grants permission to render, execute, publish or
-establish canon. Source normalization is documented in the guide above; selection (#79), assembly (#80),
-lifecycle (#81), audit (#82) and SDK integration (#83) remain separate tasks.
+establish canon. Source normalization is documented in the guide above. Selection
+(#79), assembly (#80), lifecycle (#81), audit (#82) and SDK handoff (#83) are
+separate stages included in the immutable v1 package release; see the
+[release guide](context-builder-v1.md).
 
 ## Pinned schema generation and verification
 
-Request validation is generated from reviewed Codex commit
-`291453e2a957fb83dedb0c209ed2cdd14ba90c0e` (merged by Codex #11).
-Builder schema SHA-256: `4adebedcef5a26e009e1d53ec9c480d372a31b73211fec1c53d6509ebc7929a3`.
+Request validation is generated from the published Codex contract commit
+`2301597014f6fefe8a3cf772e2e02527cda6a254`, recorded in the
+[contract lock](../release/context-builder-contract-lock.json). Historical test
+fixture pins remain at their reviewed source commit. Builder schema SHA-256:
+`4adebedcef5a26e009e1d53ec9c480d372a31b73211fec1c53d6509ebc7929a3`.
 Referenced Context Package schema SHA-256:
 `d81e88780511c31099b2dd925f31aff26d6ba75e1173e953b98a37298764b617`.
-This is a development source pin, not a production release tuple. No local
-normative schema fork is added. After obtaining those exact approved schema blobs:
+The historical fixture pin is not the runtime release provenance; runtime
+validator provenance uses the verified immutable contract lock. No local normative
+schema fork is added. After obtaining those exact approved schema blobs:
 
 ```sh
 node scripts/generate-builder-request-validator.mjs /absolute/context-builder.schema.json /absolute/context-package.schema.json
