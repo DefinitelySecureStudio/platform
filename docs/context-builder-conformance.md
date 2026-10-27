@@ -111,7 +111,7 @@ the independent fixture use grant. SDK mock execution and private provenance
 redaction are additionally covered end-to-end by the handoff tests/examples.
 
 The Platform golden lock records exact bytes/SHA-256 and the Codex baseline; its
-candidate status is accepted through owner review/merge of #85. The original Codex
+candidate status was accepted through owner review/merge of #85. The original Codex
 fixture lock is unchanged. Tests only read these files and assert they remain
 unchanged. There is no update flag or snapshot-rewrite mode.
 
@@ -128,5 +128,6 @@ must not overwrite released bytes.
 All content is synthetic/public, including the fake-private classifications and
 exports. Temporary protected files are cleaned up; no real Lore, credentials,
 private-network fixtures or paid-provider output is captured. This suite supplies
-evidence for review, not release approval. Immutable publication and production trust
-onboarding remain #86/separately approved work. See [ADR 0017](adr/0017-builder-conformance.md).
+evidence for review, not production approval. Immutable v1 publication is complete;
+production trust onboarding remains separately reviewed. See the
+[release record](context-builder-v1.md) and [ADR 0017](adr/0017-builder-conformance.md).

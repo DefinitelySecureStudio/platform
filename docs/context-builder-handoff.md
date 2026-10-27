@@ -1,8 +1,10 @@
 # Context Builder → review → Prompt SDK handoff
 
-Studio #83 provides the development-only `createContextHandoff` integration using
-only public released Prompt SDK APIs. No SDK retrieval, orchestration, immutable
-schema edits, new dependencies or production package export are added.
+Studio #83 introduced `createContextHandoff`, included in the immutable Context
+Builder v1.0.0 package release. It uses public released Prompt SDK APIs. No SDK
+retrieval, orchestration, immutable schema edits or new dependencies are added.
+The package does not include a production use-authority service; see the
+[release record and limits](context-builder-v1.md).
 
 ```js
 const handoff = createContextHandoff({
@@ -155,4 +157,5 @@ Run `node --test tests/context-builder/handoff.test.js`, `npm test` and
 `node scripts/check-sdk-release.mjs`. Tests assert exact package/build/execution
 linkage and adapter non-invocation across invalid packages, foreign grants, missing
 approval, expiry, cancellation and last-moment revocation. See
-[ADR 0015](adr/0015-context-sdk-handoff.md). CLI and immutable release remain #84/#86.
+[ADR 0015](adr/0015-context-sdk-handoff.md). The CLI and immutable v1 release are
+included in the [published package](context-builder-v1.md).

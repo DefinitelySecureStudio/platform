@@ -1,12 +1,30 @@
 # Context Builder v1 release and integration guide
 
-Studio #86 **verified contract adoption candidate**. The Codex contract is now
+Context Builder v1.0.0 is published in an
+[immutable Platform GitHub release](https://github.com/DefinitelySecureStudio/platform/releases/tag/context-builder/v1.0.0)
+from source/tag commit `7df7ea812e0987167407a07ab48b4b7e9a33f91b`. The coordinated
+[Platform preparation PR #28](https://github.com/DefinitelySecureStudio/platform/pull/28)
+and [contract-adoption PR #29](https://github.com/DefinitelySecureStudio/platform/pull/29)
+are merged. The Codex contract is also
 [published immutably](https://github.com/DefinitelySecureStudio/codex/releases/tag/contract/context-builder/v1.0.0)
 at `2301597014f6fefe8a3cf772e2e02527cda6a254`; the
 [dependency lock](../release/context-builder-contract-lock.json) and
-[verification record](../release/context-builder-verification.md) record downloaded
-identities and evidence. This adoption still needs owner merge and CI. Platform
-implementation publication remains pending; #86 and Epic #5 must remain open.
+[dated contract verification record](../release/context-builder-verification.md)
+retain its downloaded identities and evidence. The [Studio delivery issue #86](https://github.com/DefinitelySecureStudio/studio/issues/86)
+and [Epic #5](https://github.com/DefinitelySecureStudio/studio/issues/5) are closed
+after publication verification.
+
+The Codex specification source at its immutable release commit still carries the
+earlier “candidate, unreleased” heading. The current publication status is established
+by GitHub release metadata, the verified contract lock and the downloaded-asset
+record below; this documentation update leaves that source and all release assets
+unchanged.
+
+This guide records artifact publication, not production readiness. The containing
+Platform package remains private and has not been published to npm. The release
+does not grant production trust onboarding, real Lore access, canon approval or
+public creative publication. The shipped CLI build/replay path remains synthetic
+only; see the limits below.
 
 The component version is Context Builder 1.0.0 (`context-builder/v1.0.0`); the
 containing private Platform package advances additively to 1.1.0. Prompt SDK
@@ -87,50 +105,35 @@ Historical #76–#85 guides describe the development stage they shipped. This gu
 defines the additive package export. Historical fixture source pins remain valid;
 runtime schema provenance now uses the verified immutable contract lock.
 
-## Owner-reviewed publication sequence
+## Verified release record and status boundary
 
-1. Review/merge coordinated Codex and Platform preparation PRs. Confirm #75–#85
-   completion, Constitution 1.0.0 at `a9cc8a503aa30e17820edc62ac95f7cbe10e0564`,
-   Apache-2.0 LICENSE/NOTICE, locked MIT dependency notices, public-only fixture
-   and artifact contents, all local and Node 22/24 CI tests. Run `npm audit`;
-   resolve findings or obtain an explicit documented owner exception.
-2. Build, owner-approve and publish the Codex `contract/context-builder/v1.0.0`
-   release per its checklist. Verify immutable status, tag target, draft=false,
-   and all downloaded schema/bundle/manifest bytes against the reviewed build.
-   Do not republish any old Context Package or SDK contract release.
-3. In a follow-up adoption PR, add `release/context-builder-contract-lock.json`
-   containing that downloaded manifest plus `publication: { immutable: true,
-   verified_at, release_url }`. Record the exact verified commit/URI/type/size/hash
-   and online evidence. Update generator provenance to that commit and the header
-   `// Generated from Codex COMMIT; released immutable contract.`; regenerate all
-   three validators from downloaded verified schemas, never edit generated code.
-   Preserve exact schema digests and the original SDK lock. Historical fixture
-   pins remain valid historical evidence, not release provenance.
-4. `node scripts/check-builder-release.mjs` must pass (now passes with the verified
-   adoption). This is an offline consistency check, not online publication proof
-   or a substitute for owner approval. Merge adoption and require CI before build.
-5. From clean merged main run `node scripts/build-builder-release.mjs /absolute/new/output`.
-   Build twice, compare every byte, inspect source/package file lists and licenses,
-   install the package in a clean temporary directory (npm tarballs omit the npm
-   lock: copy the separately verified package-lock asset before `npm ci`), and run packaged tests,
-   examples, public imports and CLI. Record source commit, audit/tests, approval
-   and workflow links. `--candidate` supports rehearsal only: it marks artifacts
-   nonpublishable and can omit the unavailable Builder lock. Never upload those
-   rehearsal artifacts as a final release.
-6. Create the owner-approved draft `context-builder/v1.0.0` at the exact merged
-   build commit; attach the five assets and manifest. Download into a new directory
-   and run `node scripts/verify-builder-downloads.mjs /trusted/build/context-builder-v1.0.0.manifest.json /download/directory`.
-   Publish once, then independently verify immutable=true, draft=false, exact
-   tag commit and re-download/reverify all six assets. The byte verifier does
-   not query GitHub, establish approval, authenticate a manifest or prove immutability.
-7. Retain verification evidence in Studio #86 and close it and Epic #5 only after
-   actual publication verification. No closing keyword belongs on preparation PRs.
+The Platform release page records Context Builder 1.0.0 in private Platform
+package 1.1.0, exact source/tag commit
+`7df7ea812e0987167407a07ab48b4b7e9a33f91b`, immutable release status, and its
+artifact set. The completed [Studio issue #86](https://github.com/DefinitelySecureStudio/studio/issues/86)
+records that all six implementation assets were freshly downloaded and matched
+two independent builds; it also records manifest SHA-256
+`2396fa21a59841aae95e3225e2f015092e0271b79b5346679d2d03e4345aec7b`. The
+[release notes](https://github.com/DefinitelySecureStudio/platform/releases/tag/context-builder/v1.0.0)
+and issue record include release-time source/package test results and Node 22/24
+CI evidence. The original [Codex contract verification record](../release/context-builder-verification.md)
+is a dated historical record of the contract publication step; it is not the
+Platform implementation release record.
+
+The published release makes the documented API and `studio-context` CLI available
+as immutable artifacts. It does not publish the package to npm or change repository
+visibility. Production trust verifiers, real private-source integrations, secure
+storage deployment and downstream use authorization still require their own
+reviewed implementations and operational approval. The synthetic CLI, a successful
+build, an immutable artifact or a closed tracking issue does not grant those
+permissions. Do not repeat or overwrite the v1 publication steps; future versions
+need a separately reviewed version-aware release process.
 
 ## Epic #6/#7 handoff
 
-Deliver exact contract and implementation release tuples, downloaded verification
-evidence, dependency/API inventories, mock reference flows, security coverage map,
-limitations and adapter onboarding requirements. Comic Manifest/Orchestrator
-consumers must pin these identities, bind declared slots, obtain fresh preparation
-and use decisions and preserve protected evidence. This release adds no orchestration,
-private source access or downstream publication authority.
+The immutable Codex contract and Platform implementation release tuples,
+API/adapter guides, mock reference flows, conformance evidence and limitations are
+recorded in the v1 release artifacts. Comic Manifest/Orchestrator consumers must pin
+these identities, bind declared slots, obtain fresh preparation and use decisions,
+and preserve protected evidence. This release adds no orchestration, private source
+access or downstream publication authority.
