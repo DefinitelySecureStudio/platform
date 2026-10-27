@@ -18,12 +18,16 @@ preflight budget. [Node.js timer documentation](https://nodejs.org/download/rele
 The wrapper validates the original request before synchronously snapshotting it
 as canonical JSON, then checks the adapter and invocation options before calling
 `describe()`. It acquires one
-descriptor for each attempt. The exported SDK document validator gates the JSON
-snapshot; the SDK then validates the cached snapshot again and performs
-compatibility negotiation, execution, result normalization, and ordinary
-observer delivery. The facade delegates `execute()` to the captured original
-method with the original adapter as its receiver. Descriptors are never cached
-across attempts.
+descriptor for each attempt. After the SDK document validator accepts a request,
+the wrapper requires its `kind` to be `execution-request`; other valid Provider
+Execution document kinds raise `ExecutionValidationError` before options are
+checked or `describe()` is called. Descriptor snapshots must have kind
+`provider-adapter-descriptor`; other union members are represented as an invalid
+descriptor so the SDK returns its normal `INVALID_ADAPTER_DESCRIPTOR` result.
+The SDK validates a valid cached descriptor again and performs compatibility
+negotiation, execution, result normalization, and ordinary observer delivery.
+The facade delegates `execute()` to the captured original method with the
+original adapter as its receiver. Descriptors are never cached across attempts.
 
 The returned host envelope has one of these forms:
 
