@@ -86,8 +86,8 @@ or `VALIDATION_FAILED`, but that does not satisfy the internal transformation
 rule.
 
 Accordingly, this prototype preserves a normalized no-output rate-limit,
-cancellation, or other unsupported outcome in the protected host outcome
-record and returns `contract-mapping-blocked`; it does not fabricate an output,
+cancellation, or other unsupported outcome in its in-memory host outcome record
+and returns `contract-mapping-blocked`; it does not fabricate an output,
 create an invalid Comic Manifest result, or retry. Although the retry method
 checks the draft allowlist, it cannot become eligible until the prior result is
 terminal and validated. The owner decision for this prototype is to keep the
