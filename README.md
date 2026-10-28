@@ -158,3 +158,7 @@ The [Comic Manifest authoring CLI](docs/comic-manifest-cli.md) adds offline
 validate/inspect/diff/verify commands with bounded explicit inputs and safe
 reports. Its synthetic reference flow exercises #96 without production trust or
 publishing.
+
+The [offline orchestration prototype](docs/offline-orchestration-prototype.md)
+is an experimental in-memory mock flow for one exact synthetic fixture. It does
+not enable real-provider or production execution.
