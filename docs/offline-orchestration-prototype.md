@@ -19,7 +19,12 @@ the Comic Manifest schema.
 
 ## Deliberate scope
 
-- One active job per runner instance; there is no queue.
+- One admitted job per in-memory store instance for its lifetime; there is no
+  queue or eviction. A completed job or host-side stop cannot be replaced in
+  the same store. Create a fresh prototype instance for another isolated run.
+  Validation or preflight rejection before any job bytes/events are stored does
+  not consume the slot. If admission leaves orphaned bytes, the state is
+  unresolved and reuse is blocked because this prototype has no cleanup path.
 - One exact `comic-production` fixture revision and its required text transcript
   rendition. Any other production identity, revision, or rendition is rejected.
 - At most two attempts per job and one mock provider call per attempt.

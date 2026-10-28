@@ -264,6 +264,15 @@ function writeConfirmedOnce(store, key, bytes) {
   return !writeFailed || actual.byteLength === bytes.byteLength;
 }
 
+function storedJobPresence(store, jobId) {
+  try {
+    const jobIds = store.readJobIds();
+    return Array.isArray(jobIds) ? jobIds.includes(jobId) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function event(jobId, type, fields = {}) {
   return freezeDeep({ job_id: jobId, type, ...fields });
 }
@@ -838,16 +847,28 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     let storedJobIds;
     try { storedJobIds = store.readJobIds(); } catch { throw new OfflineOrchestrationError('JOB_STATE_UNRESOLVED'); }
     if (!Array.isArray(storedJobIds)) throw new OfflineOrchestrationError('JOB_STATE_UNRESOLVED');
+    let lifetimeSlotConsumed = false;
     for (const jobId of storedJobIds) {
       let entries;
       try { entries = store.readEvents(jobId); } catch { throw new OfflineOrchestrationError('JOB_STATE_UNRESOLVED'); }
-      if (entries === UNKNOWN_STORE_STATE || !Array.isArray(entries)
-        || entries.filter(item => item.type === 'admitted').length !== 1
-        || !entries.some(item => item.type === 'job-closed')) {
+      if (entries === UNKNOWN_STORE_STATE || !Array.isArray(entries)) {
+        throw new OfflineOrchestrationError('JOB_STATE_UNRESOLVED');
+      }
+      if (entries.length === 0) {
+        // Material from an interrupted admission cannot be safely reclaimed.
+        throw new OfflineOrchestrationError('JOB_STATE_UNRESOLVED');
+      }
+      const admittedCount = entries.filter(item => item.type === 'admitted').length;
+      if (admittedCount !== 1 || !entries.some(item => item.type === 'job-closed')) {
         throw new OfflineOrchestrationError('JOB_ALREADY_ACTIVE');
       }
+      lifetimeSlotConsumed = true;
     }
+    if (lifetimeSlotConsumed) throw new OfflineOrchestrationError('JOB_STORE_LIFETIME_LIMIT');
     running = true;
+    let slotToken;
+    let jobId;
+    let job;
     try {
       const cancellation = cancellationSignal(signal);
       if (cancellation?.aborted) return freezeDeep({ kind: 'host-outcome', status: 'cancelled-before-admission' });
@@ -899,8 +920,16 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
         return freezeDeep({ kind: 'host-outcome', status: 'budget-exhausted', reason: 'time-before-admission' });
       }
 
-      const jobId = idFrom(idFactory, usedIds, 'resource');
-      const job = {
+      const slotReservation = store.reserveJobSlot();
+      if (slotReservation === 'reserved') throw new OfflineOrchestrationError('JOB_ALREADY_ACTIVE');
+      if (slotReservation === 'consumed') throw new OfflineOrchestrationError('JOB_STORE_LIFETIME_LIMIT');
+      if (!slotReservation || slotReservation.status !== 'acquired') {
+        throw new OfflineOrchestrationError('JOB_STATE_UNRESOLVED');
+      }
+      slotToken = slotReservation.token;
+
+      jobId = idFrom(idFactory, usedIds, 'resource');
+      job = {
         jobId,
         production,
         renderedPrompt,
@@ -920,8 +949,14 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       const inputKey = `input:${jobId}`;
       if (!writeConfirmedOnce(store, inputKey, productionBytes)
         || !readBackBlob(inputKey, productionBytes, production.identity.sha256)) {
+        const present = storedJobPresence(store, jobId);
+        if (present === false) throw new OfflineOrchestrationError('ADMISSION_FAILED');
+        if (present === true && store.commitJobSlot(slotToken)) slotToken = undefined;
+        else if (present === undefined) slotToken = undefined;
         return markUnresolved(job);
       }
+      if (!store.commitJobSlot(slotToken)) return markUnresolved(job);
+      slotToken = undefined;
       const promptKey = `prompt:${jobId}`;
       if (!writeConfirmedOnce(store, promptKey, promptBytes)
         || !readBackBlob(promptKey, promptBytes, renderedPrompt.sha256)) {
@@ -946,6 +981,16 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       // Reuse the exact preflighted MockTextAdapter instance and descriptor.
       return await performAttempt(job, { correlationId, mockOutcome, signal, preflight: { mock: preflightMock, descriptor } });
     } catch (error) {
+      if (slotToken) {
+        const present = jobId === undefined ? false : storedJobPresence(store, jobId);
+        if (present === false) {
+          store.releaseUnusedJobSlot(slotToken);
+          if (job && openJob === job) openJob = undefined;
+        } else {
+          if (present === true) store.commitJobSlot(slotToken);
+          if (job && openJob === job) return markUnresolved(job);
+        }
+      }
       if (error instanceof OfflineOrchestrationError) throw error;
       throw new OfflineOrchestrationError('OFFLINE_ORCHESTRATION_FAILED');
     } finally {

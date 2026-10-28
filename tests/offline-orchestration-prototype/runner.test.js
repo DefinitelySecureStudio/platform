@@ -141,9 +141,10 @@ test('Provider Execution timing uses advancing host wall-clock readings', async 
 test('accepts only the exact synthetic production revision before allocating IDs', async () => {
   const h = runner();
   let idsAllocated = 0;
+  const nextId = idFactory();
   const value = createOfflineOrchestrationPrototypeForTest({
     store: h.store, runtime: h.runtime,
-    idFactory: () => { idsAllocated++; return '10000000-0000-4000-8000-100000000001'; }
+    idFactory: () => { idsAllocated++; return nextId(); }
   });
   const changed = structuredClone(fixture.production);
   changed.title = 'Changed synthetic revision';
@@ -152,6 +153,94 @@ test('accepts only the exact synthetic production revision before allocating IDs
   assert.equal(idsAllocated, 0);
   assert.equal(h.store.eventCount, 0);
   assert.equal(h.store.blobCount, 0);
+  assert.equal((await value.submit({ productionSource })).result.status, 'complete');
+  assert.ok(idsAllocated > 0);
+});
+
+test('a completed job consumes the in-memory store lifetime slot without another call or write', async () => {
+  const h = runner();
+  let idsAllocated = 0;
+  let mock;
+  const nextId = idFactory();
+  const value = createOfflineOrchestrationPrototypeForTest({
+    store: h.store,
+    runtime: h.runtime,
+    idFactory: () => { idsAllocated++; return nextId(); },
+    onMockCall: info => { if (info.phase === 'created') mock = info.mock; }
+  });
+  const result = await value.submit({ productionSource });
+  const eventCount = h.store.eventCount;
+  const blobCount = h.store.blobCount;
+  const allocatedCount = idsAllocated;
+  assert.equal(mock.calls.length, 1);
+  await assert.rejects(() => value.submit({ productionSource }),
+    error => error.code === 'JOB_STORE_LIFETIME_LIMIT');
+  assert.equal(idsAllocated, allocatedCount);
+  assert.equal(h.store.eventCount, eventCount);
+  assert.equal(h.store.blobCount, blobCount);
+  assert.equal(mock.calls.length, 1);
+  assert.equal(h.store.readEvents(result.job_id).at(-1).type, 'job-closed');
+  const anotherRunner = createOfflineOrchestrationPrototypeForTest({
+    store: h.store, runtime: h.runtime, idFactory: idFactory()
+  });
+  await assert.rejects(() => anotherRunner.submit({ productionSource }),
+    error => error.code === 'JOB_STORE_LIFETIME_LIMIT');
+  assert.equal(h.store.eventCount, eventCount);
+  assert.equal(h.store.blobCount, blobCount);
+});
+
+test('a pre-admission write failure with no stored bytes releases the store slot', async () => {
+  let failFirstInput = true;
+  const store = new InMemoryPrototypeStore({
+    beforeBlobWrite(key) {
+      if (failFirstInput && key.startsWith('input:')) { failFirstInput = false; return true; }
+      return false;
+    }
+  });
+  const clock = createRuntime();
+  const value = createOfflineOrchestrationPrototypeForTest({ store, runtime: clock.runtime, idFactory: idFactory() });
+  await assert.rejects(() => value.submit({ productionSource }), error => error.code === 'ADMISSION_FAILED');
+  assert.equal(store.eventCount, 0);
+  assert.equal(store.blobCount, 0);
+  assert.equal((await value.submit({ productionSource })).result.status, 'complete');
+});
+
+test('shared-store concurrent preflights admit at most one runner and dispatch once', async () => {
+  const store = new InMemoryPrototypeStore();
+  const clock = createRuntime();
+  let releaseDescriptions;
+  const bothDescriptions = new Promise(resolve => { releaseDescriptions = resolve; });
+  let descriptionCount = 0;
+  const mocks = [];
+  class GatedDescriptionMock extends MockTextAdapter {
+    async describe() {
+      descriptionCount++;
+      if (descriptionCount === 2) releaseDescriptions();
+      await bothDescriptions;
+      return super.describe();
+    }
+  }
+  const makeRunner = () => createOfflineOrchestrationPrototypeForTest({
+    store,
+    runtime: clock.runtime,
+    idFactory: idFactory(),
+    mockAdapterFactory(configuration) {
+      const mock = new GatedDescriptionMock(configuration);
+      mocks.push(mock);
+      return mock;
+    }
+  });
+  const first = makeRunner();
+  const second = makeRunner();
+  const attempts = await Promise.allSettled([
+    first.submit({ productionSource }),
+    second.submit({ productionSource })
+  ]);
+  assert.equal(attempts.filter(item => item.status === 'fulfilled' && item.value.kind === 'terminal').length, 1);
+  assert.equal(attempts.filter(item => item.status === 'rejected'
+    && item.reason.code === 'JOB_STORE_LIFETIME_LIMIT').length, 1);
+  assert.equal(store.readJobIds().length, 1);
+  assert.equal(mocks.reduce((total, mock) => total + mock.calls.length, 0), 1);
 });
 
 test('pre-admission cancellation creates no job, IDs, blobs, or mock call', async () => {
@@ -159,10 +248,11 @@ test('pre-admission cancellation creates no job, IDs, blobs, or mock call', asyn
   const controller = new AbortController();
   controller.abort();
   let idsAllocated = 0;
+  const nextId = idFactory();
   const mocks = [];
   const value = createOfflineOrchestrationPrototypeForTest({
     store: h.store, runtime: h.runtime,
-    idFactory: () => { idsAllocated++; return '10000000-0000-4000-8000-100000000001'; },
+    idFactory: () => { idsAllocated++; return nextId(); },
     onMockCall: info => mocks.push(info.mock)
   });
   assert.equal((await value.submit({ productionSource, signal: controller.signal })).status,
@@ -171,6 +261,8 @@ test('pre-admission cancellation creates no job, IDs, blobs, or mock call', asyn
   assert.equal(h.store.eventCount, 0);
   assert.equal(h.store.blobCount, 0);
   assert.equal(mocks.length, 0);
+  assert.equal((await value.submit({ productionSource })).result.status, 'complete');
+  assert.ok(idsAllocated > 0);
 });
 
 test('cancellation during preflight description is rechecked before job admission', async () => {
@@ -259,6 +351,23 @@ test('cancellation after preparation but before dispatch records a host stop and
   assert.equal(mocks.length, 1);
   assert.equal(mocks[0].calls.length, 0);
   assert.equal(h.runtime.timerCount, 0);
+  const beforeEvents = store.eventCount;
+  const beforeBlobs = store.blobCount;
+  await assert.rejects(() => value.submit({ productionSource }),
+    error => error.code === 'JOB_STORE_LIFETIME_LIMIT');
+  assert.equal(store.eventCount, beforeEvents);
+  assert.equal(store.blobCount, beforeBlobs);
+  assert.equal(mocks[0].calls.length, 0);
+  let laterRunnerCreatedMock = false;
+  const restarted = createOfflineOrchestrationPrototypeForTest({
+    store, runtime: h.runtime, idFactory: idFactory(),
+    onMockCall: () => { laterRunnerCreatedMock = true; }
+  });
+  await assert.rejects(() => restarted.submit({ productionSource }),
+    error => error.code === 'JOB_STORE_LIFETIME_LIMIT');
+  assert.equal(store.eventCount, beforeEvents);
+  assert.equal(store.blobCount, beforeBlobs);
+  assert.equal(laterRunnerCreatedMock, false);
 });
 
 test('deadline at the prepared-to-dispatch boundary prevents dispatch and clears controls', async () => {
@@ -543,7 +652,8 @@ test('a restarted instance refuses to admit a second job while the stored job is
   const first = createOfflineOrchestrationPrototypeForTest({ store, runtime: h.runtime, idFactory: idFactory() });
   const result = await first.submit({ productionSource });
   const restarted = createOfflineOrchestrationPrototypeForTest({ store, runtime: h.runtime, idFactory: idFactory() });
-  await assert.rejects(() => restarted.submit({ productionSource }), error => error.code === 'JOB_ALREADY_ACTIVE');
+  await assert.rejects(() => restarted.submit({ productionSource }),
+    error => error.code === 'JOB_STATE_UNRESOLVED');
   assert.equal(result.status, 'reconciliation-required');
 });
 
@@ -558,7 +668,8 @@ test('an orphaned pre-admission input blob prevents a restarted instance from ov
   assert.equal(store.readEvents(result.job_id).length, 0);
   assert.equal(store.readJobIds().includes(result.job_id), true);
   const restarted = createOfflineOrchestrationPrototypeForTest({ store, runtime: h.runtime, idFactory: idFactory() });
-  await assert.rejects(() => restarted.submit({ productionSource }), error => error.code === 'JOB_ALREADY_ACTIVE');
+  await assert.rejects(() => restarted.submit({ productionSource }),
+    error => error.code === 'JOB_STATE_UNRESOLVED');
 });
 
 test('deadline expiry does not hide a committed terminal result during read-only inspection', async () => {

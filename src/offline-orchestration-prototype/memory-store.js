@@ -19,9 +19,34 @@ export class InMemoryPrototypeStore {
   #blobs = new Map();
   #metadataBytes = new Map();
   #faults;
+  #jobSlotState = 'free';
+  #jobSlotToken;
 
   constructor(faults = {}) {
     this.#faults = faults;
+  }
+
+  reserveJobSlot() {
+    if (this.#jobSlotState === 'consumed') return 'consumed';
+    if (this.#jobSlotState === 'reserved') return 'reserved';
+    const token = Object.freeze({});
+    this.#jobSlotState = 'reserved';
+    this.#jobSlotToken = token;
+    return { status: 'acquired', token };
+  }
+
+  commitJobSlot(token) {
+    if (this.#jobSlotState !== 'reserved' || token !== this.#jobSlotToken) return false;
+    this.#jobSlotState = 'consumed';
+    this.#jobSlotToken = undefined;
+    return true;
+  }
+
+  releaseUnusedJobSlot(token) {
+    if (this.#jobSlotState !== 'reserved' || token !== this.#jobSlotToken) return false;
+    this.#jobSlotState = 'free';
+    this.#jobSlotToken = undefined;
+    return true;
   }
 
   append(event) {
