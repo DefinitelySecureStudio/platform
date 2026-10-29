@@ -494,6 +494,75 @@ test('an eligible no-action rate limit is preserved but retry stays blocked by c
   assert.equal(mock.calls.length, 1);
 });
 
+test('the maximum Provider Execution v1 retry delay is preserved without changing the retry gate', async () => {
+  const h = runner();
+  let mock;
+  const value = createOfflineOrchestrationPrototypeForTest({
+    store: h.store,
+    runtime: h.runtime,
+    idFactory: idFactory(),
+    onMockCall: info => { if (info.phase === 'created') mock = info.mock; }
+  });
+  const result = await value.submit({ productionSource,
+    mockOutcome: { kind: 'rate-limit', retry_after_ms: 86_400_000 } });
+  assert.equal(result.status, 'contract-mapping-blocked');
+  assert.equal(mock.calls.length, 1);
+  const entries = h.store.readEvents(result.job_id);
+  const outcomeEvent = entries.find(entry => entry.type === 'provider-outcome');
+  const outcome = JSON.parse(h.store.readImmutable(outcomeEvent.payload_key).toString('utf8'));
+  assert.equal(outcome.status, 'failed');
+  assert.equal(outcome.error.category, 'rate-limit');
+  assert.equal(outcome.error.retry_after_ms, 86_400_000);
+  assert.ok(entries.some(entry => entry.type === 'contract-mapping-blocked'
+    && entry.reason === 'no-output-result-not-representable-under-current-validator'));
+  await assert.rejects(() => value.retry({ authorizeRetry: true }),
+    error => error.code === 'RETRY_NOT_AVAILABLE');
+  assert.equal(mock.calls.length, 1);
+});
+
+test('invalid rate-limit retry delays are rejected before admission, storage, or mock creation', async () => {
+  const store = new InMemoryPrototypeStore();
+  const clock = createRuntime();
+  let factoryCalls = 0;
+  const mockCallPhases = [];
+  let idCalls = 0;
+  const value = createOfflineOrchestrationPrototypeForTest({
+    store,
+    runtime: clock.runtime,
+    idFactory() {
+      idCalls++;
+      return `10000000-0000-4000-8000-${String(idCalls).padStart(12, '0')}`;
+    },
+    mockAdapterFactory(configuration) {
+      factoryCalls++;
+      return new MockTextAdapter(configuration);
+    },
+    onMockCall({ phase }) { mockCallPhases.push(phase); }
+  });
+
+  const invalidDelays = [undefined, 0, -1, 1.5, Number.NaN,
+    Number.MAX_SAFE_INTEGER + 1, 86_400_001];
+  for (const retryAfter of invalidDelays) {
+    const mockOutcome = { kind: 'rate-limit' };
+    if (retryAfter !== undefined) mockOutcome.retry_after_ms = retryAfter;
+    await assert.rejects(() => value.submit({ productionSource, mockOutcome }),
+      error => error.code === 'INVALID_MOCK_OUTCOME');
+    assert.deepEqual(store.readJobIds(), []);
+    assert.equal(store.eventCount, 0);
+    assert.equal(store.blobCount, 0);
+    assert.equal(factoryCalls, 0);
+    assert.deepEqual(mockCallPhases, []);
+    assert.equal(idCalls, 0);
+  }
+
+  // Invalid settings do not consume this store's lifetime job slot.
+  const accepted = await value.submit({ productionSource });
+  assert.equal(accepted.kind, 'terminal');
+  assert.equal(factoryCalls, 1);
+  assert.deepEqual(mockCallPhases, ['created', 'dispatch-confirmed']);
+  assert.ok(idCalls > 0);
+});
+
 test('current Comic Manifest validation rejects internal no-output failure representations', () => {
   const candidate = structuredClone(fixture.result);
   candidate.status = 'failed';

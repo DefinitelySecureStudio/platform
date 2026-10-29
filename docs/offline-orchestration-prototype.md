@@ -36,9 +36,11 @@ the Comic Manifest schema.
   unknown clock epoch, or an expired nonterminal deadline cannot authorize a
   write or another provider call.
 - Caller retry authorization is explicit. The retry API also checks the exact
-  normalized rate-limit category, retryable flag, positive `retry_after_ms`,
-  safe `RATE_LIMITED_BEFORE_ACCEPTANCE` provider code, no output, same pinned
-  production identity, remaining deadline, and attempt ceiling.
+  normalized rate-limit category, retryable flag, and `retry_after_ms` within
+  the Provider Execution v1 range of 1–86,400,000 ms, safe
+  `RATE_LIMITED_BEFORE_ACCEPTANCE` provider code, no output, same pinned
+  production identity, remaining deadline, and attempt ceiling. Mock rate-limit
+  options outside that range are rejected before admission or provider dispatch.
 
 ## Resource limits
 

@@ -26,6 +26,8 @@ const EXPECTED_PRODUCTION_SHA256 = 'sha256:9250217ad23125b0356a9e7002f57a55dacf9
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/;
 const MAX_TIMER_DELAY_MS = 2_147_483_647;
+// Provider Execution v1 executionError.retry_after_ms schema maximum.
+const MAX_PROVIDER_RETRY_AFTER_MS = 86_400_000;
 const RETRY_PROVIDER_CODE = 'RATE_LIMITED_BEFORE_ACCEPTANCE';
 
 const defaultRuntime = Object.freeze({
@@ -113,7 +115,7 @@ function mockConfiguration(outcome, rendition) {
   }
   if (selected.kind === 'rate-limit') {
     const retryAfter = selected.retry_after_ms;
-    if (!Number.isSafeInteger(retryAfter) || retryAfter < 1) {
+    if (!Number.isSafeInteger(retryAfter) || retryAfter < 1 || retryAfter > MAX_PROVIDER_RETRY_AFTER_MS) {
       throw new OfflineOrchestrationError('INVALID_MOCK_OUTCOME');
     }
     return {
@@ -232,6 +234,7 @@ function eligibleRateLimit(providerResult) {
     && providerResult.error.retryable === true
     && Number.isSafeInteger(providerResult.error.retry_after_ms)
     && providerResult.error.retry_after_ms >= 1
+    && providerResult.error.retry_after_ms <= MAX_PROVIDER_RETRY_AFTER_MS
     && providerResult.error.provider?.code === RETRY_PROVIDER_CODE
     && providerResult.output === undefined;
 }
