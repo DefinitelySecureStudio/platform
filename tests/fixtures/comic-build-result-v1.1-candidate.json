@@ -1,0 +1,293 @@
+{
+  "production": {
+    "kind": "comic-production",
+    "spec_version": "1.0.0",
+    "production_id": "urn:uuid:10000000-0000-4000-8000-000000000001",
+    "revision": 1,
+    "previous": null,
+    "classification": "internal",
+    "title": "Synthetic Shapes",
+    "intent": "Offline conformance only; no Studio canon.",
+    "inputs": {
+      "canon": {
+        "repository": "synthetic/canon",
+        "version": "1.0.0",
+        "tag": "canon/v1.0.0",
+        "commit": "1111111111111111111111111111111111111111",
+        "artifact": {
+          "artifact_uri": "https://example.invalid/synthetic/canon",
+          "media_type": "application/json",
+          "byte_size": 18,
+          "sha256": "sha256:a8198524f58e72b56283ab71ebddada22840f108b46ef7165bb3fca9919c5558"
+        }
+      },
+      "dependencies": [
+        {
+          "repository": "synthetic/mock-tool",
+          "version": "1.0.0",
+          "tag": "mock-tool/v1.0.0",
+          "commit": "1111111111111111111111111111111111111111",
+          "artifact": {
+            "artifact_uri": "https://example.invalid/synthetic/mock-tool",
+            "media_type": "application/json",
+            "byte_size": 22,
+            "sha256": "sha256:b5b94381f12f81d18bc1fc6fed0b04254162f21361e4d999ab356cc14cc464cf"
+          }
+        },
+        {
+          "repository": "synthetic/comic-manifest",
+          "version": "1.0.0",
+          "tag": "comic-manifest/v1.0.0",
+          "commit": "1111111111111111111111111111111111111111",
+          "artifact": {
+            "artifact_uri": "https://example.invalid/synthetic/comic-manifest",
+            "media_type": "application/json",
+            "byte_size": 29,
+            "sha256": "sha256:836b922aa06e1e4759a9ee86412b96b8502bfe992092a10bfc08d97e390ffa47"
+          }
+        }
+      ],
+      "prompts": [
+        {
+          "binding_id": "description",
+          "definition": {
+            "repository": "synthetic/prompt",
+            "version": "1.0.0",
+            "tag": "prompt/v1.0.0",
+            "commit": "1111111111111111111111111111111111111111",
+            "artifact": {
+              "artifact_uri": "https://example.invalid/synthetic/prompt",
+              "media_type": "application/json",
+              "byte_size": 2629,
+              "sha256": "sha256:7d127a76b06a3db563f2935dc0f0d03efa2fcb5d8fe4a13492860497ee6b9064"
+            }
+          },
+          "prompt_id": "prompt.reference.context-builder",
+          "prompt_version": "1.0.0",
+          "identity": {
+            "canonicalization": "studio-json-v1",
+            "byte_size": 2629,
+            "sha256": "sha256:7d127a76b06a3db563f2935dc0f0d03efa2fcb5d8fe4a13492860497ee6b9064"
+          },
+          "context": {
+            "contract_version": "1.0.0",
+            "package_id": "context-package.reference.builder",
+            "package_version": "1.0.0",
+            "instance_id": "urn:uuid:00000000-0000-4000-8000-000000000064",
+            "manifest_identity": {
+              "canonicalization": "studio-json-v1",
+              "byte_size": 1769,
+              "sha256": "sha256:a287bcbe601550c2a4df68b296c64d622591fc91aa5713e8ea6e2e6119f04eab"
+            },
+            "classification": "internal",
+            "purpose": "Prepare synthetic context for contract conformance.",
+            "sections": [
+              "approved_notes",
+              "context_facts"
+            ],
+            "builder_result_identity": {
+              "canonicalization": "studio-json-v1",
+              "byte_size": 2848,
+              "sha256": "sha256:729ce7ad380821185cecb4166e6bdd681048097450aa9256505f18c3dafa48b4"
+            },
+            "preparation_reference": "urn:uuid:00000000-0000-4000-8000-000000000063",
+            "use_authorization_reference": "urn:uuid:00000000-0000-4000-8000-000000000071"
+          }
+        }
+      ],
+      "assets": []
+    },
+    "panels": [
+      {
+        "panel_id": "first",
+        "description": "A synthetic blue cube.",
+        "text": [
+          {
+            "text_id": "caption-one",
+            "kind": "caption",
+            "speaker": null,
+            "text": "A cube."
+          }
+        ],
+        "asset_ids": [],
+        "prompt_bindings": [
+          "description"
+        ]
+      },
+      {
+        "panel_id": "second",
+        "description": "A synthetic red sphere.",
+        "text": [
+          {
+            "text_id": "caption-two",
+            "kind": "caption",
+            "speaker": null,
+            "text": "A sphere."
+          }
+        ],
+        "asset_ids": [],
+        "prompt_bindings": []
+      }
+    ],
+    "renditions": [
+      {
+        "rendition_id": "transcript",
+        "required": true,
+        "media_type": "text/plain",
+        "dimensions": null,
+        "alt_text": "A blue cube, followed by a red sphere.",
+        "transcript": "Panel 1: A cube.\nPanel 2: A sphere.",
+        "rights_notice": "Synthetic conformance fixture; Apache-2.0.",
+        "profile": {
+          "profile_id": "comic-accessible-transcript",
+          "profile_version": "1.0.0"
+        },
+        "max_bytes": 131072
+      }
+    ]
+  },
+  "result": {
+    "kind": "comic-build-result",
+    "spec_version": "1.1.0",
+    "result_id": "urn:uuid:10000000-0000-4000-8000-000000000002",
+    "attempt_id": "urn:uuid:10000000-0000-4000-8000-000000000003",
+    "production": {
+      "production_id": "urn:uuid:10000000-0000-4000-8000-000000000001",
+      "revision": 1,
+      "identity": {
+        "canonicalization": "studio-json-v1",
+        "byte_size": 3459,
+        "sha256": "sha256:9250217ad23125b0356a9e7002f57a55dacf9d982f069caa403b89f8c6c234dc"
+      }
+    },
+    "classification": "internal",
+    "inputs": {
+      "canon": {
+        "repository": "synthetic/canon",
+        "version": "1.0.0",
+        "tag": "canon/v1.0.0",
+        "commit": "1111111111111111111111111111111111111111",
+        "artifact": {
+          "artifact_uri": "https://example.invalid/synthetic/canon",
+          "media_type": "application/json",
+          "byte_size": 18,
+          "sha256": "sha256:a8198524f58e72b56283ab71ebddada22840f108b46ef7165bb3fca9919c5558"
+        }
+      },
+      "dependencies": [
+        {
+          "repository": "synthetic/mock-tool",
+          "version": "1.0.0",
+          "tag": "mock-tool/v1.0.0",
+          "commit": "1111111111111111111111111111111111111111",
+          "artifact": {
+            "artifact_uri": "https://example.invalid/synthetic/mock-tool",
+            "media_type": "application/json",
+            "byte_size": 22,
+            "sha256": "sha256:b5b94381f12f81d18bc1fc6fed0b04254162f21361e4d999ab356cc14cc464cf"
+          }
+        },
+        {
+          "repository": "synthetic/comic-manifest",
+          "version": "1.0.0",
+          "tag": "comic-manifest/v1.0.0",
+          "commit": "1111111111111111111111111111111111111111",
+          "artifact": {
+            "artifact_uri": "https://example.invalid/synthetic/comic-manifest",
+            "media_type": "application/json",
+            "byte_size": 29,
+            "sha256": "sha256:836b922aa06e1e4759a9ee86412b96b8502bfe992092a10bfc08d97e390ffa47"
+          }
+        }
+      ],
+      "prompts": [
+        {
+          "binding_id": "description",
+          "definition": {
+            "repository": "synthetic/prompt",
+            "version": "1.0.0",
+            "tag": "prompt/v1.0.0",
+            "commit": "1111111111111111111111111111111111111111",
+            "artifact": {
+              "artifact_uri": "https://example.invalid/synthetic/prompt",
+              "media_type": "application/json",
+              "byte_size": 2629,
+              "sha256": "sha256:7d127a76b06a3db563f2935dc0f0d03efa2fcb5d8fe4a13492860497ee6b9064"
+            }
+          },
+          "prompt_id": "prompt.reference.context-builder",
+          "prompt_version": "1.0.0",
+          "identity": {
+            "canonicalization": "studio-json-v1",
+            "byte_size": 2629,
+            "sha256": "sha256:7d127a76b06a3db563f2935dc0f0d03efa2fcb5d8fe4a13492860497ee6b9064"
+          },
+          "context": {
+            "contract_version": "1.0.0",
+            "package_id": "context-package.reference.builder",
+            "package_version": "1.0.0",
+            "instance_id": "urn:uuid:00000000-0000-4000-8000-000000000064",
+            "manifest_identity": {
+              "canonicalization": "studio-json-v1",
+              "byte_size": 1769,
+              "sha256": "sha256:a287bcbe601550c2a4df68b296c64d622591fc91aa5713e8ea6e2e6119f04eab"
+            },
+            "classification": "internal",
+            "purpose": "Prepare synthetic context for contract conformance.",
+            "sections": [
+              "approved_notes",
+              "context_facts"
+            ],
+            "builder_result_identity": {
+              "canonicalization": "studio-json-v1",
+              "byte_size": 2848,
+              "sha256": "sha256:729ce7ad380821185cecb4166e6bdd681048097450aa9256505f18c3dafa48b4"
+            },
+            "preparation_reference": "urn:uuid:00000000-0000-4000-8000-000000000063",
+            "use_authorization_reference": "urn:uuid:00000000-0000-4000-8000-000000000071"
+          }
+        }
+      ],
+      "assets": []
+    },
+    "status": "failed",
+    "outputs": [],
+    "gates": [],
+    "execution": {
+      "tool": {
+        "repository": "synthetic/mock-tool",
+        "version": "1.0.0",
+        "tag": "mock-tool/v1.0.0",
+        "commit": "1111111111111111111111111111111111111111",
+        "artifact": {
+          "artifact_uri": "https://example.invalid/synthetic/mock-tool",
+          "media_type": "application/json",
+          "byte_size": 22,
+          "sha256": "sha256:b5b94381f12f81d18bc1fc6fed0b04254162f21361e4d999ab356cc14cc464cf"
+        }
+      },
+      "workflow_id": "synthetic-offline",
+      "run_uri": null,
+      "started_at": "2026-09-15T12:00:00Z",
+      "finished_at": "2026-09-15T12:00:01Z",
+      "transformations": [
+        {
+          "step_id": "mock",
+          "input_digests": [
+            "sha256:a8198524f58e72b56283ab71ebddada22840f108b46ef7165bb3fca9919c5558",
+            "sha256:7d127a76b06a3db563f2935dc0f0d03efa2fcb5d8fe4a13492860497ee6b9064"
+          ],
+          "output_digests": [],
+          "private_inputs_withheld": false,
+          "private_outputs_withheld": false
+        }
+      ],
+      "generation": [],
+      "reproducibility": "exact",
+      "limitations": "Fixed synthetic text only; no external generation."
+    },
+    "diagnostics": [
+      "OUTPUT_MISSING"
+    ]
+  }
+}

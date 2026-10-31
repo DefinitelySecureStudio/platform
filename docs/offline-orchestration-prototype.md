@@ -121,3 +121,46 @@ only accepted production input. A completed mock result only demonstrates the
 synthetic lifecycle and structural compatibility; it does not establish content
 quality, rights, safety, approval, release eligibility, or publication
 authority.
+
+## Local opt-in no-output retry candidate (2026-10-31)
+
+Default behavior described above remains available. Passing
+`noOutputResultVersion: '1.1.0'` to `submit` explicitly selects the **unreleased**
+Comic build-result candidate for confirmed no-action rate-limit failures only.
+Success continues to emit v1. Other versions fail before admission. Cancellation,
+validation failure and timeout remain unmapped when no verified output exists.
+
+```js
+const first = await runner.submit({
+  productionSource,
+  noOutputResultVersion: '1.1.0',
+  mockOutcome: { kind: 'rate-limit', retry_after_ms: 10 }
+});
+// After the delay, while the original job deadline and budgets permit:
+const second = await runner.retry({ authorizeRetry: true });
+```
+
+The first failed result has `outputs: []`, `diagnostics: ['OUTPUT_MISSING']`,
+and one actual-input transformation with empty output digests and false withheld
+flags. Immutable outcome and result bytes plus terminal linkage must verify.
+Retry rechecks pinned inputs, prompt, protected outcome and terminal result
+before allocating IDs and again immediately before dispatch after async mock
+preflight. IDs are fresh; the prepared event links `retry_of_attempt_id`.
+The second attempt always closes the job; there is no third attempt or hidden
+retry. Delay is measured conservatively from terminal completion. A caller may
+use `closeJob()` instead. A restart can only inspect; it cannot resume retry.
+
+The experimental validator lives in `src/comic-manifest/result-candidate.js`;
+the stable `validateComicManifest` entry point continues to reject 1.1.0.
+`candidate-contract.js` pins exact local Codex schema bytes. Regenerate with:
+
+```sh
+node scripts/generate-comic-result-candidate.mjs /path/to/codex/schemas/json/comic-manifest/v1.1/comic-build-result.schema.json
+```
+
+Codex's `specs/comic-build-result-1.1-candidate.md` records the additive minor
+compatibility choice, exact schema ID, lifecycle and migration boundary. This
+is a local implementation candidate, not a published contract pin or production
+consumer adoption. Existing release manifests, v1 validators and fixtures are
+unchanged. O02/O03 owner review remains pending. Real providers, durable storage,
+cancellation retries, timeout/integrity mapping and production use are excluded.

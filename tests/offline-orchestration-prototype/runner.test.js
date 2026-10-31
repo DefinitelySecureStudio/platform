@@ -841,3 +841,143 @@ test('lifecycle metadata enforces per-entry and per-job entry ceilings', () => {
   assert.equal(store.readEvents('job-test').length, 32);
   assert.throws(() => store.append({ job_id: 'job-test', type: 'entry-over' }), /LIFECYCLE_METADATA_LIMIT/);
 });
+
+const candidateOptions = { productionSource, noOutputResultVersion: '1.1.0', mockOutcome: { kind: 'rate-limit', retry_after_ms: 10 } };
+test('explicit candidate enables one delayed caller-authorized retry with immutable history and fresh identities', async () => {
+  const clock = createRuntime(); const h = runner({ runtime: clock.runtime });
+  const first = await h.value.submit(candidateOptions);
+  assert.equal(first.kind, 'terminal'); assert.equal(first.retry_eligible, true);
+  assert.equal(first.result.spec_version, '1.1.0'); assert.equal(first.result.status, 'failed');
+  assert.deepEqual(first.result.outputs, []); assert.deepEqual(first.result.diagnostics, ['OUTPUT_MISSING']);
+  assert.deepEqual(first.result.execution.transformations[0].output_digests, []);
+  assert.equal(validateComicManifest(JSON.stringify(first.result)).valid, false);
+  const original = h.store.readImmutable(`result:${first.result.result_id}`);
+  const eventsBefore = h.store.readEvents(first.job_id);
+  await assert.rejects(() => h.value.retry(), e => e.code === 'EXPLICIT_RETRY_AUTHORIZATION_REQUIRED');
+  await assert.rejects(() => h.value.retry({ authorizeRetry: true }), e => e.code === 'RETRY_DELAY_NOT_ELAPSED');
+  assert.deepEqual(h.store.readEvents(first.job_id), eventsBefore);
+  clock.advance(10);
+  const second = await h.value.retry({ authorizeRetry: true });
+  assert.equal(second.kind, 'terminal'); assert.equal(second.result.status, 'complete');
+  assert.equal(second.retry_eligible, false); assert.equal(second.result.spec_version, '1.0.0');
+  for (const field of ['attempt_id', 'execution_id']) assert.notEqual(first[field], second[field]);
+  assert.notEqual(first.result.result_id, second.result.result_id);
+  assert.deepEqual(second.result.production, first.result.production);
+  assert.deepEqual(h.store.readImmutable(`result:${first.result.result_id}`), original);
+  const events = h.store.readEvents(first.job_id);
+  assert.equal(events.filter(e => e.type === 'dispatch-started').length, 2);
+  assert.equal(events.filter(e => e.type === 'prepared')[1].retry_of_attempt_id, first.attempt_id);
+  assert.equal(events.at(-1).type, 'job-closed');
+  await assert.rejects(() => h.value.retry({ authorizeRetry: true }), e => e.code === 'RETRY_NOT_AVAILABLE');
+});
+
+test('second rate limit is terminal and cannot open a third attempt', async () => {
+  const clock = createRuntime(); const h = runner({ runtime: clock.runtime });
+  const first = await h.value.submit(candidateOptions); clock.advance(10);
+  const second = await h.value.retry({ authorizeRetry: true, mockOutcome: candidateOptions.mockOutcome });
+  assert.equal(second.result.status, 'failed'); assert.equal(second.retry_eligible, false);
+  await assert.rejects(() => h.value.retry({ authorizeRetry: true }), e => e.code === 'RETRY_NOT_AVAILABLE');
+  assert.equal(h.store.readEvents(first.job_id).filter(e => e.type === 'dispatch-started').length, 2);
+});
+
+for (const kind of ['timeout', 'output-validation']) test(`candidate does not map or retry ${kind}`, async () => {
+  const h = runner(); const r = await h.value.submit({ ...candidateOptions, mockOutcome: { kind } });
+  assert.equal(r.status, 'contract-mapping-blocked');
+  assert.equal(h.store.readEvents(r.job_id).some(e => e.type === 'terminal'), false);
+  await assert.rejects(() => h.value.retry({ authorizeRetry: true }), e => e.code === 'RETRY_NOT_AVAILABLE');
+});
+
+test('candidate refuses unsupported versions before admission', async () => {
+  const h = runner();
+  await assert.rejects(() => h.value.submit({ ...candidateOptions, noOutputResultVersion: '1.2.0' }), e => e.code === 'UNSUPPORTED_RESULT_VERSION');
+  assert.equal(h.store.blobCount, 0); assert.equal(h.store.eventCount, 0);
+});
+
+test('eligible retry expires within the original deadline and permits explicit close', async () => {
+  const clock = createRuntime(); const h = runner({ runtime: clock.runtime });
+  const r = await h.value.submit({ ...candidateOptions, mockOutcome: { kind: 'rate-limit', retry_after_ms: 86_400_000 } });
+  assert.equal(r.retry_eligible, true); clock.advance(300_000);
+  assert.equal((await h.value.retry({ authorizeRetry: true })).status, 'budget-exhausted');
+  assert.equal(h.store.readEvents(r.job_id).filter(e => e.type === 'dispatch-started').length, 1);
+  const another = runner(); await another.value.submit(candidateOptions);
+  assert.equal(another.value.closeJob().status, 'closed-without-retry');
+});
+
+for (const target of ['input:', 'prompt:', 'result:', 'provider-outcome:']) test(`retry rechecks ${target} immutable evidence`, async () => {
+  let breakRead = false;
+  const store = new InMemoryPrototypeStore({ unknownBlob: key => breakRead && key.startsWith(target) });
+  const clock = createRuntime(); const h = runner({ store, runtime: clock.runtime });
+  const r = await h.value.submit(candidateOptions); assert.equal(r.kind, 'terminal');
+  breakRead = true; clock.advance(10);
+  assert.equal((await h.value.retry({ authorizeRetry: true })).status, 'reconciliation-required');
+  assert.equal(store.readEvents(r.job_id).filter(e => e.type === 'dispatch-started').length, 1);
+});
+
+for (const phase of ['result-prepared', 'persisting', 'terminal']) test(`unconfirmed ${phase} never authorizes retry`, async () => {
+  const store = new InMemoryPrototypeStore({ beforeAppend: e => e.type === phase });
+  const h = runner({ store }); const r = await h.value.submit(candidateOptions);
+  assert.equal(r.status, 'reconciliation-required');
+  await assert.rejects(() => h.value.retry({ authorizeRetry: true }), e => e.code === 'RETRY_NOT_AVAILABLE');
+  assert.equal(store.readEvents(r.job_id).filter(e => e.type === 'dispatch-started').length, 1);
+});
+
+test('candidate cancellation during dispatch remains unmapped and cannot retry', async () => {
+  const controller = new AbortController();
+  const h = runner({ onMockCall({ phase }) { if (phase === 'dispatch-confirmed') setImmediate(() => controller.abort()); } });
+  const r = await h.value.submit({ ...candidateOptions, signal: controller.signal, mockOutcome: { kind: 'success', delay_ms: 5000 } });
+  assert.equal(r.status, 'contract-mapping-blocked');
+  await assert.rejects(() => h.value.retry({ authorizeRetry: true }), e => e.code === 'RETRY_NOT_AVAILABLE');
+});
+
+test('recovery of a candidate terminal attempt is read-only and cannot resume a retry', async () => {
+  const h = runner(); const r = await h.value.submit(candidateOptions);
+  const counts = [h.store.blobCount, h.store.eventCount];
+  const restarted = createOfflineOrchestrationPrototypeForTest({ store: h.store, runtime: h.runtime });
+  assert.equal(restarted.inspectRecovery(r.job_id).read_only, true);
+  await assert.rejects(() => restarted.retry({ authorizeRetry: true }), e => e.code === 'RETRY_NOT_AVAILABLE');
+  assert.deepEqual([h.store.blobCount, h.store.eventCount], counts);
+});
+
+test('candidate retry rechecks proof after asynchronous mock preflight', async () => {
+  let breakRead = false; let descriptions = 0;
+  const store = new InMemoryPrototypeStore({ unknownBlob: key => breakRead && key.startsWith('provider-outcome:') });
+  class ChangingMock extends MockTextAdapter {
+    async describe() { if (++descriptions === 2) breakRead = true; return super.describe(); }
+  }
+  const clock = createRuntime(); const h = runner({ store, runtime: clock.runtime, mockAdapterFactory: config => new ChangingMock(config) });
+  const r = await h.value.submit(candidateOptions); clock.advance(10);
+  assert.equal((await h.value.retry({ authorizeRetry: true })).status, 'reconciliation-required');
+  assert.equal(store.readEvents(r.job_id).filter(e => e.type === 'dispatch-started').length, 1);
+});
+
+for (const [name, error] of [
+  ['missing safe proof', { category: 'rate-limit', retryable: true, retry_after_ms: 10 }],
+  ['different safe proof', { category: 'rate-limit', retryable: true, retry_after_ms: 10, provider: { code: 'REQUEST_MAY_HAVE_STARTED' } }],
+  ['not retryable', { category: 'rate-limit', retryable: false, provider: { code: 'RATE_LIMITED_BEFORE_ACCEPTANCE' } }],
+  ['missing delay', { category: 'rate-limit', retryable: true, provider: { code: 'RATE_LIMITED_BEFORE_ACCEPTANCE' } }],
+  ['wrong category', { category: 'transport', retryable: true, retry_after_ms: 10, provider: { code: 'RATE_LIMITED_BEFORE_ACCEPTANCE' } }]
+]) test(`protected outcome ${name} never authorizes a terminal no-output result`, async () => {
+  const h = runner({ mockAdapterFactory: config => new MockTextAdapter({ ...config, error: { ...error, code: 'SYNTHETIC_REJECTED', message: 'Synthetic failure.', stage: 'provider' } }) });
+  const r = await h.value.submit(candidateOptions);
+  assert.equal(r.status, 'contract-mapping-blocked');
+  assert.equal(h.store.readEvents(r.job_id).some(e => e.type === 'terminal'), false);
+  await assert.rejects(() => h.value.retry({ authorizeRetry: true }), e => e.code === 'RETRY_NOT_AVAILABLE');
+});
+
+test('unknown terminal links after commitment prevent retry without allocating new IDs', async () => {
+  let hideEvents = false; let allocated = 0; const nextId = idFactory();
+  const store = new InMemoryPrototypeStore({ unknownEvents: () => hideEvents });
+  const clock = createRuntime(); const h = runner({ store, runtime: clock.runtime, idFactory: () => { allocated++; return nextId(); } });
+  await h.value.submit(candidateOptions); const before = allocated; hideEvents = true; clock.advance(10);
+  assert.equal((await h.value.retry({ authorizeRetry: true })).status, 'reconciliation-required');
+  assert.equal(allocated, before);
+});
+
+test('cancelled retry authorization does not consume a second attempt', async () => {
+  const clock = createRuntime(); const h = runner({ runtime: clock.runtime });
+  const r = await h.value.submit(candidateOptions); clock.advance(10);
+  const controller = new AbortController(); controller.abort();
+  await assert.rejects(() => h.value.retry({ authorizeRetry: true, signal: controller.signal }), e => e.code === 'RETRY_CANCELLED');
+  assert.equal(h.store.readEvents(r.job_id).filter(e => e.type === 'dispatch-started').length, 1);
+  assert.equal((await h.value.retry({ authorizeRetry: true })).result.status, 'complete');
+});
