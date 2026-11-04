@@ -1,0 +1,151 @@
+[
+  {
+    "name": "complete cannot have no output",
+    "path": [
+      "status"
+    ],
+    "value": "complete"
+  },
+  {
+    "name": "partial cannot have no output",
+    "path": [
+      "status"
+    ],
+    "value": "partial"
+  },
+  {
+    "name": "diagnostic []",
+    "path": [
+      "diagnostics"
+    ],
+    "value": []
+  },
+  {
+    "name": "diagnostic ['CANCELLED']",
+    "path": [
+      "diagnostics"
+    ],
+    "value": [
+      "CANCELLED"
+    ]
+  },
+  {
+    "name": "diagnostic ['VALIDATION_FAILED']",
+    "path": [
+      "diagnostics"
+    ],
+    "value": [
+      "VALIDATION_FAILED"
+    ]
+  },
+  {
+    "name": "diagnostic ['OUTPUT_MISSING', 'CANCELLED']",
+    "path": [
+      "diagnostics"
+    ],
+    "value": [
+      "OUTPUT_MISSING",
+      "CANCELLED"
+    ]
+  },
+  {
+    "name": "input_digests",
+    "path": [
+      "execution",
+      "transformations",
+      0,
+      "input_digests"
+    ],
+    "value": []
+  },
+  {
+    "name": "private_inputs_withheld",
+    "path": [
+      "execution",
+      "transformations",
+      0,
+      "private_inputs_withheld"
+    ],
+    "value": true
+  },
+  {
+    "name": "private_outputs_withheld",
+    "path": [
+      "execution",
+      "transformations",
+      0,
+      "private_outputs_withheld"
+    ],
+    "value": true
+  },
+  {
+    "name": "missing transformation",
+    "path": [
+      "execution",
+      "transformations"
+    ],
+    "value": []
+  },
+  {
+    "name": "multiple transformations",
+    "path": [
+      "execution",
+      "transformations"
+    ],
+    "value": [
+      {
+        "step_id": "mock",
+        "input_digests": [
+          "sha256:a8198524f58e72b56283ab71ebddada22840f108b46ef7165bb3fca9919c5558",
+          "sha256:7d127a76b06a3db563f2935dc0f0d03efa2fcb5d8fe4a13492860497ee6b9064"
+        ],
+        "output_digests": [],
+        "private_inputs_withheld": false,
+        "private_outputs_withheld": false
+      },
+      {
+        "step_id": "second",
+        "input_digests": [
+          "sha256:a8198524f58e72b56283ab71ebddada22840f108b46ef7165bb3fca9919c5558",
+          "sha256:7d127a76b06a3db563f2935dc0f0d03efa2fcb5d8fe4a13492860497ee6b9064"
+        ],
+        "output_digests": [],
+        "private_inputs_withheld": false,
+        "private_outputs_withheld": false
+      }
+    ]
+  },
+  {
+    "name": "produced output",
+    "path": [
+      "outputs"
+    ],
+    "value": [
+      {
+        "rendition_id": "transcript",
+        "artifact": {
+          "artifact_uri": "https://example.invalid/synthetic/transcript.txt",
+          "media_type": "text/plain",
+          "byte_size": 36,
+          "sha256": "sha256:5aa128a0dd0945b00ba3d71a5f7b5916e06f40c53048c31d74432eb03f4e764d"
+        },
+        "dimensions": null,
+        "rights_notice": "Synthetic conformance fixture; Apache-2.0.",
+        "alt_text": "A blue cube, followed by a red sphere.",
+        "transcript": "Panel 1: A cube.\nPanel 2: A sphere.",
+        "profile": {
+          "profile_id": "comic-accessible-transcript",
+          "profile_version": "1.0.0"
+        },
+        "max_bytes": 131072
+      }
+    ]
+  },
+  {
+    "name": "unsupported exact version",
+    "path": [
+      "spec_version"
+    ],
+    "value": "1.2.0"
+  }
+]

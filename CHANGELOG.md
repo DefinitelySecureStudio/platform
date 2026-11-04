@@ -1,5 +1,12 @@
 # Changelog
 
+## Local candidate — 2026-10-31
+
+Add an opt-in Comic build result 1.1.0 candidate for confirmed no-output
+rate-limit failures and bounded synthetic retry conformance. Released v1
+artifacts and default behavior are preserved. No publication or production
+adoption is declared.
+
 ## Unreleased — Comic Manifest revision and approval boundaries (#95)
 
 - Pin the exact merged Codex approval-time clarification and its synthetic

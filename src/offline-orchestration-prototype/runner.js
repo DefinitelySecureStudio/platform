@@ -1,3 +1,4 @@
+import { validateComicBuildResultCandidate } from '../comic-manifest/result-candidate.js';
 import { randomUUID, createHash } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { types } from 'node:util';
@@ -168,7 +169,7 @@ function createRequest(rendered, { executionId, idempotencyKey, correlationId })
   });
 }
 
-function resultExecution(production, providerResult, outputDigest) {
+function resultExecution(production, providerResult, outputDigest, noOutput = false) {
   const prompt = production.inputs.prompts[0];
   return {
     tool: production.inputs.dependencies[0],
@@ -176,10 +177,10 @@ function resultExecution(production, providerResult, outputDigest) {
     run_uri: null,
     started_at: providerResult.timing.started_at,
     finished_at: providerResult.timing.completed_at,
-    transformations: outputDigest ? [{
+    transformations: outputDigest || noOutput ? [{
       step_id: 'mock-transcript',
       input_digests: [production.inputs.canon.artifact.sha256, prompt.identity.sha256],
-      output_digests: [outputDigest],
+      output_digests: outputDigest ? [outputDigest] : [],
       private_inputs_withheld: false,
       private_outputs_withheld: false
     }] : [],
@@ -190,7 +191,7 @@ function resultExecution(production, providerResult, outputDigest) {
 }
 
 function buildComicResult({ production, productionReference, attemptId, resultId, providerResult,
-  diagnostic, artifactUri, artifactBytes }) {
+  diagnostic, artifactUri, artifactBytes, noOutput = false }) {
   const requirement = production.renditions[0];
   const successful = providerResult.status === 'succeeded' && artifactBytes !== undefined;
   const artifactDigest = successful ? digest(artifactBytes) : undefined;
@@ -211,7 +212,7 @@ function buildComicResult({ production, productionReference, attemptId, resultId
   }] : [];
   const result = {
     kind: 'comic-build-result',
-    spec_version: '1.0.0',
+    spec_version: noOutput ? '1.1.0' : '1.0.0',
     result_id: resultId,
     attempt_id: attemptId,
     production: productionReference,
@@ -223,7 +224,7 @@ function buildComicResult({ production, productionReference, attemptId, resultId
       gate: 'integrity', disposition: 'pass', evidence_reference: artifactUri,
       rationale: 'Synthetic artifact bytes were read back and matched their recorded identity.'
     }] : [],
-    execution: resultExecution(production, providerResult, artifactDigest),
+    execution: resultExecution(production, providerResult, artifactDigest, noOutput),
     diagnostics: successful ? [] : [diagnostic]
   };
   return freezeDeep(result);
@@ -423,10 +424,12 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     if (!appendConfirmed(store, job.jobId, terminalEvent)) return markUnresolved(job);
 
     attempt.terminalResult = result;
-    attempt.completedMonotonicMs = safeClock(runtime)?.now;
+    const terminalClock = safeClock(runtime);
+    attempt.completedMonotonicMs = terminalClock?.now;
     job.attempts.push(attempt);
     job.state = 'attempt-terminal';
-    const isEligibleRetry = job.attempts.length === 1 && job.retryOpen && eligibleRateLimit(attempt.providerResult);
+    const isEligibleRetry = job.attempts.length === 1 && job.retryOpen && eligibleRateLimit(attempt.providerResult)
+      && terminalClock?.epochId === job.clockEpochId && terminalClock.now < job.deadlineMonotonicMs;
     if (!isEligibleRetry || job.attempts.length >= OFFLINE_ORCHESTRATION_LIMITS.maxAttemptsPerJob) {
       if (!closeIfTerminal(job, isEligibleRetry ? 'attempt-limit-reached' : 'no-eligible-retry')) return markUnresolved(job);
     }
@@ -533,11 +536,10 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       return blockComicMapping('unsupported-normalized-result-mapping');
     }
 
-    // Current Comic Manifest semantics require an internal transformation to
-    // identify a verified output digest. A no-output failed/cancelled result
-    // cannot satisfy that rule without inventing an output or changing the
-    // released candidate validator, so preserve the host outcome only.
-    if (!artifactBytes && job.production.value.classification !== 'public') {
+    // Only explicit candidate support plus protected no-action rate-limit proof
+    // permits the truthful no-output form. Stable v1 and other outcomes stay blocked.
+    const noOutput = job.noOutputResultVersion === '1.1.0' && eligibleRateLimit(providerResult);
+    if (!artifactBytes && !noOutput && job.production.value.classification !== 'public') {
       return blockComicMapping('no-output-result-not-representable-under-current-validator');
     }
 
@@ -563,11 +565,13 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       providerResult,
       diagnostic,
       artifactUri: artifact?.uri,
-      artifactBytes: artifact?.bytes
+      artifactBytes: artifact?.bytes,
+      noOutput
     });
     const resultSource = canonicalJson(result);
-    const validation = validateComicManifest(resultSource);
-    const compatible = validateComicOutputCompatibility(job.production.canonical, resultSource);
+    const validation = noOutput
+      ? validateComicBuildResultCandidate(resultSource, job.production.canonical) : validateComicManifest(resultSource);
+    const compatible = noOutput ? validation : validateComicOutputCompatibility(job.production.canonical, resultSource);
     if (!validation.valid || !compatible.valid) {
       return blockComicMapping('comic-result-validation-rejected');
     }
@@ -578,13 +582,36 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     const terminal = persistResult(job, attempt, result, artifact);
     if (terminal.kind === 'terminal' && job.retryOpen && job.state === 'retry-eligible') {
       // Keep the exact original retry boundary in the job; no other attempt can start.
-      job.retryNotBefore = checkedAdd(attempt.completedMonotonicMs ?? safeClock(runtime).now,
+      job.retryNotBefore = checkedAdd(attempt.completedMonotonicMs,
         providerResult.error.retry_after_ms);
     }
     return terminal;
   }
 
+  function verifyRetryEvidence(job, prior) {
+    if (!prior?.terminalResult || !eligibleRateLimit(prior.providerResult)) return false;
+    const result = stableResult(prior.terminalResult);
+    const outcome = stableResult(prior.providerResult);
+    if (!validateComicBuildResultCandidate(result.source, job.production.canonical).valid
+      || !readBackBlob(`input:${job.jobId}`, Buffer.from(job.production.canonical), job.production.identity.sha256)
+      || !readBackBlob(`prompt:${job.jobId}`, job.promptBytes, job.renderedPrompt.sha256)
+      || !readBackBlob(`result:${prior.resultId}`, result.bytes, result.sha256)
+      || !readBackBlob(`provider-outcome:${prior.executionId}`, outcome.bytes, outcome.sha256)) return false;
+    let entries;
+    try { entries = store.readEvents(job.jobId); } catch { return false; }
+    if (!Array.isArray(entries) || entries.some(e => ['job-closed', 'contract-mapping-blocked'].includes(e.type))) return false;
+    const terminals = entries.filter(e => e.type === 'terminal' && e.attempt_id === prior.attemptId);
+    const outcomes = entries.filter(e => e.type === 'provider-outcome' && e.attempt_id === prior.attemptId);
+    return terminals.length === 1 && outcomes.length === 1
+      && terminals[0].execution_id === prior.executionId && terminals[0].result_id === prior.resultId
+      && terminals[0].result_sha256 === result.sha256 && terminals[0].result_byte_size === result.bytes.length
+      && outcomes[0].execution_id === prior.executionId && outcomes[0].sha256 === outcome.sha256
+      && outcomes[0].byte_size === outcome.bytes.length
+      && outcomes[0].payload_key === `provider-outcome:${prior.executionId}`;
+  }
+
   async function performAttempt(job, { correlationId, mockOutcome, signal, retryOfAttemptId, preflight } = {}) {
+    const priorAttempt = retryOfAttemptId ? job.lastAttempt : undefined;
     const cancellation = cancellationSignal(signal);
     const now = safeClock(runtime);
     if (!now || now.epochId !== job.clockEpochId) return markUnresolved(job, 'deadline-unverifiable');
@@ -743,6 +770,12 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
           throw new AdapterExecutionError({ category: 'cancelled', code: 'EXECUTION_CANCELLED',
             message: 'The offline attempt was cancelled before dispatch.', retryable: false, stage: 'preflight' });
         }
+        if (priorAttempt && !verifyRetryEvidence(job, priorAttempt)) {
+          dispatchBlocked = true;
+          dispatchBlockReason = 'retry-evidence-unconfirmed';
+          throw new AdapterExecutionError({ category: 'internal', code: 'RETRY_EVIDENCE_UNCONFIRMED',
+            message: 'Prior immutable retry evidence could not be confirmed.', retryable: false, stage: 'preflight' });
+        }
         const dispatch = event(job.jobId, 'dispatch-started', {
           attempt_id: attemptId, execution_id: executionId, call_number: 1
         });
@@ -842,9 +875,12 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
   }
 
   async function submit(options = {}) {
-    const { productionSource, correlation_id: correlationIdInput, signal, mockOutcome } = optionValues(
-      options, new Set(['productionSource', 'correlation_id', 'signal', 'mockOutcome']), 'INVALID_SUBMIT_OPTIONS'
+    const { productionSource, correlation_id: correlationIdInput, signal, mockOutcome, noOutputResultVersion } = optionValues(
+      options, new Set(['productionSource', 'correlation_id', 'signal', 'mockOutcome', 'noOutputResultVersion']), 'INVALID_SUBMIT_OPTIONS'
     );
+    if (noOutputResultVersion !== undefined && noOutputResultVersion !== '1.1.0') {
+      throw new OfflineOrchestrationError('UNSUPPORTED_RESULT_VERSION');
+    }
     if (running) throw new OfflineOrchestrationError('JOB_ALREADY_ACTIVE');
     if (openJob && !openJob.closed) throw new OfflineOrchestrationError('JOB_ALREADY_ACTIVE');
     let storedJobIds;
@@ -935,6 +971,7 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       job = {
         jobId,
         production,
+        noOutputResultVersion,
         renderedPrompt,
         promptBytes,
         ledger,
@@ -967,6 +1004,7 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       }
       const admitted = event(jobId, 'admitted', {
         production: production.reference,
+        no_output_result_version: noOutputResultVersion ?? null,
         input_key: inputKey,
         input_byte_size: productionBytes.byteLength,
         input_sha256: production.identity.sha256,
@@ -1030,6 +1068,7 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     if (!Number.isSafeInteger(job.retryNotBefore) || clock.now < job.retryNotBefore) {
       throw new OfflineOrchestrationError('RETRY_DELAY_NOT_ELAPSED');
     }
+    if (!verifyRetryEvidence(job, job.lastAttempt)) return markUnresolved(job);
     running = true;
     try {
       // Identity is pinned in the job and cannot be replaced on retry.

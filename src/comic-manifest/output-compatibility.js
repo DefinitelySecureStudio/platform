@@ -12,7 +12,7 @@ function record(source, kind) {
   return result.value.kind === kind ? result : failure('RECORD_KIND');
 }
 
-function buildOutputCompatibility(production, result) {
+export function buildOutputCompatibility(production, result) {
   const expectedProduction = {
     production_id: production.value.production_id,
     revision: production.value.revision,

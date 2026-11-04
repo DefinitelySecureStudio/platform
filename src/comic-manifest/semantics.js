@@ -50,12 +50,12 @@ function inputs(input, classification) {
     }
   }
 }
-function execution(e, isPublic) {
+function execution(e, isPublic, noOutput = false) {
   dependency(e.tool);
   need(executionTime(e.started_at) <= executionTime(e.finished_at), 'TIME_ORDER');
   unique(e.transformations.map(t => t.step_id), 'DUPLICATE_ID');
   for (const t of e.transformations) {
-    if (!isPublic) need(t.input_digests.length > 0 && t.output_digests.length > 0 && !t.private_inputs_withheld && !t.private_outputs_withheld, 'TRANSFORMATION');
+    if (!isPublic) need(t.input_digests.length > 0 && (t.output_digests.length > 0 || noOutput) && !t.private_inputs_withheld && !t.private_outputs_withheld, 'TRANSFORMATION');
     else need((t.input_digests.length > 0 || t.private_inputs_withheld) && (t.output_digests.length > 0 || t.private_outputs_withheld), 'TRANSFORMATION');
   }
   for (const g of e.generation) unique(g.parameters.map(p => p.name), 'DUPLICATE_ID');
@@ -76,11 +76,11 @@ function production(p) {
   need(p.renditions.some(r => r.required), 'REQUIRED_OUTPUT');
   p.renditions.forEach(r => { dimensions(r); renditionProfile(r); });
 }
-function result(r) {
+function result(r, noOutput = false) {
   inputs(r.inputs, r.classification);
   unique(r.outputs.map(x => x.rendition_id), 'DUPLICATE_ID');
   unique(r.gates.map(x => x.gate), 'DUPLICATE_ID');
-  r.outputs.forEach(output => { dimensions(output); renditionProfile(output); }); execution(r.execution, false);
+  r.outputs.forEach(output => { dimensions(output); renditionProfile(output); }); execution(r.execution, false, noOutput);
   need(r.inputs.dependencies.some(d => same(d, r.execution.tool)), 'TOOL_REFERENCE');
 }
 function release(r) {
@@ -112,7 +112,7 @@ function approval(a) {
 }
 const checks = { 'comic-production': production, 'comic-build-result': result, 'comic-public-release': release, 'comic-approval-binding': approval };
 /** Only called with schema-valid, bounded, immutable parsed data. */
-export function validateLocalSemantics(value) {
-  try { checks[value.kind](value); return null; }
+export function validateLocalSemantics(value, noOutput = false) {
+  try { checks[value.kind](value, noOutput); return null; }
   catch (code) { return typeof code === 'string' ? code : 'SEMANTIC_INVALID'; }
 }
