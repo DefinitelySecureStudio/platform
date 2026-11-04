@@ -24,3 +24,20 @@ for (const kind of ['changed-production', 'fabricated-input', 'changed-tool', 'w
   if (kind === 'invalid-time') r.execution.finished_at = '2000-01-01T00:00:00Z';
   assert.equal(validateComicBuildResultCandidate(JSON.stringify(r), production).valid, false);
 });
+
+for (const promptCount of [0, 2]) test(`no-output candidate diagnoses ${promptCount} prompt bindings without throwing`, () => {
+  const p = structuredClone(base.production);
+  p.inputs.prompts = promptCount === 0 ? [] : [p.inputs.prompts[0], { ...p.inputs.prompts[0], binding_id: 'second' }];
+  if (promptCount === 0) for (const panel of p.panels) panel.prompt_bindings = [];
+  const source = JSON.stringify(p);
+  const validated = validateComicManifest(source);
+  assert.equal(validated.valid, true);
+  const r = structuredClone(base.result);
+  r.inputs = p.inputs;
+  r.production.identity = validated.identity;
+  r.execution.transformations[0].input_digests = [p.inputs.canon.artifact.sha256,
+    ...(promptCount ? [p.inputs.prompts[0].identity.sha256] : [])];
+  const report = validateComicBuildResultCandidate(JSON.stringify(r), source);
+  assert.equal(report.valid, false);
+  assert.equal(report.diagnostics[0].code, 'ACTUAL_INPUTS');
+});

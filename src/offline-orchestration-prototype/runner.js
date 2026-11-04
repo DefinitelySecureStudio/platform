@@ -491,6 +491,14 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       if (!appendConfirmed(store, job.jobId, blocked)) return markUnresolved(job);
       job.attempts.push(attempt);
       job.state = 'contract-mapping-blocked';
+      // A consumed retry with a confirmed outcome can exhaust the host job
+      // without inventing a Comic result. Unconfirmed writes still reconcile.
+      if (attempt.retryOfAttemptId && ['failed', 'cancelled', 'succeeded'].includes(providerResult.status)) {
+        if (!closeIfTerminal(job, 'retry-contract-mapping-blocked')) return markUnresolved(job);
+        return freezeDeep({ kind: 'host-outcome', status: 'contract-mapping-blocked',
+          job_id: job.jobId, attempt_id: attempt.attemptId, execution_id: attempt.executionId,
+          job_closed: true });
+      }
       return markUnresolved(job, 'contract-mapping-blocked');
     };
 
