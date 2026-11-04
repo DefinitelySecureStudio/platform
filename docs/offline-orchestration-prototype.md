@@ -146,8 +146,9 @@ flags. Immutable outcome and result bytes plus terminal linkage must verify.
 Retry rechecks pinned inputs, prompt, protected outcome and terminal result
 before allocating IDs and again immediately before dispatch after async mock
 preflight. IDs are fresh; the prepared event links `retry_of_attempt_id`.
-The second attempt always closes the job; there is no third attempt or hidden
-retry. Delay is measured conservatively from terminal completion. A caller may
+A confirmed second result or retained unmappable outcome closes the host job;
+uncertain outcomes or writes remain unresolved. There is no third attempt or
+hidden retry. Delay is measured conservatively from terminal completion. A caller may
 use `closeJob()` instead. A restart can only inspect; it cannot resume retry.
 
 The experimental validator lives in `src/comic-manifest/result-candidate.js`;
@@ -164,3 +165,23 @@ is a local implementation candidate, not a published contract pin or production
 consumer adoption. Existing release manifests, v1 validators and fixtures are
 unchanged. O02/O03 owner review remains pending. Real providers, durable storage,
 cancellation retries, timeout/integrity mapping and production use are excluded.
+
+### Confirmed unmappable retry outcomes
+
+A second attempt with a confirmed, retained provider outcome that cannot map to
+Comic Manifest (for example output-validation failure, normalized cancellation,
+or a successful response with mismatched output) closes the **host job** after
+confirming the `contract-mapping-blocked` event and `job-closed` append. It returns
+`status: 'contract-mapping-blocked', job_closed: true`. The prior terminal result
+and both provider outcomes remain immutable; no second Comic result or terminal
+result link is fabricated. Recovery reports the host job as terminal.
+
+This closes an exhausted job, not the unresolved contract mapping. Uncertain
+outcome/readback/index/close writes and provider timeouts still require
+reconciliation and do not claim confirmed closure. The store's existing
+one-job lifetime limit remains in force even after confirmed closure.
+
+The candidate validator's bounded no-output path requires exactly one prompt
+binding. Schema-valid productions with zero or multiple prompt bindings receive
+`ACTUAL_INPUTS`; validation does not throw or claim support for a broader
+transformation path. The stable schema and v1 validation behavior are unchanged.

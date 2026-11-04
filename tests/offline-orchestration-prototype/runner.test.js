@@ -981,3 +981,69 @@ test('cancelled retry authorization does not consume a second attempt', async ()
   assert.equal(h.store.readEvents(r.job_id).filter(e => e.type === 'dispatch-started').length, 1);
   assert.equal((await h.value.retry({ authorizeRetry: true })).result.status, 'complete');
 });
+
+for (const outcome of ['output-validation', 'cancelled', 'mismatched-success']) test(`confirmed unmappable second ${outcome} closes only the host job and preserves evidence`, async () => {
+  const clock = createRuntime(); const controller = new AbortController(); let calls = 0;
+  const h = runner({ runtime: clock.runtime,
+    mockAdapterFactory: config => {
+      calls++;
+      return new MockTextAdapter(outcome === 'mismatched-success' && calls === 2 ? { ...config, content: 'Different synthetic output.' } : config);
+    },
+    onMockCall({ phase }) { if (outcome === 'cancelled' && calls === 2 && phase === 'dispatch-confirmed') setImmediate(() => controller.abort()); }
+  });
+  const first = await h.value.submit(candidateOptions);
+  const original = h.store.readImmutable(`result:${first.result.result_id}`);
+  clock.advance(10);
+  const second = await h.value.retry({ authorizeRetry: true, signal: controller.signal,
+    mockOutcome: outcome === 'output-validation' ? { kind: outcome } : { kind: 'success', delay_ms: outcome === 'cancelled' ? 5000 : 0 } });
+  assert.equal(second.status, 'contract-mapping-blocked');
+  assert.equal(second.job_closed, true);
+  const events = h.store.readEvents(first.job_id);
+  assert.equal(events.at(-1).type, 'job-closed');
+  assert.equal(events.at(-1).reason, 'retry-contract-mapping-blocked');
+  const outcomes = events.filter(e => e.type === 'provider-outcome');
+  assert.equal(outcomes.length, 2);
+  const lastOutcome = JSON.parse(h.store.readImmutable(outcomes[1].payload_key));
+  assert.equal(lastOutcome.status, outcome === 'cancelled' ? 'cancelled' : outcome === 'mismatched-success' ? 'succeeded' : 'failed');
+  if (outcome === 'mismatched-success') assert.equal(lastOutcome.output.content, 'Different synthetic output.');
+  assert.deepEqual(h.store.readImmutable(`result:${first.result.result_id}`), original);
+  assert.equal(events.filter(e => e.type === 'terminal').length, 1);
+  assert.equal(h.value.inspectRecovery(first.job_id).status, 'terminal');
+  await assert.rejects(() => h.value.retry({ authorizeRetry: true }), e => e.code === 'RETRY_NOT_AVAILABLE');
+  await assert.rejects(() => h.value.submit({ productionSource }), e => e.code === 'JOB_STORE_LIFETIME_LIMIT');
+});
+
+for (const fault of ['outcome-readback', 'mapping-append', 'close-append', 'ambiguous-close']) test(`unmappable retry with ${fault} uncertainty remains unresolved`, async () => {
+  let armed = false; let unknownEvents = false; let unknownOutcome;
+  const store = new InMemoryPrototypeStore({
+    afterBlobWrite(key) { if (armed && fault === 'outcome-readback' && key.startsWith('provider-outcome:')) unknownOutcome = key; },
+    unknownBlob: key => key === unknownOutcome,
+    beforeAppend(e) { return armed && ((fault === 'mapping-append' && e.type === 'contract-mapping-blocked') || (fault === 'close-append' && e.type === 'job-closed')); },
+    afterAppend(e) { if (armed && fault === 'ambiguous-close' && e.type === 'job-closed') { unknownEvents = true; return true; } },
+    unknownEvents: () => unknownEvents
+  });
+  const clock = createRuntime(); const h = runner({ store, runtime: clock.runtime });
+  const first = await h.value.submit(candidateOptions); clock.advance(10); armed = true;
+  const second = await h.value.retry({ authorizeRetry: true, mockOutcome: { kind: 'output-validation' } });
+  assert.equal(second.status, 'reconciliation-required');
+  assert.equal(second.job_closed, undefined);
+  const inspection = h.value.inspectRecovery(first.job_id);
+  assert.equal(inspection.read_only, true);
+  assert.equal(inspection.status, fault === 'ambiguous-close' ? 'reconciliation-required'
+    : fault === 'close-append' ? 'contract-mapping-blocked' : 'read-only-inspection-required');
+  if (!unknownEvents) assert.equal(store.readEvents(first.job_id).some(e => e.type === 'job-closed'), false);
+  await assert.rejects(() => h.value.retry({ authorizeRetry: true }), e => e.code === 'RETRY_NOT_AVAILABLE');
+});
+
+test('a timed-out second attempt preserves uncertainty without closing or fabricating a result', async () => {
+  const clock = createRuntime(); const h = runner({ runtime: clock.runtime });
+  const first = await h.value.submit(candidateOptions); clock.advance(10);
+  const second = await h.value.retry({ authorizeRetry: true, mockOutcome: { kind: 'timeout' } });
+  assert.equal(second.status, 'contract-mapping-blocked');
+  assert.equal(second.job_closed, undefined);
+  const events = h.store.readEvents(first.job_id);
+  assert.equal(events.some(e => e.type === 'job-closed'), false);
+  assert.equal(events.filter(e => e.type === 'terminal').length, 1);
+  assert.equal(events.filter(e => e.type === 'provider-outcome').length, 2);
+  await assert.rejects(() => h.value.retry({ authorizeRetry: true }), e => e.code === 'RETRY_NOT_AVAILABLE');
+});

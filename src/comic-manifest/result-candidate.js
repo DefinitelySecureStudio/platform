@@ -27,8 +27,8 @@ export function validateComicBuildResultCandidate(source, productionSource) {
     || !same(value.inputs, p.inputs)) return failure('PRODUCTION_LINK');
   if (['public', 'internal', 'confidential', 'restricted'].indexOf(value.classification)
     < ['public', 'internal', 'confidential', 'restricted'].indexOf(p.classification)) return failure('CLASSIFICATION');
-  if (noOutput && !same(value.execution.transformations[0].input_digests,
-    [p.inputs.canon.artifact.sha256, p.inputs.prompts[0].identity.sha256])) return failure('ACTUAL_INPUTS');
+  if (noOutput && (p.inputs.prompts.length !== 1 || !same(value.execution.transformations[0].input_digests,
+    [p.inputs.canon.artifact.sha256, p.inputs.prompts[0].identity.sha256]))) return failure('ACTUAL_INPUTS');
   const compatible = buildOutputCompatibility(production, { value });
   if (compatible) return compatible;
   const canonical = canonicalJson(value);

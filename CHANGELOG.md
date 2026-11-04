@@ -1,5 +1,12 @@
 # Changelog
 
+## Review fixes — 2026-11-04
+
+Close the exhausted host job after a confirmed unmappable retry outcome while
+preserving evidence and leaving uncertain writes/timeouts unresolved. Return
+`ACTUAL_INPUTS` for unsupported no-output candidate prompt counts instead of
+throwing on an empty binding list. The one-job-per-store limit is unchanged.
+
 ## Local candidate — 2026-10-31
 
 Add an opt-in Comic build result 1.1.0 candidate for confirmed no-output
