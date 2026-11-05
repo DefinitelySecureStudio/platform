@@ -35,6 +35,13 @@ the Comic Manifest schema.
 - Read-only recovery inspection. State uncertainty, integrity mismatch, an
   unknown clock epoch, or an expired nonterminal deadline cannot authorize a
   write or another provider call.
+- Each prototype instance requires an explicitly installed synthetic execution
+  authority verifier. It rechecks finite preexisting decisions for the exact
+  synthetic production identity, purpose, and action before input use, again
+  after asynchronous preflight, and immediately before dispatch. The verifier
+  rejects missing, duplicate, malformed, denied, expired, revoked, or
+  unverifiable evidence. There is no default allow path, grant renewal, or
+  implicit fetch.
 - Caller retry authorization is explicit. The retry API also checks the exact
   normalized rate-limit category, retryable flag, and `retry_after_ms` within
   the Provider Execution v1 range of 1–86,400,000 ms, safe
@@ -112,9 +119,35 @@ as its mapping is deferred in the RFC.
 ## Using the prototype
 
 The package subpath is `@definitely-secure-studio/platform/offline-orchestration-prototype`.
-Its public factory accepts no storage, provider, or runtime injection. It is
-intended only for local synthetic experimentation. The internal test seam is
-not listed in package exports and must not be treated as a supported API.
+Its experimental factory accepts an explicitly installed
+`executionAuthorityProvider`. This is an experimental JavaScript API change,
+not a stable wire schema or production service. The provider is trusted host
+configuration; it must implement both asynchronous `verify` and synchronous
+`isCurrent` checks. The exported `createSyntheticExecutionAuthorityVerifier`
+installs a finite synthetic fixture and supports in-memory revocation. It
+never creates decisions. Each decision binds one action (`execute` or `retry`),
+the exact synthetic production ID, revision and content digest, the fixed
+synthetic purpose, a validity window, and an authority reference. Both actions
+need their own installed decision. The record fields are `decision_id`,
+`decision`, `action`, `purpose`, `production` (`production_id`, `revision`, and
+`identity_sha256`), `not_before`, `review_after`, `expires_at`, and
+`authority_reference`. Install the verifier with
+`createOfflineOrchestrationPrototype({ executionAuthorityProvider: fixture.verifier })`.
+`retry({ authorizeRetry: true })` remains separately required; that caller flag
+does not replace current retry authority.
+
+The checks happen before the runner parses or renders the submitted production
+input, after mock preflight and immediately before a mock call. After each
+awaited verification, the runner synchronously rechecks current revocation,
+wall-clock validity, cancellation, and the monotonic job deadline before any
+protected effect. Authority and SDK timing share the same wall-clock guard. A
+denied or unverifiable check fails closed. Preparation authority is separate and cannot
+authorize execution. The current synthetic prompt has no context slots and
+does not load context-package content, so this change does not establish
+package-use authorization coverage or complete O05's full package-use boundary.
+
+The prototype remains intended only for local synthetic experimentation. The
+internal test seam is not listed in package exports.
 
 Use the existing [fixture](../tests/fixtures/comic-manifest-v1.json) as the
 only accepted production input. A completed mock result only demonstrates the
