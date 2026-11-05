@@ -30,6 +30,12 @@ const fixture = JSON.parse(await readFile(new URL('../fixtures/comic-manifest-v1
 const contextFixture = JSON.parse(await readFile(new URL('../fixtures/context-builder-v1.json', import.meta.url), 'utf8'));
 const productionSource = JSON.stringify(fixture.production);
 const sha = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+const containsStringValue = (value, needle) => {
+  if (typeof value === 'string') return value.includes(needle);
+  if (Array.isArray(value)) return value.some(child => containsStringValue(child, needle));
+  if (value && typeof value === 'object') return Object.values(value).some(child => containsStringValue(child, needle));
+  return false;
+};
 
 function createRuntime({ start = 10_000, epochId = 'test-monotonic-epoch' } = {}) {
   let monotonic = start;
@@ -167,9 +173,10 @@ function syntheticContextFixture({ decision = 'allow', revoke = false, readerOve
   const readers = Object.fromEntries(SYNTHETIC_CONTEXT_READER_SLOTS.map(slot => [slot, async ({ maxBytes, signal }) => {
     reads.push(slot);
     if (signal.aborted) throw new Error('cancelled');
-    const result = readerOverrides[slot] ? await readerOverrides[slot](Buffer.from(slots[slot])) : Buffer.from(slots[slot]);
-    assert.ok(result.byteLength <= maxBytes);
-    return result;
+    if (Object.hasOwn(readerOverrides, slot)) return await readerOverrides[slot](Buffer.from(slots[slot]));
+    const bytes = Buffer.from(slots[slot]);
+    assert.ok(bytes.byteLength <= maxBytes);
+    return bytes;
   }]));
   const contextInputProvider = { id: 'studio.synthetic.comic-context-readers', mode: 'synthetic', readers };
   return { runtime, production, reads, contextInputProvider, use: use.verifier, revoke: use.revoke, useAuthority: use };
@@ -476,13 +483,16 @@ test('corrupt pinned Context Builder bytes fail without dispatch or diagnostic c
   assert.equal(context.reads.includes('builder-result'), false);
 });
 
-test('missing or corrupt fixture input from any installed context reader fails safely', async t => {
+test('missing, empty, corrupt, or rejected fixture input from any installed context reader fails safely', async t => {
   for (const slot of SYNTHETIC_CONTEXT_READER_SLOTS) {
     const slotIndex = SYNTHETIC_CONTEXT_READER_SLOTS.indexOf(slot);
-    for (const mode of ['missing', 'corrupt']) await t.test(`${mode} ${slot}`, async () => {
-      const readerOverrides = mode === 'missing'
-        ? { [slot]: () => undefined }
-        : { [slot]: bytes => { bytes[0] ^= 1; return bytes; } };
+    for (const mode of ['resolved-undefined', 'empty-buffer', 'corrupt', 'rejected-reader']) await t.test(`${mode} ${slot}`, async () => {
+      const readerOverrides = {
+        [slot]: mode === 'resolved-undefined' ? () => undefined
+          : mode === 'empty-buffer' ? () => Buffer.alloc(0)
+            : mode === 'rejected-reader' ? async () => { throw new Error('synthetic reader failure'); }
+              : bytes => { bytes[0] ^= 1; return bytes; }
+      };
       const context = syntheticContextFixture({ readerOverrides });
       const store = new InMemoryPrototypeStore();
       let mockFactoryCalls = 0;
@@ -577,13 +587,17 @@ test('partial or mismatched initial output preserves actual inputs and SDK outco
     assert.equal(outcome.output.sha256, sha(Buffer.from(content, 'utf8')));
     const blocked = events.find(item => item.type === 'contract-mapping-blocked');
     assert.equal(blocked.reason, 'no-output-result-not-representable-under-current-validator');
-    assert.equal(JSON.stringify(blocked).includes(content), false);
-    assert.equal(JSON.stringify(result).includes(content), false);
+    assert.equal(containsStringValue({ diagnostic: blocked, result }, content), false);
     assert.equal(events.some(item => item.type === 'result-prepared' || item.type === 'terminal'), false);
     assert.equal(result.result, undefined);
     await assert.rejects(() => value.retry({ authorizeRetry: true }), error => error.code === 'RETRY_NOT_AVAILABLE');
     assert.equal(mocks[0].calls.length, 1);
   });
+});
+
+test('diagnostic content leak assertion detects multiline output values', () => {
+  const multiline = 'synthetic output\nwith a line break';
+  assert.equal(containsStringValue({ diagnostic: { message: multiline } }, multiline), true);
 });
 
 test('explicit synthetic context retry reauthorizes cached context evidence without rereading fixtures', async () => {
