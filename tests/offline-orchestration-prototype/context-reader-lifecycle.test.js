@@ -91,9 +91,10 @@ function makePendingReaderHarness(pendingReader) {
     ? firstEntry.uses[0].role === 'canon' ? 'canon' : `dependency-${firstEntry.uses[0].index}`
     : firstEntry.reference.kind === 'context-package' ? 'context-package' : 'builder-result';
   const reads = [];
-  const readers = Object.fromEntries(SYNTHETIC_CONTEXT_READER_SLOTS.map(slot => [slot, async () => {
+  let readerSignal;
+  const readers = Object.fromEntries(SYNTHETIC_CONTEXT_READER_SLOTS.map(slot => [slot, async ({ signal }) => {
     reads.push(slot);
-    if (slot === firstSlot) return pendingReader();
+    if (slot === firstSlot) { readerSignal = signal; return pendingReader(); }
     return Buffer.from(slots[slot]);
   }]));
   const context = { id: 'studio.synthetic.comic-context-readers', mode: 'synthetic', readers };
@@ -107,7 +108,8 @@ function makePendingReaderHarness(pendingReader) {
     contextUseAuthorityProvider: use.verifier,
     mockAdapterFactory(configuration) { mockFactoryCalls++; return new MockTextAdapter(configuration); }
   });
-  return { value, store, reads, firstSlot, runtime, get mockFactoryCalls() { return mockFactoryCalls; } };
+  return { value, store, reads, firstSlot, runtime, get readerSignal() { return readerSignal; },
+    get mockFactoryCalls() { return mockFactoryCalls; } };
 }
 
 function deferred() {
@@ -143,6 +145,8 @@ for (const stop of ['cancel', 'timeout']) {
         const submit = harness.value.submit({ productionSource, syntheticContext: true, signal: caller.signal });
         await readerStarted;
         assert.deepEqual(harness.reads, [harness.firstSlot]);
+        assert.ok(harness.readerSignal instanceof AbortSignal);
+        assert.equal(harness.readerSignal.aborted, false);
         assert.equal(trackedTimers.size, 1);
         if (stop === 'cancel') caller.abort();
         else t.mock.timers.tick(1000);
@@ -154,6 +158,8 @@ for (const stop of ['cancel', 'timeout']) {
         assert.equal(harness.store.blobCount, 0);
         assert.equal(trackedTimers.size, 0);
         assert.equal(caller.signal.listenerCount, 0);
+        assert.equal(harness.readerSignal.aborted, true);
+        if (stop === 'cancel') assert.equal(caller.signal.aborted, true);
 
         if (late === 'fulfill') pending.resolve(Buffer.from('late synthetic reader fulfillment'));
         else pending.reject(new Error('late synthetic reader rejection'));
@@ -164,6 +170,7 @@ for (const stop of ['cancel', 'timeout']) {
         assert.equal(harness.store.eventCount, 0);
         assert.equal(harness.store.blobCount, 0);
         assert.equal(trackedTimers.size, 0);
+        assert.equal(harness.readerSignal.aborted, true);
       } finally {
         globalThis.setTimeout = nativeSetTimeout;
         globalThis.clearTimeout = nativeClearTimeout;
