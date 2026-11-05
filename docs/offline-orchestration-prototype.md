@@ -122,7 +122,8 @@ The package subpath is `@definitely-secure-studio/platform/offline-orchestration
 Its experimental factory accepts an explicitly installed
 `executionAuthorityProvider`. This is an experimental JavaScript API change,
 not a stable wire schema or production service. The provider is trusted host
-configuration; the exported `createSyntheticExecutionAuthorityVerifier`
+configuration; it must implement both asynchronous `verify` and synchronous
+`isCurrent` checks. The exported `createSyntheticExecutionAuthorityVerifier`
 installs a finite synthetic fixture and supports in-memory revocation. It
 never creates decisions. Each decision binds one action (`execute` or `retry`),
 the exact synthetic production ID, revision and content digest, the fixed
@@ -136,8 +137,11 @@ need their own installed decision. The record fields are `decision_id`,
 does not replace current retry authority.
 
 The checks happen before the runner parses or renders the submitted production
-input, after mock preflight and immediately before a mock call. A denied or
-unverifiable check fails closed. Preparation authority is separate and cannot
+input, after mock preflight and immediately before a mock call. After each
+awaited verification, the runner synchronously rechecks current revocation,
+wall-clock validity, cancellation, and the monotonic job deadline before any
+protected effect. Authority and SDK timing share the same wall-clock guard. A
+denied or unverifiable check fails closed. Preparation authority is separate and cannot
 authorize execution. The current synthetic prompt has no context slots and
 does not load context-package content, so this change does not establish
 package-use authorization coverage or complete O05's full package-use boundary.

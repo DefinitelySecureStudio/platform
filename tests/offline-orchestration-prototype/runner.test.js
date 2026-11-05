@@ -179,6 +179,12 @@ test('synthetic execution authority fixture rejects empty, malformed, and duplic
   };
   assert.throws(() => createSyntheticExecutionAuthorityVerifier([{ ...record, unexpected: true }]),
     /Invalid synthetic execution authority fixture/);
+  assert.throws(() => createSyntheticExecutionAuthorityVerifier([{
+    ...record, decision_id: [record.decision_id]
+  }]), /Invalid synthetic execution authority fixture/);
+  assert.throws(() => createSyntheticExecutionAuthorityVerifier([{
+    ...record, revocation: { status: 'revoked', checked_at: '2026-10-28T17:00:00Z' }
+  }]), /Invalid synthetic execution authority fixture/);
   assert.throws(() => createSyntheticExecutionAuthorityVerifier([record, record]),
     /Invalid synthetic execution authority fixture/);
   assert.ok(authority);
@@ -218,6 +224,7 @@ test('authority expiry during asynchronous verification blocks before input use'
   const base = authorityFixture();
   const provider = {
     id: base.verifier.id, mode: 'synthetic',
+    isCurrent: base.verifier.isCurrent,
     async verify(request) {
       const evidence = await base.verifier.verify(request);
       wallNow = Date.UTC(2027, 0, 1, 0, 0, 0);
@@ -245,6 +252,7 @@ test('authority expiry during post-preflight verification blocks admission and d
   const base = authorityFixture();
   const provider = {
     id: base.verifier.id, mode: 'synthetic',
+    isCurrent: base.verifier.isCurrent,
     async verify(request) {
       const evidence = await base.verifier.verify(request);
       if (++verifications === 2) wallNow = Date.UTC(2027, 0, 1, 0, 0, 0);
@@ -266,6 +274,82 @@ test('authority expiry during post-preflight verification blocks admission and d
   assert.equal(mockCalls, 0);
   assert.equal(store.blobCount, 0);
   assert.equal(store.eventCount, 0);
+});
+
+test('a successful authority await rechecks the deadline before job admission', async () => {
+  const clock = createRuntime();
+  const base = authorityFixture();
+  let verifications = 0;
+  let mockCalls = 0;
+  const provider = {
+    ...base.verifier,
+    async verify(request) {
+      const evidence = await base.verifier.verify(request);
+      if (++verifications === 2) clock.set(10_000 + OFFLINE_ORCHESTRATION_LIMITS.jobBudgetMs);
+      return evidence;
+    }
+  };
+  const store = new InMemoryPrototypeStore();
+  const value = createOfflineOrchestrationPrototypeForTestRaw({
+    store, runtime: clock.runtime, executionAuthorityProvider: provider,
+    mockAdapterFactory(configuration) {
+      return new (class extends MockTextAdapter {
+        async execute(...args) { mockCalls++; return super.execute(...args); }
+      })(configuration);
+    }
+  });
+  const result = await value.submit({ productionSource });
+  assert.equal(result.status, 'budget-exhausted');
+  assert.equal(result.reason, 'time-before-admission');
+  assert.equal(mockCalls, 0);
+  assert.equal(store.blobCount, 0);
+  assert.equal(store.eventCount, 0);
+});
+
+test('deadline expiry during the final authority await prevents mock dispatch', async () => {
+  const clock = createRuntime();
+  const base = authorityFixture();
+  let verifications = 0;
+  let mock;
+  const provider = {
+    ...base.verifier,
+    async verify(request) {
+      const evidence = await base.verifier.verify(request);
+      if (++verifications === 4) clock.set(10_000 + OFFLINE_ORCHESTRATION_LIMITS.jobBudgetMs);
+      return evidence;
+    }
+  };
+  const h = runner({
+    runtime: clock.runtime,
+    executionAuthorityProvider: provider,
+    onMockCall({ phase, mock: observed }) {
+      if (phase === 'dispatch-confirmed') mock = observed;
+    }
+  });
+  const result = await h.value.submit({ productionSource });
+  assert.equal(result.status, 'budget-exhausted');
+  assert.equal(mock.calls.length, 0);
+  assert.equal(h.store.readEvents(result.job_id).some(item => item.type === 'provider-outcome'), false);
+});
+
+test('wall-clock rollback after execution timing fails before dispatch', async () => {
+  const base = authorityFixture();
+  let samples = 0;
+  const beforeReview = Date.UTC(2026, 9, 28, 17, 0, 0);
+  const afterReview = Date.UTC(2027, 0, 2, 0, 0, 0);
+  const runtime = {
+    ...createRuntime().runtime,
+    wallNow() { return ++samples === 8 ? afterReview : beforeReview; }
+  };
+  const store = new InMemoryPrototypeStore();
+  const value = createOfflineOrchestrationPrototypeForTestRaw({
+    store, runtime, executionAuthorityProvider: base.verifier
+  });
+  const result = await value.submit({ productionSource });
+  assert.equal(result.status, 'reconciliation-required');
+  assert.equal(samples >= 9, true);
+  assert.equal(store.readEvents(result.job_id).some(item => item.type === 'dispatch-started'), false);
+  assert.equal(store.readEvents(result.job_id).some(item => item.type === 'provider-outcome'), false);
 });
 
 test('Provider Execution timing uses advancing host wall-clock readings', async () => {
@@ -1054,6 +1138,92 @@ test('retry authority is rechecked after asynchronous mock preflight', async () 
   assert.equal((await h.value.retry({ authorizeRetry: true })).status, 'authorization-denied');
   assert.equal(mocks.reduce((count, mock) => count + mock.calls.length, 0), 1);
   assert.equal(h.store.readEvents(first.job_id).filter(e => e.type === 'dispatch-started').length, 1);
+});
+
+test('retry evidence is revalidated after final authority await before mock dispatch', async () => {
+  const clock = createRuntime();
+  let unknownEvidence = false;
+  const store = new InMemoryPrototypeStore({
+    unknownBlob: key => unknownEvidence && key.startsWith('provider-outcome:')
+  });
+  const authority = authorityFixture();
+  let retryVerifications = 0;
+  const provider = {
+    ...authority.verifier,
+    async verify(request) {
+      const evidence = await authority.verifier.verify(request);
+      if (request.action === 'retry' && ++retryVerifications === 3) unknownEvidence = true;
+      return evidence;
+    }
+  };
+  const mocks = [];
+  const h = runner({
+    store, runtime: clock.runtime, executionAuthorityProvider: provider,
+    mockAdapterFactory: configuration => {
+      const mock = new MockTextAdapter(configuration);
+      mocks.push(mock);
+      return mock;
+    }
+  });
+  const first = await h.value.submit(candidateOptions);
+  clock.advance(10);
+  const result = await h.value.retry({ authorizeRetry: true });
+  assert.equal(result.status, 'reconciliation-required');
+  assert.equal(mocks.reduce((count, mock) => count + mock.calls.length, 0), 1);
+  assert.equal(store.readEvents(first.job_id).filter(item => item.type === 'dispatch-started').length, 2);
+  assert.equal(store.readEvents(first.job_id).some(item =>
+    item.type === 'provider-outcome' && item.attempt_id !== first.attempt_id), false);
+});
+
+test('revocation scheduled during final authority verification prevents mock dispatch', async () => {
+  const authority = authorityFixture();
+  let verifications = 0;
+  const provider = {
+    ...authority.verifier,
+    async verify(request) {
+      const evidence = await authority.verifier.verify(request);
+      if (++verifications === 4) queueMicrotask(() =>
+        authority.revoke('20000000-0000-4000-8000-000000000001'));
+      return evidence;
+    }
+  };
+  const mocks = [];
+  const h = runner({
+    executionAuthorityProvider: provider,
+    mockAdapterFactory: configuration => {
+      const mock = new MockTextAdapter(configuration);
+      mocks.push(mock);
+      return mock;
+    }
+  });
+  const result = await h.value.submit({ productionSource });
+  assert.equal(result.status, 'authorization-denied');
+  assert.equal(mocks.reduce((count, mock) => count + mock.calls.length, 0), 0);
+});
+
+test('cancellation during final authority verification prevents mock dispatch', async () => {
+  const authority = authorityFixture();
+  const controller = new AbortController();
+  let verifications = 0;
+  const provider = {
+    ...authority.verifier,
+    async verify(request) {
+      const evidence = await authority.verifier.verify(request);
+      if (++verifications === 4) controller.abort();
+      return evidence;
+    }
+  };
+  let mock;
+  const h = runner({
+    executionAuthorityProvider: provider,
+    onMockCall({ phase, mock: observed }) {
+      if (phase === 'dispatch-confirmed') mock = observed;
+    }
+  });
+  const result = await h.value.submit({ productionSource, signal: controller.signal });
+  assert.ok(['cancelled-before-dispatch', 'contract-mapping-blocked'].includes(result.status));
+  assert.equal(verifications, 4);
+  assert.equal(mock.calls.length, 0);
 });
 
 test('authority revoked by a synchronous dispatch observer prevents the mock call', async () => {

@@ -56,11 +56,11 @@ function validTime(value) {
     && Number.isFinite(Date.parse(value)) && new Date(Date.parse(value)).toISOString() === value.replace('Z', '.000Z');
 }
 
-function validRecord(record) {
+function validRecord(record, withRevocation = false) {
   const keys = record && Object.keys(record).sort().join('|');
-  if (!record || (keys !== [...FIELDS].sort().join('|')
-      && keys !== [...FIELDS, 'revocation'].sort().join('|'))
-    || !UUID.test(record.decision_id) || !['allow', 'deny'].includes(record.decision)
+  if (!record || keys !== [...FIELDS, ...(withRevocation ? ['revocation'] : [])].sort().join('|')
+    || typeof record.decision_id !== 'string' || !UUID.test(record.decision_id)
+    || !['allow', 'deny'].includes(record.decision)
     || !SYNTHETIC_EXECUTION_ACTIONS.includes(record.action)
     || record.purpose !== SYNTHETIC_EXECUTION_PURPOSE
     || !validTime(record.not_before) || !validTime(record.review_after) || !validTime(record.expires_at)
@@ -70,7 +70,7 @@ function validRecord(record) {
   const p = record.production;
   return p && Object.keys(p).sort().join('|') === 'identity_sha256|production_id|revision'
     && p.production_id === 'urn:uuid:10000000-0000-4000-8000-000000000001'
-    && p.revision === 1 && SHA256.test(p.identity_sha256);
+    && p.revision === 1 && typeof p.identity_sha256 === 'string' && SHA256.test(p.identity_sha256);
 }
 
 function sameProduction(left, right) {
@@ -82,7 +82,7 @@ function sameProduction(left, right) {
 export function createSyntheticExecutionAuthorityVerifier(decisions) {
   let records;
   try { records = clone(decisions); } catch { throw new TypeError('Invalid synthetic execution authority fixture.'); }
-  if (!Array.isArray(records) || records.length === 0 || !records.every(validRecord)
+  if (!Array.isArray(records) || records.length === 0 || !records.every(item => validRecord(item))
     || new Set(records.map(item => item.decision_id)).size !== records.length
     || new Set(records.map(item => item.action)).size !== records.length) {
     throw new TypeError('Invalid synthetic execution authority fixture.');
@@ -99,6 +99,12 @@ export function createSyntheticExecutionAuthorityVerifier(decisions) {
       return Object.freeze({ ...item, revocation: Object.freeze({
         status: revoked.has(item.decision_id) ? 'revoked' : 'active', checked_at: at
       }) });
+    },
+    isCurrent({ decision_id, action, purpose, production }) {
+      const matches = records.filter(item => item.decision_id === decision_id
+        && item.action === action && item.purpose === purpose
+        && sameProduction(item.production, production));
+      return matches.length === 1 && matches[0].decision === 'allow' && !revoked.has(decision_id);
     }
   });
   return Object.freeze({ verifier, revoke(decisionId) { revoked.add(decisionId); } });
@@ -107,7 +113,7 @@ export function createSyntheticExecutionAuthorityVerifier(decisions) {
 export function validateExecutionAuthorityEvidence(value, { action, purpose, production, at }) {
   try {
     const evidence = clone(value);
-    if (!validRecord(evidence) || evidence.decision !== 'allow' || evidence.action !== action
+    if (!validRecord(evidence, true) || evidence.decision !== 'allow' || evidence.action !== action
       || evidence.purpose !== purpose || !sameProduction(evidence.production, production)
       || !(Date.parse(evidence.not_before) <= Date.parse(at)
         && Date.parse(at) < Date.parse(evidence.review_after)

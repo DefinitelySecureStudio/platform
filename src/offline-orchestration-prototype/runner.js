@@ -340,20 +340,22 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
   mockAdapterFactory = defaultMockFactory, onMockCall, executionAuthorityProvider } = {}) {
   if (!executionAuthorityProvider || executionAuthorityProvider.mode !== 'synthetic'
     || typeof executionAuthorityProvider.id !== 'string'
-    || typeof executionAuthorityProvider.verify !== 'function') {
+    || typeof executionAuthorityProvider.verify !== 'function'
+    || typeof executionAuthorityProvider.isCurrent !== 'function') {
     throw new OfflineOrchestrationError('EXECUTION_AUTHORITY_UNAVAILABLE');
   }
   const verifyExecutionAuthority = executionAuthorityProvider.verify.bind(executionAuthorityProvider);
+  const checkExecutionAuthorityCurrent = executionAuthorityProvider.isCurrent.bind(executionAuthorityProvider);
   let openJob;
   let running = false;
   const usedIds = new Set();
 
-  function authorityClock(state) {
+  function authorityClock(state, errorCode = 'EXECUTION_AUTHORITY_UNAVAILABLE') {
     let now;
-    try { now = runtime.wallNow(); } catch { throw new OfflineOrchestrationError('EXECUTION_AUTHORITY_UNAVAILABLE'); }
+    try { now = runtime.wallNow(); } catch { throw new OfflineOrchestrationError(errorCode); }
     if (!Number.isSafeInteger(now) || !Number.isFinite(new Date(now).getTime())
       || (state.lastMs !== undefined && now < state.lastMs)) {
-      throw new OfflineOrchestrationError('EXECUTION_AUTHORITY_UNAVAILABLE');
+      throw new OfflineOrchestrationError(errorCode);
     }
     state.lastMs = now;
     return now;
@@ -386,6 +388,42 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       throw new OfflineOrchestrationError('EXECUTION_AUTHORITY_STALE');
     }
     return evidence;
+  }
+
+  function currentAuthorityFailure(evidence, action, signal, state) {
+    let active;
+    try {
+      active = checkExecutionAuthorityCurrent(Object.freeze({
+        decision_id: evidence.decision_id,
+        action,
+        purpose: SYNTHETIC_EXECUTION_PURPOSE,
+        production: EXPECTED_EXECUTION_SCOPE
+      })) === true;
+    } catch {
+      return 'EXECUTION_AUTHORITY_UNAVAILABLE';
+    }
+    if (!active) return 'EXECUTION_AUTHORITY_DENIED';
+    let now;
+    try { now = authorityClock(state); } catch { return 'EXECUTION_AUTHORITY_UNAVAILABLE'; }
+    if (now >= Date.parse(evidence.review_after) || now >= Date.parse(evidence.expires_at)) {
+      return 'EXECUTION_AUTHORITY_STALE';
+    }
+    if (signal?.aborted) return 'EXECUTION_AUTHORITY_DENIED';
+    return undefined;
+  }
+
+  function dispatchBoundaryFailure(evidence, action, signal, job, deadlineExpired) {
+    const before = safeClock(runtime);
+    if (!before || before.epochId !== job.clockEpochId) return 'clock-unverifiable';
+    if (deadlineExpired || before.now >= job.deadlineMonotonicMs) return 'time';
+    if (signal?.aborted) return 'cancelled';
+    const authorityFailure = currentAuthorityFailure(evidence, action, signal, job.authorityClock);
+    if (authorityFailure) return 'authority';
+    const after = safeClock(runtime);
+    if (!after || after.epochId !== job.clockEpochId) return 'clock-unverifiable';
+    if (deadlineExpired || after.now >= job.deadlineMonotonicMs) return 'time';
+    if (signal?.aborted) return 'cancelled';
+    return undefined;
   }
 
   function markUnresolved(job, reason = 'reconciliation-required') {
@@ -834,15 +872,27 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
           throw new AdapterExecutionError({ category: 'cancelled', code: 'EXECUTION_CANCELLED',
             message: 'The offline attempt was cancelled before dispatch.', retryable: false, stage: 'preflight' });
         }
+        let authorityEvidence;
         try {
-          await requireExecutionAuthority(authorizationAction, cancellation, job.authorityClock);
+          authorityEvidence = await requireExecutionAuthority(
+            authorizationAction, controller.signal, job.authorityClock
+          );
         } catch {
           dispatchBlocked = true;
           const afterAuthority = safeClock(runtime);
           dispatchBlockReason = !afterAuthority || afterAuthority.epochId !== job.clockEpochId
             ? 'clock-unverifiable'
-            : afterAuthority.now >= job.deadlineMonotonicMs ? 'time'
-              : cancellation?.aborted ? 'cancelled' : 'authority';
+            : deadlineExpired || afterAuthority.now >= job.deadlineMonotonicMs ? 'time'
+              : controller.signal.aborted ? 'cancelled' : 'authority';
+          throw new AdapterExecutionError({ category: 'internal', code: 'EXECUTION_AUTHORITY_DENIED',
+            message: 'Current synthetic execution authority could not be confirmed.', retryable: false, stage: 'preflight' });
+        }
+        const authorityBoundary = dispatchBoundaryFailure(
+          authorityEvidence, authorizationAction, controller.signal, job, deadlineExpired
+        );
+        if (authorityBoundary) {
+          dispatchBlocked = true;
+          dispatchBlockReason = authorityBoundary;
           throw new AdapterExecutionError({ category: 'internal', code: 'EXECUTION_AUTHORITY_DENIED',
             message: 'Current synthetic execution authority could not be confirmed.', retryable: false, stage: 'preflight' });
         }
@@ -866,15 +916,45 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
         if (onMockCall) onMockCall({ phase: 'dispatch-confirmed', attemptId, executionId, mock });
         // Test observers and store implementations are synchronous extension
         // points; recheck after them so the final awaited check precedes call.
+        let finalAuthorityEvidence;
         try {
-          await requireExecutionAuthority(authorizationAction, cancellation, job.authorityClock);
+          finalAuthorityEvidence = await requireExecutionAuthority(
+            authorizationAction, controller.signal, job.authorityClock
+          );
         } catch {
           dispatchBlocked = true;
           const afterAuthority = safeClock(runtime);
           dispatchBlockReason = !afterAuthority || afterAuthority.epochId !== job.clockEpochId
             ? 'clock-unverifiable'
-            : afterAuthority.now >= job.deadlineMonotonicMs ? 'time'
-              : cancellation?.aborted ? 'cancelled' : 'authority';
+            : deadlineExpired || afterAuthority.now >= job.deadlineMonotonicMs ? 'time'
+              : controller.signal.aborted ? 'cancelled' : 'authority';
+          throw new AdapterExecutionError({ category: 'internal', code: 'EXECUTION_AUTHORITY_DENIED',
+            message: 'Current synthetic execution authority could not be confirmed.', retryable: false, stage: 'preflight' });
+        }
+        const finalAuthorityBoundary = dispatchBoundaryFailure(
+          finalAuthorityEvidence, authorizationAction, controller.signal, job, deadlineExpired
+        );
+        if (finalAuthorityBoundary) {
+          dispatchBlocked = true;
+          dispatchBlockReason = finalAuthorityBoundary;
+          throw new AdapterExecutionError({ category: 'internal', code: 'EXECUTION_AUTHORITY_DENIED',
+            message: 'Current synthetic execution authority could not be confirmed.', retryable: false, stage: 'preflight' });
+        }
+        // The final authority await may have made immutable retry evidence
+        // ambiguous. Revalidate the same pinned evidence once more at the
+        // boundary, then perform only synchronous checks before mock.execute.
+        if (priorAttempt && !verifyRetryEvidence(job, priorAttempt)) {
+          dispatchBlocked = true;
+          dispatchBlockReason = 'retry-evidence-unconfirmed';
+          throw new AdapterExecutionError({ category: 'internal', code: 'RETRY_EVIDENCE_UNCONFIRMED',
+            message: 'Prior immutable retry evidence could not be confirmed.', retryable: false, stage: 'preflight' });
+        }
+        const finalSynchronousBoundary = dispatchBoundaryFailure(
+          finalAuthorityEvidence, authorizationAction, controller.signal, job, deadlineExpired
+        );
+        if (finalSynchronousBoundary) {
+          dispatchBlocked = true;
+          dispatchBlockReason = finalSynchronousBoundary;
           throw new AdapterExecutionError({ category: 'internal', code: 'EXECUTION_AUTHORITY_DENIED',
             message: 'Current synthetic execution authority could not be confirmed.', retryable: false, stage: 'preflight' });
         }
@@ -888,22 +968,13 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       }
     });
 
-    const wallStart = runtime.wallNow();
+    const wallStart = authorityClock(job.authorityClock, 'WALL_CLOCK_UNVERIFIABLE');
     if (!Number.isSafeInteger(wallStart) || !Number.isFinite(new Date(wallStart).getTime())) {
       runtime.clearTimer(timer);
       if (cancelListener) cancellation.removeEventListener('abort', cancelListener);
       return markUnresolved(job, 'deadline-unverifiable');
     }
-    let lastWallTime = wallStart;
-    const executionWallClock = () => {
-      const nextWallTime = runtime.wallNow();
-      if (!Number.isSafeInteger(nextWallTime) || !Number.isFinite(new Date(nextWallTime).getTime())
-        || nextWallTime < lastWallTime) {
-        throw new OfflineOrchestrationError('WALL_CLOCK_UNVERIFIABLE');
-      }
-      lastWallTime = nextWallTime;
-      return nextWallTime;
-    };
+    const executionWallClock = () => authorityClock(job.authorityClock, 'WALL_CLOCK_UNVERIFIABLE');
     let providerResult;
     try {
       providerResult = await executePrompt(request, {
@@ -1012,7 +1083,12 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       if (cancellation?.aborted) return freezeDeep({ kind: 'host-outcome', status: 'cancelled-before-admission' });
       const correlationId = safeCorrelationId(correlationIdInput);
       const authorityClockState = { lastMs: undefined };
-      await requireExecutionAuthority('execute', cancellation, authorityClockState);
+      const initialAuthority = await requireExecutionAuthority('execute', cancellation, authorityClockState);
+      const initialAuthorityFailure = currentAuthorityFailure(
+        initialAuthority, 'execute', cancellation, authorityClockState
+      );
+      if (initialAuthorityFailure) throw new OfflineOrchestrationError(initialAuthorityFailure);
+      if (cancellation?.aborted) return freezeDeep({ kind: 'host-outcome', status: 'cancelled-before-admission' });
       const production = readProduction(productionSource);
       const renderedPrompt = renderOfflineComicPrompt(production.value);
       assertAtMost(renderedPrompt.byteSize, OFFLINE_ORCHESTRATION_LIMITS.maxPromptBytesPerAttempt, 'PROMPT_LIMIT_EXCEEDED');
@@ -1059,7 +1135,19 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       if (postPreflightClock.now >= deadlineMonotonicMs) {
         return freezeDeep({ kind: 'host-outcome', status: 'budget-exhausted', reason: 'time-before-admission' });
       }
-      await requireExecutionAuthority('execute', cancellation, authorityClockState);
+      const postPreflightAuthority = await requireExecutionAuthority('execute', cancellation, authorityClockState);
+      const postPreflightAuthorityFailure = currentAuthorityFailure(
+        postPreflightAuthority, 'execute', cancellation, authorityClockState
+      );
+      if (postPreflightAuthorityFailure) throw new OfflineOrchestrationError(postPreflightAuthorityFailure);
+      if (cancellation?.aborted) return freezeDeep({ kind: 'host-outcome', status: 'cancelled-before-admission' });
+      const postAuthorityClock = safeClock(runtime);
+      if (!postAuthorityClock || postAuthorityClock.epochId !== initialClock.epochId) {
+        return freezeDeep({ kind: 'host-outcome', status: 'deadline-unverifiable' });
+      }
+      if (postAuthorityClock.now >= deadlineMonotonicMs) {
+        return freezeDeep({ kind: 'host-outcome', status: 'budget-exhausted', reason: 'time-before-admission' });
+      }
 
       const slotReservation = store.reserveJobSlot();
       if (slotReservation === 'reserved') throw new OfflineOrchestrationError('JOB_ALREADY_ACTIVE');
@@ -1156,7 +1244,12 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     if (cancellation?.aborted) throw new OfflineOrchestrationError('RETRY_CANCELLED');
     running = true;
     try {
-      await requireExecutionAuthority('retry', cancellation, job.authorityClock);
+      const retryAuthority = await requireExecutionAuthority('retry', cancellation, job.authorityClock);
+      const retryAuthorityFailure = currentAuthorityFailure(
+        retryAuthority, 'retry', cancellation, job.authorityClock
+      );
+      if (retryAuthorityFailure) throw new OfflineOrchestrationError(retryAuthorityFailure);
+      if (cancellation?.aborted) throw new OfflineOrchestrationError('RETRY_CANCELLED');
       const clock = safeClock(runtime);
       if (!clock || clock.epochId !== job.clockEpochId) return markUnresolved(job, 'deadline-unverifiable');
       if (clock.now >= job.deadlineMonotonicMs || job.attempts.length >= OFFLINE_ORCHESTRATION_LIMITS.maxAttemptsPerJob) {
