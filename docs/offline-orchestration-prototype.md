@@ -48,6 +48,12 @@ the Comic Manifest schema.
   `RATE_LIMITED_BEFORE_ACCEPTANCE` provider code, no output, same pinned
   production identity, remaining deadline, and attempt ceiling. Mock rate-limit
   options outside that range are rejected before admission or provider dispatch.
+- The opt-in synthetic Context Builder input path is available only when the host
+  installs the exact finite fixture readers and a separate current package-use
+  verifier. Both authorities are checked before each fixture read, after awaited
+  reads and preflight, before cached retry evidence, and at dispatch. Omitted
+  `syntheticContext` preserves the existing no-context path. There is no fetch,
+  renewal, or request-supplied reader/approval path.
 
 ## Resource limits
 
@@ -136,6 +142,29 @@ need their own installed decision. The record fields are `decision_id`,
 `retry({ authorizeRetry: true })` remains separately required; that caller flag
 does not replace current retry authority.
 
+The optional Context Builder fixture path requires both
+`syntheticContextReaders` and `contextUseAuthorityProvider` at factory creation,
+then `submit({ productionSource, syntheticContext: true })`. Readers are the
+finite slots `canon`, `dependency-0`, `dependency-1`, `prompt-description`,
+`context-package`, and `builder-result`; each receives only `{ maxBytes, signal }`.
+The host supplies them as trusted factory configuration. The package-use
+verifier is created with `createSyntheticContextUseVerifier(decisions)` and
+supports in-memory revocation. Each decision binds action, production identity,
+prompt identity, package instance and manifest identity, Builder result identity,
+package purpose, exact section list, classification, and a finite validity
+window. Preparation and the fixture's historical use-authorization document
+remain provenance; neither grants current use. The validator and renderer reuse
+Prompt SDK v1 and Builder artifact validation without changing their schemas.
+
+The exact `comic-manifest-v1` and `context-builder-v1` fixture bytes are read
+only through those installed slots. Positive synthetic tests use the fixture's
+explicit clock, `2026-09-15T12:10:00Z`. The public factory uses its host wall
+clock; the fixture authority is expired after its review boundary and therefore
+fails closed at current real time. No test clock silently resets a public run.
+Package bytes and raw authorization records never enter diagnostics or lifecycle
+events. Read-only recovery remains the previously accepted inspection path and
+is outside this new execution-read boundary.
+
 The checks happen before the runner parses or renders the submitted production
 input, after mock preflight and immediately before a mock call. After each
 awaited verification, the runner synchronously rechecks current revocation,
@@ -146,8 +175,10 @@ authorize execution. The current synthetic prompt has no context slots and
 does not load context-package content, so this change does not establish
 package-use authorization coverage or complete O05's full package-use boundary.
 
-The prototype remains intended only for local synthetic experimentation. The
-internal test seam is not listed in package exports.
+The prototype remains intended only for local synthetic experimentation. Its
+new factory option and `syntheticContext` switch are experimental JavaScript
+surface only; they do not change a stable request or result schema. The internal
+test seam is not listed in package exports.
 
 Use the existing [fixture](../tests/fixtures/comic-manifest-v1.json) as the
 only accepted production input. A completed mock result only demonstrates the
