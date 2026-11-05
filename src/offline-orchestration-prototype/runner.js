@@ -968,10 +968,25 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       }
     });
 
-    const wallStart = authorityClock(job.authorityClock, 'WALL_CLOCK_UNVERIFIABLE');
+    const cleanupExecutionWatchers = () => {
+      try { runtime.clearTimer(timer); } catch { /* best-effort cleanup must not skip listener removal */ }
+      if (cancelListener) {
+        try { cancellation.removeEventListener('abort', cancelListener); } catch { /* fail closed below */ }
+      }
+    };
+    let wallStart;
+    try {
+      wallStart = authorityClock(job.authorityClock, 'WALL_CLOCK_UNVERIFIABLE');
+    } catch {
+      cleanupExecutionWatchers();
+      job.ledger.release(outcomeReservation);
+      job.ledger.release(artifactReservation, { artifact: true });
+      return markUnresolved(job, 'deadline-unverifiable');
+    }
     if (!Number.isSafeInteger(wallStart) || !Number.isFinite(new Date(wallStart).getTime())) {
-      runtime.clearTimer(timer);
-      if (cancelListener) cancellation.removeEventListener('abort', cancelListener);
+      cleanupExecutionWatchers();
+      job.ledger.release(outcomeReservation);
+      job.ledger.release(artifactReservation, { artifact: true });
       return markUnresolved(job, 'deadline-unverifiable');
     }
     const executionWallClock = () => authorityClock(job.authorityClock, 'WALL_CLOCK_UNVERIFIABLE');
@@ -986,8 +1001,7 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     } catch {
       return markUnresolved(job, dispatchBlocked ? 'reconciliation-required' : 'contract-mapping-blocked');
     } finally {
-      runtime.clearTimer(timer);
-      if (cancelListener) cancellation.removeEventListener('abort', cancelListener);
+      cleanupExecutionWatchers();
     }
 
     if (dispatchBlocked) {

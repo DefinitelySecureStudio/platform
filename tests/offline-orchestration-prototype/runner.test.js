@@ -352,6 +352,47 @@ test('wall-clock rollback after execution timing fails before dispatch', async (
   assert.equal(store.readEvents(result.job_id).some(item => item.type === 'provider-outcome'), false);
 });
 
+test('wallStart clock failure clears the deadline timer and cancellation listener', async t => {
+  for (const failure of ['rollback', 'non-finite']) {
+    await t.test(failure, async () => {
+      const runtimeState = createRuntime();
+      const validWallTime = Date.UTC(2026, 9, 28, 17, 0, 0);
+      let wallReads = 0;
+      let clearCalls = 0;
+      runtimeState.runtime.wallNow = () => {
+        wallReads++;
+        if (wallReads <= 6) return validWallTime;
+        return failure === 'rollback' ? validWallTime - 1 : Number.NaN;
+      };
+      const originalClearTimer = runtimeState.runtime.clearTimer;
+      runtimeState.runtime.clearTimer = timer => { clearCalls++; originalClearTimer(timer); };
+      const store = new InMemoryPrototypeStore();
+      const controller = new AbortController();
+      const originalAdd = controller.signal.addEventListener.bind(controller.signal);
+      const originalRemove = controller.signal.removeEventListener.bind(controller.signal);
+      let added = 0;
+      let removed = 0;
+      controller.signal.addEventListener = (...args) => { added++; return originalAdd(...args); };
+      controller.signal.removeEventListener = (...args) => { removed++; return originalRemove(...args); };
+      let mock;
+      const value = createOfflineOrchestrationPrototypeForTest({
+        store, runtime: runtimeState.runtime, idFactory: idFactory(),
+        onMockCall({ phase, mock: observed }) { if (phase === 'created') mock = observed; }
+      });
+
+      const result = await value.submit({ productionSource, signal: controller.signal });
+      assert.equal(result.status, 'deadline-unverifiable');
+      assert.equal(wallReads, 7);
+      assert.equal(mock.calls.length, 0);
+      assert.equal(runtimeState.timerCount, 0);
+      assert.equal(clearCalls, 1);
+      assert.equal(added, 1);
+      assert.equal(removed, 1);
+      assert.equal(store.readEvents(result.job_id).some(item => item.type === 'provider-outcome'), false);
+    });
+  }
+});
+
 test('Provider Execution timing uses advancing host wall-clock readings', async () => {
   const clock = createRuntime();
   let wall = Date.UTC(2026, 9, 28, 17, 0, 0);
