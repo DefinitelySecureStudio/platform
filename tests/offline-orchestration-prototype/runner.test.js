@@ -294,6 +294,28 @@ test('execution and package-use authority are rechecked across asynchronous boun
     assert.deepEqual(context.reads, []);
   });
 
+  await t.test('microtask revocation after the last current check precedes the reader callback', async () => {
+    const context = syntheticContextFixture();
+    let currentChecks = 0;
+    const provider = {
+      ...context.use,
+      isCurrent(input) {
+        const current = context.use.isCurrent(input);
+        currentChecks += 1;
+        if (currentChecks === 2) queueMicrotask(() => {
+          context.revoke('30000000-0000-4000-8000-000000000001');
+        });
+        return current;
+      }
+    };
+    const h = runner({ runtime: context.runtime.runtime, syntheticContextReaders: context.contextInputProvider,
+      contextUseAuthorityProvider: provider });
+    await assert.rejects(() => h.value.submit({ productionSource, syntheticContext: true }),
+      error => error.code === 'SYNTHETIC_CONTEXT_AUTHORITY_DENIED');
+    assert.equal(currentChecks, 3);
+    assert.deepEqual(context.reads, []);
+  });
+
   await t.test('cancellation during awaited package-use verification precedes every reader', async () => {
     const context = syntheticContextFixture(); const controller = new AbortController();
     const provider = {

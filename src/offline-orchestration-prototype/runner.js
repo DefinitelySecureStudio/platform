@@ -484,6 +484,14 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     return undefined;
   }
 
+  function assertContextBoundaryCurrent(action, request, executionEvidence, contextEvidence,
+    signal, state, epochId, deadlineMonotonicMs) {
+    const failure = currentAuthorityFailure(executionEvidence, action, signal, state)
+      ?? currentContextUseFailure(contextEvidence, request, signal, state)
+      ?? hostBoundaryFailure(signal, epochId, deadlineMonotonicMs);
+    if (failure) throw new OfflineOrchestrationError(failure);
+  }
+
   async function requireContextBoundary(action, request, signal, state, epochId, deadlineMonotonicMs) {
     let failure = hostBoundaryFailure(signal, epochId, deadlineMonotonicMs);
     if (failure) throw new OfflineOrchestrationError(failure);
@@ -492,10 +500,8 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       ?? hostBoundaryFailure(signal, epochId, deadlineMonotonicMs);
     if (failure) throw new OfflineOrchestrationError(failure);
     const contextEvidence = await requireContextUseAuthority(request, signal, state);
-    failure = currentAuthorityFailure(executionEvidence, action, signal, state)
-      ?? currentContextUseFailure(contextEvidence, request, signal, state)
-      ?? hostBoundaryFailure(signal, epochId, deadlineMonotonicMs);
-    if (failure) throw new OfflineOrchestrationError(failure);
+    assertContextBoundaryCurrent(action, request, executionEvidence, contextEvidence,
+      signal, state, epochId, deadlineMonotonicMs);
     return { executionEvidence, contextEvidence };
   }
 
@@ -1239,11 +1245,16 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
           authorize: async () => {
             const current = await requireContextBoundary('execute', contextRequest, cancellation,
               authorityClockState, initialClock.epochId, deadlineMonotonicMs);
+            const assertCurrent = () => {
+              assertContextBoundaryCurrent('execute', contextRequest, current.executionEvidence,
+                current.contextEvidence, cancellation, authorityClockState, initialClock.epochId, deadlineMonotonicMs);
+            };
             return { request: contextRequest, evidence: current.contextEvidence,
               authorization: current.contextEvidence.authorization,
-              at: current.contextEvidence.revocation.checked_at };
+              at: current.contextEvidence.revocation.checked_at, assertCurrent };
           }
         });
+        contextInput.assertCurrent();
       }
       const renderedPrompt = contextInput?.renderedPrompt ?? renderOfflineComicPrompt(production.value);
       assertAtMost(renderedPrompt.byteSize, OFFLINE_ORCHESTRATION_LIMITS.maxPromptBytesPerAttempt, 'PROMPT_LIMIT_EXCEEDED');
@@ -1297,6 +1308,8 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
           initialClock.epochId, deadlineMonotonicMs);
         postPreflightAuthority = current.executionEvidence;
         contextUseEvidence = current.contextEvidence;
+        assertContextBoundaryCurrent('execute', contextRequest, postPreflightAuthority, contextUseEvidence,
+          cancellation, authorityClockState, initialClock.epochId, deadlineMonotonicMs);
       } else {
         postPreflightAuthority = await requireExecutionAuthority('execute', cancellation, authorityClockState);
         const postPreflightAuthorityFailure = currentAuthorityFailure(
@@ -1445,6 +1458,8 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
         if (!request) throw new OfflineOrchestrationError('SYNTHETIC_CONTEXT_INPUT_INVALID');
         const current = await requireContextBoundary('retry', request, cancellation, job.authorityClock,
           job.clockEpochId, job.deadlineMonotonicMs);
+        assertContextBoundaryCurrent('retry', request, current.executionEvidence, current.contextEvidence,
+          cancellation, job.authorityClock, job.clockEpochId, job.deadlineMonotonicMs);
         job.contextUseRequest = request;
         job.contextUseEvidence = current.contextEvidence;
       }

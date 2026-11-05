@@ -11,6 +11,10 @@ import { SYNTHETIC_CONTEXT_READER_SLOTS } from './context-use-authority.js';
 
 const MAX_CONTEXT_ARTIFACT_BYTES = 8 * 1024 * 1024;
 const READ_TIMEOUT_MS = 1000;
+const AUTHORITY_FAILURES = new Set([
+  'EXECUTION_AUTHORITY_DENIED', 'EXECUTION_AUTHORITY_UNAVAILABLE', 'EXECUTION_AUTHORITY_STALE',
+  'EXECUTION_DEADLINE_EXPIRED', 'SYNTHETIC_CONTEXT_AUTHORITY_DENIED', 'SYNTHETIC_CONTEXT_AUTHORITY_UNAVAILABLE'
+]);
 const hash = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 const identity = value => {
   const bytes = Buffer.from(canonicalJson(value), 'utf8');
@@ -41,7 +45,7 @@ function expectedArtifact(entry) {
   return entry.reference.kind === 'public' ? entry.reference.dependency.artifact : undefined;
 }
 
-async function readBounded(reader, maxBytes, signal) {
+async function readBounded(reader, maxBytes, signal, assertCurrent) {
   const controller = new AbortController();
   let timer;
   let relay;
@@ -53,15 +57,22 @@ async function readBounded(reader, maxBytes, signal) {
       timer = setTimeout(() => { controller.abort(); reject(new Error('reader-timeout')); }, READ_TIMEOUT_MS);
       controller.signal.addEventListener('abort', () => reject(new Error('reader-aborted')), { once: true });
     });
+    // The synchronous boundary check can fail before Promise.race attaches a handler.
+    timeout.catch(() => {});
+    // Keep the final authority check and protected callback in one synchronous turn.
+    assertCurrent();
     const value = await Promise.race([
-      Promise.resolve().then(() => reader(Object.freeze({ maxBytes, signal: controller.signal }))), timeout
+      Promise.resolve(reader(Object.freeze({ maxBytes, signal: controller.signal }))), timeout
     ]);
     if (!value || types.isProxy(value) || !types.isUint8Array(value) || types.isSharedArrayBuffer(value.buffer)
       || value.byteLength > maxBytes) fail();
     const bytes = Buffer.alloc(value.byteLength);
     for (let index = 0; index < bytes.byteLength; index++) bytes[index] = value[index];
     return bytes;
-  } catch { fail(); }
+  } catch (error) {
+    if (AUTHORITY_FAILURES.has(error?.code)) throw error;
+    fail();
+  }
   finally {
     clearTimeout(timer);
     if (relay) signal?.removeEventListener('abort', relay);
@@ -99,8 +110,9 @@ export async function loadSyntheticContextInput({ production, readers, authorize
       const entry = slots.get(slot);
       const artifact = expectedArtifact(entry);
       const maxBytes = artifact?.byte_size ?? MAX_CONTEXT_ARTIFACT_BYTES;
-      const bytes = await readBounded(readers[slot], maxBytes, signal);
+      const bytes = await readBounded(readers[slot], maxBytes, signal, latestPermit.assertCurrent);
       latestPermit = await authorize();
+      latestPermit.assertCurrent();
       totalBytes += bytes.byteLength;
       if (!Number.isSafeInteger(totalBytes) || totalBytes > COMIC_REFERENCE_LIMITS.maxTotalBytes) fail();
       if (artifact && (bytes.byteLength !== artifact.byte_size || hash(bytes) !== artifact.sha256)) fail();
@@ -142,16 +154,13 @@ export async function loadSyntheticContextInput({ production, readers, authorize
     const binding = production.value.inputs.prompts[0];
     if (!equal(binding.context.builder_result_identity, identity(documents.get('builder-result')))
       || !validateContextBinding(definition, packageDocument, authorization, { at: latestPermit.at }).valid) fail();
+    latestPermit.assertCurrent();
     const renderedPrompt = renderPromptWithContextPackage(definition, {
       inputValues: { item: 'blue cube', attributes: {} }, packageDocument, authorization, at: latestPermit.at
     });
-    return Object.freeze({ renderedPrompt, request: latestPermit.request });
+    return Object.freeze({ renderedPrompt, request: latestPermit.request, assertCurrent: latestPermit.assertCurrent });
   } catch (error) {
-    const safeAuthorityCodes = new Set([
-      'EXECUTION_AUTHORITY_DENIED', 'EXECUTION_AUTHORITY_UNAVAILABLE', 'EXECUTION_AUTHORITY_STALE',
-      'EXECUTION_DEADLINE_EXPIRED', 'SYNTHETIC_CONTEXT_AUTHORITY_DENIED', 'SYNTHETIC_CONTEXT_AUTHORITY_UNAVAILABLE'
-    ]);
-    if (safeAuthorityCodes.has(error?.code)) throw new Error(error.code);
+    if (AUTHORITY_FAILURES.has(error?.code)) throw new Error(error.code);
     throw new Error('SYNTHETIC_CONTEXT_INPUT_INVALID');
   }
 }
