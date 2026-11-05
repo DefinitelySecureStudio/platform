@@ -54,6 +54,9 @@ the Comic Manifest schema.
   reads and preflight, before cached retry evidence, and at dispatch. Omitted
   `syntheticContext` preserves the existing no-context path. There is no fetch,
   renewal, or request-supplied reader/approval path.
+- Missing or corrupt bytes from any installed context fixture reader fail with
+  the same value-free input error before admission. No reader bytes are copied
+  into diagnostics or persisted on these failure paths.
 
 ## Resource limits
 
@@ -104,6 +107,13 @@ fails semantic validation (`src/comic-manifest/semantics.js`, lines 53–59).
 The closed result schema otherwise allows failed results with `OUTPUT_MISSING`
 or `VALIDATION_FAILED`, but that does not satisfy the internal transformation
 rule.
+
+On an initial attempt, a normalized successful SDK outcome whose content is
+partial or does not match the pinned transcript remains in the immutable
+provider-outcome record, while the admitted job retains the actual input
+reference. The current Manifest mapping reports `contract-mapping-blocked`; it
+does not create an artifact, fabricate a Comic result or mark the job
+successful. The failed mapping is not retry-eligible.
 
 Accordingly, this prototype preserves a normalized no-output rate-limit,
 cancellation, or other unsupported outcome in its in-memory host outcome record

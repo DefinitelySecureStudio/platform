@@ -476,6 +476,116 @@ test('corrupt pinned Context Builder bytes fail without dispatch or diagnostic c
   assert.equal(context.reads.includes('builder-result'), false);
 });
 
+test('missing or corrupt fixture input from any installed context reader fails safely', async t => {
+  for (const slot of SYNTHETIC_CONTEXT_READER_SLOTS) {
+    const slotIndex = SYNTHETIC_CONTEXT_READER_SLOTS.indexOf(slot);
+    for (const mode of ['missing', 'corrupt']) await t.test(`${mode} ${slot}`, async () => {
+      const readerOverrides = mode === 'missing'
+        ? { [slot]: () => undefined }
+        : { [slot]: bytes => { bytes[0] ^= 1; return bytes; } };
+      const context = syntheticContextFixture({ readerOverrides });
+      const store = new InMemoryPrototypeStore();
+      let mockFactoryCalls = 0;
+      const h = runner({ store, runtime: context.runtime.runtime,
+        syntheticContextReaders: context.contextInputProvider, contextUseAuthorityProvider: context.use,
+        mockAdapterFactory(configuration) { mockFactoryCalls++; return new MockTextAdapter(configuration); } });
+      await assert.rejects(() => h.value.submit({ productionSource, syntheticContext: true }), error => {
+        assert.equal(error.code, 'SYNTHETIC_CONTEXT_INPUT_INVALID');
+        assert.equal(error.message, 'SYNTHETIC_CONTEXT_INPUT_INVALID');
+        assert.doesNotMatch(`${error.code} ${error.message}`, /Synthetic approved note|sha256:|urn:uuid:/);
+        return true;
+      });
+      assert.deepEqual(context.reads, SYNTHETIC_CONTEXT_READER_SLOTS.slice(0, slotIndex + 1));
+      assert.equal(mockFactoryCalls, 0);
+      assert.equal(store.eventCount, 0);
+      assert.equal(store.blobCount, 0);
+    });
+  }
+});
+
+test('malformed and unsupported production inputs fail before allocation, context reads, or mock creation', async t => {
+  const changed = structuredClone(fixture.production);
+  changed.title = 'Modified synthetic production';
+  const wrongKind = structuredClone(fixture.result);
+  const cases = [
+    ['malformed JSON', '{"kind":', 'INVALID_SYNTHETIC_PRODUCTION'],
+    ['schema-invalid production', JSON.stringify({ kind: 'comic-production' }), 'INVALID_SYNTHETIC_PRODUCTION'],
+    ['wrong record kind', JSON.stringify(wrongKind), 'INVALID_SYNTHETIC_PRODUCTION'],
+    ['unsupported production identity', JSON.stringify(changed), 'UNSUPPORTED_PRODUCTION_REVISION']
+  ];
+  for (const [name, source, code] of cases) await t.test(name, async () => {
+    const context = syntheticContextFixture();
+    const store = new InMemoryPrototypeStore();
+    let idsAllocated = 0;
+    let mockFactoryCalls = 0;
+    const nextId = idFactory();
+    const value = createOfflineOrchestrationPrototypeForTest({
+      store, runtime: context.runtime.runtime,
+      executionAuthorityProvider: authorityFixture().verifier,
+      idFactory() { idsAllocated++; return nextId(); },
+      syntheticContextReaders: context.contextInputProvider, contextUseAuthorityProvider: context.use,
+      mockAdapterFactory(configuration) { mockFactoryCalls++; return new MockTextAdapter(configuration); }
+    });
+    await assert.rejects(() => value.submit({ productionSource: source, syntheticContext: true }), error => {
+      assert.equal(error.code, code);
+      assert.equal(error.message, code);
+      assert.doesNotMatch(`${error.code} ${error.message}`, /Modified synthetic production|sha256:|urn:uuid:/);
+      return true;
+    });
+    assert.equal(idsAllocated, 0);
+    assert.deepEqual(context.reads, []);
+    assert.equal(mockFactoryCalls, 0);
+    assert.equal(store.eventCount, 0);
+    assert.equal(store.blobCount, 0);
+  });
+});
+
+test('partial or mismatched initial output preserves actual inputs and SDK outcome without Comic success', async t => {
+  const transcript = fixture.production.renditions[0].transcript;
+  const outputs = [
+    ['partial', transcript.slice(0, Math.max(1, Math.floor(transcript.length / 2))), 'length'],
+    ['mismatched', 'A different synthetic transcript.', 'stop']
+  ];
+  for (const [name, content, finish_reason] of outputs) await t.test(name, async () => {
+    const store = new InMemoryPrototypeStore();
+    const clock = createRuntime();
+    const mocks = [];
+    const value = createOfflineOrchestrationPrototypeForTest({
+      store, runtime: clock.runtime, idFactory: idFactory(),
+      mockAdapterFactory(configuration) {
+        return new MockTextAdapter({ ...configuration, content, finish_reason });
+      },
+      onMockCall({ phase, mock }) { if (phase === 'created') mocks.push(mock); }
+    });
+    const result = await value.submit({ productionSource });
+    assert.equal(result.status, 'contract-mapping-blocked');
+    assert.equal(mocks.length, 1);
+    assert.equal(mocks[0].calls.length, 1);
+    const events = store.readEvents(result.job_id);
+    const admitted = events.find(item => item.type === 'admitted');
+    const inputBytes = store.readImmutable(admitted.input_key);
+    assert.equal(inputBytes.toString('utf8'), canonicalJson(fixture.production));
+    assert.equal(sha(inputBytes), admitted.input_sha256);
+    const dispatch = events.find(item => item.type === 'dispatch-started');
+    const outcomeEvent = events.find(item => item.type === 'provider-outcome');
+    assert.equal(dispatch.execution_id, outcomeEvent.execution_id);
+    const outcome = JSON.parse(store.readImmutable(outcomeEvent.payload_key).toString('utf8'));
+    assert.equal(outcome.status, 'succeeded');
+    assert.equal(outcome.finish_reason, finish_reason);
+    assert.equal(outcome.output.content, content);
+    assert.equal(outcome.output.byte_size, Buffer.byteLength(content));
+    assert.equal(outcome.output.sha256, sha(Buffer.from(content, 'utf8')));
+    const blocked = events.find(item => item.type === 'contract-mapping-blocked');
+    assert.equal(blocked.reason, 'no-output-result-not-representable-under-current-validator');
+    assert.equal(JSON.stringify(blocked).includes(content), false);
+    assert.equal(JSON.stringify(result).includes(content), false);
+    assert.equal(events.some(item => item.type === 'result-prepared' || item.type === 'terminal'), false);
+    assert.equal(result.result, undefined);
+    await assert.rejects(() => value.retry({ authorizeRetry: true }), error => error.code === 'RETRY_NOT_AVAILABLE');
+    assert.equal(mocks[0].calls.length, 1);
+  });
+});
+
 test('explicit synthetic context retry reauthorizes cached context evidence without rereading fixtures', async () => {
   const context = syntheticContextFixture(); const clock = context.runtime; const mocks = [];
   const h = runner({ runtime: clock.runtime, syntheticContextReaders: context.contextInputProvider,
