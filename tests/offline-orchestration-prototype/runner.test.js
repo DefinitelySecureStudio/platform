@@ -7,16 +7,20 @@ import {
   validateComicManifest,
   validateComicOutputCompatibility
 } from '../../src/comic-manifest/index.js';
-import { createOfflineOrchestrationPrototype } from '@definitely-secure-studio/platform/offline-orchestration-prototype';
+import {
+  createOfflineOrchestrationPrototype,
+  createSyntheticExecutionAuthorityVerifier
+} from '@definitely-secure-studio/platform/offline-orchestration-prototype';
 import { canonicalJson, MockTextAdapter } from '../../src/prompt-sdk/index.js';
 import {
-  createOfflineOrchestrationPrototypeForTest,
+  createOfflineOrchestrationPrototypeForTest as createOfflineOrchestrationPrototypeForTestRaw,
   InMemoryPrototypeStore,
   MaterialLedger,
   assertAtMost,
   checkedAdd
 } from '../../src/offline-orchestration-prototype/testing.js';
 import { OFFLINE_ORCHESTRATION_LIMITS } from '../../src/offline-orchestration-prototype/limits.js';
+import { SYNTHETIC_EXECUTION_PURPOSE } from '../../src/offline-orchestration-prototype/execution-authority.js';
 
 const fixture = JSON.parse(await readFile(new URL('../fixtures/comic-manifest-v1.json', import.meta.url), 'utf8'));
 const productionSource = JSON.stringify(fixture.production);
@@ -55,10 +59,43 @@ function idFactory() {
   return () => `10000000-0000-4000-8000-${String(index++).padStart(12, '0')}`;
 }
 
+function authorityFixture(overrides = {}) {
+  const record = (action, suffix) => ({
+    decision_id: `20000000-0000-4000-8000-${suffix.padStart(12, '0')}`,
+    decision: 'allow',
+    action,
+    purpose: SYNTHETIC_EXECUTION_PURPOSE,
+    production: {
+      production_id: 'urn:uuid:10000000-0000-4000-8000-000000000001',
+      revision: 1,
+      identity_sha256: 'sha256:9250217ad23125b0356a9e7002f57a55dacf9d982f069caa403b89f8c6c234dc'
+    },
+    not_before: '2026-01-01T00:00:00Z',
+    review_after: '2027-01-01T00:00:00Z',
+    expires_at: '2027-02-01T00:00:00Z',
+    authority_reference: 'https://github.com/DefinitelySecureStudio/platform/issues/106',
+    ...overrides[action]
+  });
+  return createSyntheticExecutionAuthorityVerifier([record('execute', '001'), record('retry', '002')]);
+}
+
+function createOfflineOrchestrationPrototypeForTest(seams = {}) {
+  return createOfflineOrchestrationPrototypeForTestRaw({
+    executionAuthorityProvider: authorityFixture().verifier,
+    ...seams
+  });
+}
+
 function runner({ store = new InMemoryPrototypeStore(), runtime = createRuntime().runtime, ...seams } = {}) {
+  const authority = seams.executionAuthorityProvider ? undefined : authorityFixture();
   return {
     store,
-    value: createOfflineOrchestrationPrototypeForTest({ store, runtime, idFactory: idFactory(), ...seams }),
+    authority,
+    value: createOfflineOrchestrationPrototypeForTest({
+      store, runtime, idFactory: idFactory(),
+      executionAuthorityProvider: authority?.verifier,
+      ...seams
+    }),
     runtime
   };
 }
@@ -114,13 +151,121 @@ test('runs exactly one synthetic mock call and commits a validated immutable res
 });
 
 test('package subpath exposes only the synthetic offline runner surface', async () => {
-  const value = createOfflineOrchestrationPrototype();
+  const authority = authorityFixture();
+  const value = createOfflineOrchestrationPrototype({ executionAuthorityProvider: authority.verifier });
   assert.deepEqual(Object.keys(value).sort(), ['closeJob', 'inspectRecovery', 'retry', 'submit']);
   const result = await value.submit({ productionSource });
   assert.equal(result.kind, 'terminal');
   assert.equal(result.result.status, 'complete');
   await assert.rejects(() => value.retry({ authorizeRetry: true }),
     error => error.code === 'RETRY_NOT_AVAILABLE');
+});
+
+test('public factory fails closed unless a synthetic execution authority provider is installed', () => {
+  assert.throws(() => createOfflineOrchestrationPrototype(),
+    error => error.code === 'EXECUTION_AUTHORITY_UNAVAILABLE');
+});
+
+test('synthetic execution authority fixture rejects empty, malformed, and duplicate decisions', () => {
+  assert.throws(() => createSyntheticExecutionAuthorityVerifier([]), /Invalid synthetic execution authority fixture/);
+  const authority = authorityFixture();
+  const record = {
+    decision_id: '30000000-0000-4000-8000-000000000001', decision: 'allow', action: 'execute',
+    purpose: SYNTHETIC_EXECUTION_PURPOSE,
+    production: { production_id: 'urn:uuid:10000000-0000-4000-8000-000000000001', revision: 1,
+      identity_sha256: 'sha256:9250217ad23125b0356a9e7002f57a55dacf9d982f069caa403b89f8c6c234dc' },
+    not_before: '2026-01-01T00:00:00Z', review_after: '2027-01-01T00:00:00Z',
+    expires_at: '2027-02-01T00:00:00Z', authority_reference: 'https://example.test/authority'
+  };
+  assert.throws(() => createSyntheticExecutionAuthorityVerifier([{ ...record, unexpected: true }]),
+    /Invalid synthetic execution authority fixture/);
+  assert.throws(() => createSyntheticExecutionAuthorityVerifier([record, record]),
+    /Invalid synthetic execution authority fixture/);
+  assert.ok(authority);
+});
+
+test('denied, missing, malformed, expired, and unverifiable authority blocks input and mock use', async t => {
+  const cases = ['revoked', 'missing', 'malformed', 'expired', 'unverifiable'];
+  for (const mode of cases) await t.test(mode, async () => {
+    let mockCreations = 0;
+    let inputReads = 0;
+    const base = authorityFixture(mode === 'expired' ? {
+      execute: { review_after: '2026-10-01T00:00:00Z', expires_at: '2026-10-02T00:00:00Z' }
+    } : {});
+    if (mode === 'revoked') base.revoke('20000000-0000-4000-8000-000000000001');
+    let provider = base.verifier;
+    if (mode === 'missing') provider = { ...provider, async verify() { return null; } };
+    if (mode === 'malformed') provider = { ...provider, async verify() { return { decision: 'allow' }; } };
+    if (mode === 'unverifiable') provider = { ...provider, async verify() { throw new Error('private failure'); } };
+    const store = new InMemoryPrototypeStore();
+    const value = createOfflineOrchestrationPrototypeForTestRaw({
+      store, runtime: createRuntime().runtime, idFactory: idFactory(),
+      executionAuthorityProvider: provider,
+      mockAdapterFactory() { mockCreations++; return new MockTextAdapter({ content: 'unexpected' }); }
+    });
+    const source = new Proxy({}, { get() { inputReads++; throw new Error('input read'); } });
+    await assert.rejects(() => value.submit({ productionSource: source }), error =>
+      ['EXECUTION_AUTHORITY_DENIED', 'EXECUTION_AUTHORITY_STALE', 'EXECUTION_AUTHORITY_UNAVAILABLE'].includes(error.code));
+    assert.equal(inputReads, 0);
+    assert.equal(mockCreations, 0);
+    assert.equal(store.blobCount, 0);
+    assert.equal(store.eventCount, 0);
+  });
+});
+
+test('authority expiry during asynchronous verification blocks before input use', async () => {
+  let wallNow = Date.UTC(2026, 9, 28, 17, 0, 0);
+  const base = authorityFixture();
+  const provider = {
+    id: base.verifier.id, mode: 'synthetic',
+    async verify(request) {
+      const evidence = await base.verifier.verify(request);
+      wallNow = Date.UTC(2027, 0, 1, 0, 0, 0);
+      return evidence;
+    }
+  };
+  const store = new InMemoryPrototypeStore();
+  const value = createOfflineOrchestrationPrototypeForTestRaw({
+    store, runtime: { ...createRuntime().runtime, wallNow: () => wallNow },
+    executionAuthorityProvider: provider
+  });
+  let inputReads = 0;
+  const source = new Proxy({}, { get() { inputReads++; throw new Error('input read'); } });
+  await assert.rejects(() => value.submit({ productionSource: source }),
+    error => error.code === 'EXECUTION_AUTHORITY_STALE');
+  assert.equal(inputReads, 0);
+  assert.equal(store.blobCount, 0);
+  assert.equal(store.eventCount, 0);
+});
+
+test('authority expiry during post-preflight verification blocks admission and dispatch', async () => {
+  let wallNow = Date.UTC(2026, 9, 28, 17, 0, 0);
+  let verifications = 0;
+  let mockCalls = 0;
+  const base = authorityFixture();
+  const provider = {
+    id: base.verifier.id, mode: 'synthetic',
+    async verify(request) {
+      const evidence = await base.verifier.verify(request);
+      if (++verifications === 2) wallNow = Date.UTC(2027, 0, 1, 0, 0, 0);
+      return evidence;
+    }
+  };
+  const store = new InMemoryPrototypeStore();
+  const value = createOfflineOrchestrationPrototypeForTestRaw({
+    store, runtime: { ...createRuntime().runtime, wallNow: () => wallNow },
+    executionAuthorityProvider: provider,
+    mockAdapterFactory(configuration) {
+      return new (class extends MockTextAdapter {
+        async execute(...args) { mockCalls++; return super.execute(...args); }
+      })(configuration);
+    }
+  });
+  await assert.rejects(() => value.submit({ productionSource }),
+    error => error.code === 'EXECUTION_AUTHORITY_STALE');
+  assert.equal(mockCalls, 0);
+  assert.equal(store.blobCount, 0);
+  assert.equal(store.eventCount, 0);
 });
 
 test('Provider Execution timing uses advancing host wall-clock readings', async () => {
@@ -416,7 +561,7 @@ test('an already active job rejects another submission before allocating IDs', a
   assert.equal(h.store.readEvents(result.job_id).some(entry => entry.type === 'provider-outcome'), true);
 });
 
-test('deadline wins a cancellation tie after dispatch and leaves timers cleared', async () => {
+test('deadline wins a cancellation tie before the mock call and leaves timers cleared', async () => {
   const clock = createRuntime();
   const h = runner({ runtime: clock.runtime });
   const controller = new AbortController();
@@ -436,12 +581,12 @@ test('deadline wins a cancellation tie after dispatch and leaves timers cleared'
   });
   const result = await value.submit({ productionSource, signal: controller.signal,
     mockOutcome: { kind: 'success', delay_ms: 5_000 } });
-  assert.equal(result.status, 'contract-mapping-blocked');
-  assert.equal(mock.calls.length, 1);
+  assert.equal(result.status, 'budget-exhausted');
+  assert.equal(mock.calls.length, 0);
   const entries = h.store.readEvents(result.job_id);
   assert.ok(entries.some(entry => entry.type === 'budget-exhausted' && entry.reason === 'time'));
-  assert.ok(entries.some(entry => entry.type === 'contract-mapping-blocked'
-    && entry.reason === 'no-output-result-not-representable-under-current-validator'));
+  assert.equal(entries.some(entry => entry.type === 'provider-outcome'), false);
+  assert.equal(entries.at(-1).type, 'job-closed');
   assert.equal(entries.some(entry => entry.type === 'terminal'), false);
   assert.equal(clock.timerCount, 0);
 });
@@ -869,6 +1014,60 @@ test('explicit candidate enables one delayed caller-authorized retry with immuta
   assert.equal(events.filter(e => e.type === 'prepared')[1].retry_of_attempt_id, first.attempt_id);
   assert.equal(events.at(-1).type, 'job-closed');
   await assert.rejects(() => h.value.retry({ authorizeRetry: true }), e => e.code === 'RETRY_NOT_AVAILABLE');
+});
+
+test('retry authority is rechecked before reading protected retry evidence', async () => {
+  const clock = createRuntime();
+  const store = new InMemoryPrototypeStore();
+  const h = runner({ store, runtime: clock.runtime });
+  const first = await h.value.submit(candidateOptions);
+  const originalRead = store.readImmutable.bind(store);
+  let reads = 0;
+  store.readImmutable = key => { reads++; return originalRead(key); };
+  const before = reads;
+  h.authority.revoke('20000000-0000-4000-8000-000000000002');
+  clock.advance(10);
+  await assert.rejects(() => h.value.retry({ authorizeRetry: true }),
+    error => error.code === 'EXECUTION_AUTHORITY_DENIED');
+  assert.equal(reads, before);
+  assert.equal(store.readEvents(first.job_id).filter(e => e.type === 'dispatch-started').length, 1);
+});
+
+test('retry authority is rechecked after asynchronous mock preflight', async () => {
+  const clock = createRuntime();
+  const authority = authorityFixture();
+  let descriptions = 0;
+  const mocks = [];
+  class RevokingMock extends MockTextAdapter {
+    async describe() {
+      if (++descriptions === 2) authority.revoke('20000000-0000-4000-8000-000000000002');
+      return super.describe();
+    }
+  }
+  const h = runner({
+    runtime: clock.runtime,
+    executionAuthorityProvider: authority.verifier,
+    mockAdapterFactory: configuration => { const mock = new RevokingMock(configuration); mocks.push(mock); return mock; }
+  });
+  const first = await h.value.submit(candidateOptions);
+  clock.advance(10);
+  assert.equal((await h.value.retry({ authorizeRetry: true })).status, 'authorization-denied');
+  assert.equal(mocks.reduce((count, mock) => count + mock.calls.length, 0), 1);
+  assert.equal(h.store.readEvents(first.job_id).filter(e => e.type === 'dispatch-started').length, 1);
+});
+
+test('authority revoked by a synchronous dispatch observer prevents the mock call', async () => {
+  const authority = authorityFixture();
+  let mock;
+  const h = runner({
+    executionAuthorityProvider: authority.verifier,
+    onMockCall({ phase, mock: observed }) {
+      mock = observed;
+      if (phase === 'dispatch-confirmed') authority.revoke('20000000-0000-4000-8000-000000000001');
+    }
+  });
+  assert.equal((await h.value.submit({ productionSource })).status, 'authorization-denied');
+  assert.equal(mock.calls.length, 0);
 });
 
 test('second rate limit is terminal and cannot open a third attempt', async () => {
