@@ -4,14 +4,18 @@ import test from 'node:test';
 import { createHash } from 'node:crypto';
 import {
   COMIC_MANIFEST_LIMITS,
+  planComicReferences,
   validateComicManifest,
   validateComicOutputCompatibility
 } from '../../src/comic-manifest/index.js';
 import {
   createOfflineOrchestrationPrototype,
-  createSyntheticExecutionAuthorityVerifier
+  createSyntheticExecutionAuthorityVerifier,
+  createSyntheticContextUseVerifier,
+  SYNTHETIC_CONTEXT_READER_SLOTS
 } from '@definitely-secure-studio/platform/offline-orchestration-prototype';
 import { canonicalJson, MockTextAdapter } from '../../src/prompt-sdk/index.js';
+import { contextUseRequest } from '../../src/offline-orchestration-prototype/context-use-authority.js';
 import {
   createOfflineOrchestrationPrototypeForTest as createOfflineOrchestrationPrototypeForTestRaw,
   InMemoryPrototypeStore,
@@ -23,6 +27,7 @@ import { OFFLINE_ORCHESTRATION_LIMITS } from '../../src/offline-orchestration-pr
 import { SYNTHETIC_EXECUTION_PURPOSE } from '../../src/offline-orchestration-prototype/execution-authority.js';
 
 const fixture = JSON.parse(await readFile(new URL('../fixtures/comic-manifest-v1.json', import.meta.url), 'utf8'));
+const contextFixture = JSON.parse(await readFile(new URL('../fixtures/context-builder-v1.json', import.meta.url), 'utf8'));
 const productionSource = JSON.stringify(fixture.production);
 const sha = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 
@@ -77,6 +82,57 @@ function authorityFixture(overrides = {}) {
     ...overrides[action]
   });
   return createSyntheticExecutionAuthorityVerifier([record('execute', '001'), record('retry', '002')]);
+}
+
+function syntheticContextFixture({ decision = 'allow', revoke = false, readerOverrides = {}, recordOverrides = {} } = {}) {
+  const runtime = createRuntime();
+  runtime.runtime.wallNow = () => Date.parse(fixture.at);
+  const productionReport = validateComicManifest(canonicalJson(fixture.production));
+  const production = { value: fixture.production, identity: productionReport.identity, canonical: canonicalJson(fixture.production) };
+  const requests = ['execute', 'retry'].map(action => contextUseRequest(production, action));
+  const useRecord = (action, suffix, request) => ({
+    decision_id: `30000000-0000-4000-8000-${suffix.padStart(12, '0')}`,
+    decision, request,
+    authorization: structuredClone(contextFixture.authorization),
+    not_before: '2026-09-15T00:00:00Z',
+    review_after: '2026-09-16T00:00:00Z',
+    expires_at: '2026-09-16T00:00:00Z',
+    authority_reference: 'https://github.com/DefinitelySecureStudio/platform/issues/106',
+    ...recordOverrides[action]
+  });
+  const use = createSyntheticContextUseVerifier([
+    useRecord('execute', '001', requests[0]), useRecord('retry', '002', requests[1])
+  ]);
+  if (revoke) use.revoke('30000000-0000-4000-8000-000000000001');
+  const plan = planComicReferences(production.canonical);
+  const slots = Object.fromEntries(SYNTHETIC_CONTEXT_READER_SLOTS.map(slot => [slot, undefined]));
+  for (const entry of plan.references) {
+    let slot;
+    if (entry.reference.kind === 'context-package') slot = 'context-package';
+    else if (entry.reference.kind === 'builder-result') slot = 'builder-result';
+    else if (entry.uses[0].role === 'canon') slot = 'canon';
+    else if (entry.uses[0].role === 'dependency') slot = `dependency-${entry.uses[0].index}`;
+    else if (entry.uses[0].role === 'prompt') slot = 'prompt-description';
+    let bytes;
+    if (entry.reference.kind === 'public') {
+      bytes = Buffer.from(fixture.dependency_bytes[entry.reference.dependency.artifact.artifact_uri], 'utf8');
+    } else if (entry.reference.kind === 'context-package') {
+      bytes = Buffer.from(canonicalJson(contextFixture.result.package), 'utf8');
+    } else {
+      bytes = Buffer.from(canonicalJson(contextFixture.result), 'utf8');
+    }
+    slots[slot] = bytes;
+  }
+  const reads = [];
+  const readers = Object.fromEntries(SYNTHETIC_CONTEXT_READER_SLOTS.map(slot => [slot, async ({ maxBytes, signal }) => {
+    reads.push(slot);
+    if (signal.aborted) throw new Error('cancelled');
+    const result = readerOverrides[slot] ? await readerOverrides[slot](Buffer.from(slots[slot])) : Buffer.from(slots[slot]);
+    assert.ok(result.byteLength <= maxBytes);
+    return result;
+  }]));
+  const contextInputProvider = { id: 'studio.synthetic.comic-context-readers', mode: 'synthetic', readers };
+  return { runtime, production, reads, contextInputProvider, use: use.verifier, revoke: use.revoke, useAuthority: use };
 }
 
 function createOfflineOrchestrationPrototypeForTest(seams = {}) {
@@ -150,6 +206,208 @@ test('runs exactly one synthetic mock call and commits a validated immutable res
   assert.equal(h.runtime.timerCount, 0);
 });
 
+test('opt-in pinned Context Builder input is validated and used only with current package-use authority', async () => {
+  const context = syntheticContextFixture();
+  const mocks = [];
+  const h = runner({ runtime: context.runtime.runtime,
+    syntheticContextReaders: context.contextInputProvider, contextUseAuthorityProvider: context.use,
+    onMockCall({ phase, mock }) { if (phase === 'created') mocks.push(mock); }
+  });
+  const result = await h.value.submit({ productionSource, syntheticContext: true });
+  assert.equal(result.result.status, 'complete');
+  assert.equal(mocks[0].calls.length, 1);
+  const rendered = mocks[0].calls[0].rendered_prompt;
+  assert.ok(JSON.stringify(rendered).includes('Synthetic approved note.'));
+  assert.ok(JSON.stringify(rendered).includes('facts'));
+  assert.deepEqual([...context.reads].sort(), [...SYNTHETIC_CONTEXT_READER_SLOTS].sort());
+});
+
+test('Context Builder use denial, expiry, revocation, malformed pins, and real-time staleness stop before reads', async t => {
+  const cases = [
+    ['denied', () => syntheticContextFixture({ decision: 'deny' }), 'SYNTHETIC_CONTEXT_AUTHORITY_DENIED'],
+    ['revoked', () => syntheticContextFixture({ revoke: true }), 'SYNTHETIC_CONTEXT_AUTHORITY_DENIED'],
+    ['expired', () => syntheticContextFixture({ recordOverrides: { execute: {
+      review_after: '2026-09-15T12:09:00Z', expires_at: '2026-09-15T12:30:00Z'
+    } } }), 'SYNTHETIC_CONTEXT_AUTHORITY_DENIED']
+  ];
+  for (const [name, make, code] of cases) await t.test(name, async () => {
+    const context = make(); const mocks = [];
+    const h = runner({ runtime: context.runtime.runtime, syntheticContextReaders: context.contextInputProvider,
+      contextUseAuthorityProvider: context.use, onMockCall({ phase, mock }) { if (phase === 'created') mocks.push(mock); } });
+    await assert.rejects(() => h.value.submit({ productionSource, syntheticContext: true }), error => error.code === code);
+    assert.deepEqual(context.reads, []);
+    assert.equal(mocks.length, 0);
+    assert.equal(h.store.eventCount, 0);
+  });
+
+  await t.test('malformed evidence pin', async () => {
+    const context = syntheticContextFixture();
+    const provider = {
+      ...context.use,
+      async verify(input) {
+        const evidence = await context.use.verify(input);
+        return { ...evidence, request: { ...evidence.request,
+          builder_result_identity: { ...evidence.request.builder_result_identity, sha256: `sha256:${'0'.repeat(64)}` } } };
+      },
+      isCurrent: () => true
+    };
+    const h = runner({ runtime: context.runtime.runtime, syntheticContextReaders: context.contextInputProvider,
+      contextUseAuthorityProvider: provider });
+    await assert.rejects(() => h.value.submit({ productionSource, syntheticContext: true }),
+      error => error.code === 'SYNTHETIC_CONTEXT_AUTHORITY_DENIED');
+    assert.deepEqual(context.reads, []);
+  });
+
+  await t.test('expired under the actual host wall clock', async () => {
+    const context = syntheticContextFixture();
+    const h = runner({ syntheticContextReaders: context.contextInputProvider, contextUseAuthorityProvider: context.use });
+    await assert.rejects(() => h.value.submit({ productionSource, syntheticContext: true }),
+      error => error.code === 'SYNTHETIC_CONTEXT_AUTHORITY_DENIED');
+    assert.deepEqual(context.reads, []);
+  });
+});
+
+test('execution and package-use authority are rechecked across asynchronous boundaries and deadlines', async t => {
+  await t.test('execution denial precedes all context reads', async () => {
+    const context = syntheticContextFixture(); const denied = authorityFixture({ execute: { decision: 'deny' } });
+    const h = runner({ runtime: context.runtime.runtime, syntheticContextReaders: context.contextInputProvider,
+      contextUseAuthorityProvider: context.use, executionAuthorityProvider: denied.verifier });
+    await assert.rejects(() => h.value.submit({ productionSource, syntheticContext: true }),
+      error => error.code === 'EXECUTION_AUTHORITY_DENIED');
+    assert.deepEqual(context.reads, []);
+  });
+
+  await t.test('revocation during awaited authority verification precedes every reader', async () => {
+    const context = syntheticContextFixture();
+    const provider = {
+      ...context.use,
+      async verify(input) {
+        const evidence = await context.use.verify(input);
+        if (input.request.action === 'execute') context.revoke('30000000-0000-4000-8000-000000000001');
+        return evidence;
+      }
+    };
+    const h = runner({ runtime: context.runtime.runtime, syntheticContextReaders: context.contextInputProvider,
+      contextUseAuthorityProvider: provider });
+    await assert.rejects(() => h.value.submit({ productionSource, syntheticContext: true }),
+      error => error.code === 'SYNTHETIC_CONTEXT_AUTHORITY_DENIED');
+    assert.deepEqual(context.reads, []);
+  });
+
+  await t.test('cancellation during awaited package-use verification precedes every reader', async () => {
+    const context = syntheticContextFixture(); const controller = new AbortController();
+    const provider = {
+      ...context.use,
+      async verify(input) {
+        const evidence = await context.use.verify(input);
+        if (input.request.action === 'execute') controller.abort();
+        return evidence;
+      }
+    };
+    const h = runner({ runtime: context.runtime.runtime, syntheticContextReaders: context.contextInputProvider,
+      contextUseAuthorityProvider: provider });
+    await assert.rejects(() => h.value.submit({ productionSource, syntheticContext: true, signal: controller.signal }),
+      error => error.code === 'SYNTHETIC_CONTEXT_AUTHORITY_DENIED');
+    assert.deepEqual(context.reads, []);
+  });
+
+  await t.test('revocation during a protected read prevents later reads and mock calls', async () => {
+    let context;
+    context = syntheticContextFixture({ readerOverrides: { 'context-package': bytes => {
+      context.revoke('30000000-0000-4000-8000-000000000001'); return bytes;
+    } } });
+    const mocks = [];
+    const h = runner({ runtime: context.runtime.runtime, syntheticContextReaders: context.contextInputProvider,
+      contextUseAuthorityProvider: context.use, onMockCall({ phase, mock }) { if (phase === 'created') mocks.push(mock); } });
+    await assert.rejects(() => h.value.submit({ productionSource, syntheticContext: true }),
+      error => error.code === 'SYNTHETIC_CONTEXT_AUTHORITY_DENIED');
+    assert.deepEqual(context.reads, ['canon', 'dependency-0', 'dependency-1', 'prompt-description', 'context-package']);
+    assert.equal(mocks.length, 0);
+  });
+
+  await t.test('revocation during mock preflight prevents job admission and dispatch', async () => {
+    const context = syntheticContextFixture(); const mocks = [];
+    class RevokingMock extends MockTextAdapter {
+      async describe() {
+        context.revoke('30000000-0000-4000-8000-000000000001');
+        return super.describe();
+      }
+    }
+    const h = runner({ runtime: context.runtime.runtime, syntheticContextReaders: context.contextInputProvider,
+      contextUseAuthorityProvider: context.use,
+      mockAdapterFactory: configuration => { const mock = new RevokingMock(configuration); mocks.push(mock); return mock; } });
+    await assert.rejects(() => h.value.submit({ productionSource, syntheticContext: true }),
+      error => error.code === 'SYNTHETIC_CONTEXT_AUTHORITY_DENIED');
+    assert.deepEqual([...context.reads].sort(), [...SYNTHETIC_CONTEXT_READER_SLOTS].sort());
+    assert.equal(mocks.length, 1);
+    assert.equal(mocks[0].calls.length, 0);
+    assert.equal(h.store.eventCount, 0);
+  });
+
+  await t.test('deadline during asynchronous reader prevents later protected reads', async () => {
+    let context;
+    context = syntheticContextFixture({ readerOverrides: { canon: bytes => {
+      context.runtime.set(10_000 + OFFLINE_ORCHESTRATION_LIMITS.jobBudgetMs);
+      return bytes;
+    } } });
+    const h = runner({ runtime: context.runtime.runtime, syntheticContextReaders: context.contextInputProvider,
+      contextUseAuthorityProvider: context.use });
+    await assert.rejects(() => h.value.submit({ productionSource, syntheticContext: true }),
+      error => error.code === 'EXECUTION_DEADLINE_EXPIRED');
+    assert.deepEqual(context.reads, ['canon']);
+  });
+
+  await t.test('successful authority await that crosses job deadline performs no protected read', async () => {
+    const context = syntheticContextFixture();
+    const provider = {
+      ...context.use,
+      async verify(input) {
+        const evidence = await context.use.verify(input);
+        if (input.request.action === 'execute') context.runtime.set(10_000 + OFFLINE_ORCHESTRATION_LIMITS.jobBudgetMs);
+        return evidence;
+      }
+    };
+    const h = runner({ runtime: context.runtime.runtime, syntheticContextReaders: context.contextInputProvider,
+      contextUseAuthorityProvider: provider });
+    await assert.rejects(() => h.value.submit({ productionSource, syntheticContext: true }),
+      error => error.code === 'EXECUTION_DEADLINE_EXPIRED');
+    assert.deepEqual(context.reads, []);
+  });
+});
+
+test('corrupt pinned Context Builder bytes fail without dispatch or diagnostic content leakage', async () => {
+  const context = syntheticContextFixture({ readerOverrides: { 'context-package': bytes => {
+    bytes[0] ^= 1; return bytes;
+  } } });
+  const mocks = [];
+  const h = runner({ runtime: context.runtime.runtime, syntheticContextReaders: context.contextInputProvider,
+    contextUseAuthorityProvider: context.use, onMockCall({ phase, mock }) { if (phase === 'created') mocks.push(mock); } });
+  await assert.rejects(() => h.value.submit({ productionSource, syntheticContext: true }), error => {
+    assert.equal(error.code, 'SYNTHETIC_CONTEXT_INPUT_INVALID');
+    assert.doesNotMatch(`${error.code} ${error.message}`, /Synthetic approved note|context_facts|urn:uuid:|sha256:/);
+    return true;
+  });
+  assert.equal(mocks.length, 0);
+  assert.equal(context.reads.includes('builder-result'), false);
+});
+
+test('explicit synthetic context retry reauthorizes cached context evidence without rereading fixtures', async () => {
+  const context = syntheticContextFixture(); const clock = context.runtime; const mocks = [];
+  const h = runner({ runtime: clock.runtime, syntheticContextReaders: context.contextInputProvider,
+    contextUseAuthorityProvider: context.use,
+    onMockCall({ phase, mock }) { if (phase === 'created') mocks.push(mock); } });
+  const first = await h.value.submit({ productionSource, syntheticContext: true,
+    noOutputResultVersion: '1.1.0', mockOutcome: { kind: 'rate-limit', retry_after_ms: 5 } });
+  assert.equal(first.retry_eligible, true);
+  clock.advance(5);
+  const second = await h.value.retry({ authorizeRetry: true });
+  assert.equal(second.result.status, 'complete');
+  assert.equal(mocks.length, 2);
+  assert.equal(mocks[0].calls.length, 1);
+  assert.equal(mocks[1].calls.length, 1);
+  assert.deepEqual([...context.reads].sort(), [...SYNTHETIC_CONTEXT_READER_SLOTS].sort());
+});
+
 test('package subpath exposes only the synthetic offline runner surface', async () => {
   const authority = authorityFixture();
   const value = createOfflineOrchestrationPrototype({ executionAuthorityProvider: authority.verifier });
@@ -164,6 +422,12 @@ test('package subpath exposes only the synthetic offline runner surface', async 
 test('public factory fails closed unless a synthetic execution authority provider is installed', () => {
   assert.throws(() => createOfflineOrchestrationPrototype(),
     error => error.code === 'EXECUTION_AUTHORITY_UNAVAILABLE');
+  const authority = authorityFixture();
+  const readers = { id: 'studio.synthetic.comic-context-readers', mode: 'synthetic',
+    readers: Object.fromEntries(SYNTHETIC_CONTEXT_READER_SLOTS.map(slot => [slot, async () => Buffer.alloc(0)])) };
+  assert.throws(() => createOfflineOrchestrationPrototype({
+    executionAuthorityProvider: authority.verifier, syntheticContextReaders: readers
+  }), error => error.code === 'SYNTHETIC_CONTEXT_AUTHORITY_UNAVAILABLE');
 });
 
 test('synthetic execution authority fixture rejects empty, malformed, and duplicate decisions', () => {

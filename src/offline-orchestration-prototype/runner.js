@@ -24,6 +24,11 @@ import { renderOfflineComicPrompt } from './prompt.js';
 import {
   SYNTHETIC_EXECUTION_PURPOSE, validateExecutionAuthorityEvidence
 } from './execution-authority.js';
+import { loadSyntheticContextInput } from './context-input.js';
+import {
+  contextUseRequest, validateContextUseProvider, validateSyntheticContextReaders,
+  validateSyntheticContextUseEvidence, SYNTHETIC_CONTEXT_READER_SLOTS
+} from './context-use-authority.js';
 
 const EXPECTED_PRODUCTION_ID = 'urn:uuid:10000000-0000-4000-8000-000000000001';
 const EXPECTED_PRODUCTION_SHA256 = 'sha256:9250217ad23125b0356a9e7002f57a55dacf9d982f069caa403b89f8c6c234dc';
@@ -337,15 +342,26 @@ function defaultMockFactory(configuration) {
 }
 
 function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeStore(), idFactory = randomUUID,
-  mockAdapterFactory = defaultMockFactory, onMockCall, executionAuthorityProvider } = {}) {
+  mockAdapterFactory = defaultMockFactory, onMockCall, executionAuthorityProvider,
+  syntheticContextReaders, contextUseAuthorityProvider } = {}) {
   if (!executionAuthorityProvider || executionAuthorityProvider.mode !== 'synthetic'
     || typeof executionAuthorityProvider.id !== 'string'
     || typeof executionAuthorityProvider.verify !== 'function'
     || typeof executionAuthorityProvider.isCurrent !== 'function') {
     throw new OfflineOrchestrationError('EXECUTION_AUTHORITY_UNAVAILABLE');
   }
+  if ((syntheticContextReaders === undefined) !== (contextUseAuthorityProvider === undefined)
+    || (syntheticContextReaders !== undefined && (!validateSyntheticContextReaders(syntheticContextReaders)
+      || !validateContextUseProvider(contextUseAuthorityProvider)))) {
+    throw new OfflineOrchestrationError('SYNTHETIC_CONTEXT_AUTHORITY_UNAVAILABLE');
+  }
   const verifyExecutionAuthority = executionAuthorityProvider.verify.bind(executionAuthorityProvider);
   const checkExecutionAuthorityCurrent = executionAuthorityProvider.isCurrent.bind(executionAuthorityProvider);
+  const verifyContextUse = contextUseAuthorityProvider?.verify.bind(contextUseAuthorityProvider);
+  const checkContextUseCurrent = contextUseAuthorityProvider?.isCurrent.bind(contextUseAuthorityProvider);
+  const installedContextReaders = syntheticContextReaders && Object.freeze(Object.fromEntries(
+    SYNTHETIC_CONTEXT_READER_SLOTS.map(slot => [slot, syntheticContextReaders.readers[slot].bind(syntheticContextReaders.readers)])
+  ));
   let openJob;
   let running = false;
   const usedIds = new Set();
@@ -412,13 +428,90 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     return undefined;
   }
 
-  function dispatchBoundaryFailure(evidence, action, signal, job, deadlineExpired) {
+  async function requireContextUseAuthority(request, signal, state) {
+    if (!verifyContextUse || signal?.aborted) {
+      throw new OfflineOrchestrationError('SYNTHETIC_CONTEXT_AUTHORITY_DENIED');
+    }
+    const before = authorityClock(state, 'SYNTHETIC_CONTEXT_AUTHORITY_UNAVAILABLE');
+    const at = new Date(Math.floor(before / 1000) * 1000).toISOString().replace('.000Z', 'Z');
+    let evidence;
+    let timeout;
+    try {
+      const unavailable = new Promise((_, reject) => {
+        timeout = setTimeout(() => reject(new Error('context-use-timeout')), AUTHORITY_CHECK_TIMEOUT_MS);
+      });
+      evidence = await Promise.race([Promise.resolve().then(() => verifyContextUse(Object.freeze({ request, at, signal }))), unavailable]);
+    } catch {
+      throw new OfflineOrchestrationError('SYNTHETIC_CONTEXT_AUTHORITY_UNAVAILABLE');
+    } finally { clearTimeout(timeout); }
+    if (signal?.aborted) throw new OfflineOrchestrationError('SYNTHETIC_CONTEXT_AUTHORITY_DENIED');
+    const after = authorityClock(state, 'SYNTHETIC_CONTEXT_AUTHORITY_UNAVAILABLE');
+    if (!validateSyntheticContextUseEvidence(evidence, { request, at })
+      || after >= Date.parse(evidence.review_after) || after >= Date.parse(evidence.expires_at)
+      || after >= Date.parse(evidence.authorization.expires_at)) {
+      throw new OfflineOrchestrationError('SYNTHETIC_CONTEXT_AUTHORITY_DENIED');
+    }
+    evidence = freezeDeep(JSON.parse(canonicalJson(evidence)));
+    let current;
+    try { current = checkContextUseCurrent({ decision_id: evidence.decision_id, request }) === true; }
+    catch { throw new OfflineOrchestrationError('SYNTHETIC_CONTEXT_AUTHORITY_UNAVAILABLE'); }
+    if (!current) throw new OfflineOrchestrationError('SYNTHETIC_CONTEXT_AUTHORITY_DENIED');
+    return evidence;
+  }
+
+  function currentContextUseFailure(evidence, request, signal, state) {
+    if (!evidence || !request || signal?.aborted) return 'SYNTHETIC_CONTEXT_AUTHORITY_DENIED';
+    if (!validateSyntheticContextUseEvidence(evidence, { request, at: evidence.revocation?.checked_at })) {
+      return 'SYNTHETIC_CONTEXT_AUTHORITY_DENIED';
+    }
+    let active;
+    try { active = checkContextUseCurrent({ decision_id: evidence.decision_id, request }) === true; }
+    catch { return 'SYNTHETIC_CONTEXT_AUTHORITY_UNAVAILABLE'; }
+    if (!active || evidence.decision !== 'allow') return 'SYNTHETIC_CONTEXT_AUTHORITY_DENIED';
+    let now;
+    try { now = authorityClock(state, 'SYNTHETIC_CONTEXT_AUTHORITY_UNAVAILABLE'); }
+    catch { return 'SYNTHETIC_CONTEXT_AUTHORITY_UNAVAILABLE'; }
+    if (now >= Date.parse(evidence.review_after) || now >= Date.parse(evidence.expires_at)
+      || now >= Date.parse(evidence.authorization.expires_at)) return 'SYNTHETIC_CONTEXT_AUTHORITY_DENIED';
+    return undefined;
+  }
+
+  function hostBoundaryFailure(signal, epochId, deadlineMonotonicMs) {
+    if (signal?.aborted) return 'EXECUTION_AUTHORITY_DENIED';
+    const clock = safeClock(runtime);
+    if (!clock || clock.epochId !== epochId) return 'EXECUTION_AUTHORITY_UNAVAILABLE';
+    if (deadlineMonotonicMs !== undefined && clock.now >= deadlineMonotonicMs) return 'EXECUTION_DEADLINE_EXPIRED';
+    return undefined;
+  }
+
+  async function requireContextBoundary(action, request, signal, state, epochId, deadlineMonotonicMs) {
+    let failure = hostBoundaryFailure(signal, epochId, deadlineMonotonicMs);
+    if (failure) throw new OfflineOrchestrationError(failure);
+    const executionEvidence = await requireExecutionAuthority(action, signal, state);
+    failure = currentAuthorityFailure(executionEvidence, action, signal, state)
+      ?? hostBoundaryFailure(signal, epochId, deadlineMonotonicMs);
+    if (failure) throw new OfflineOrchestrationError(failure);
+    const contextEvidence = await requireContextUseAuthority(request, signal, state);
+    failure = currentAuthorityFailure(executionEvidence, action, signal, state)
+      ?? currentContextUseFailure(contextEvidence, request, signal, state)
+      ?? hostBoundaryFailure(signal, epochId, deadlineMonotonicMs);
+    if (failure) throw new OfflineOrchestrationError(failure);
+    return { executionEvidence, contextEvidence };
+  }
+
+  function dispatchBoundaryFailure(evidence, action, signal, job, deadlineExpired, contextEvidence) {
     const before = safeClock(runtime);
     if (!before || before.epochId !== job.clockEpochId) return 'clock-unverifiable';
     if (deadlineExpired || before.now >= job.deadlineMonotonicMs) return 'time';
     if (signal?.aborted) return 'cancelled';
     const authorityFailure = currentAuthorityFailure(evidence, action, signal, job.authorityClock);
     if (authorityFailure) return 'authority';
+    if (job.contextUseRequest) {
+      const contextFailure = currentContextUseFailure(
+        contextEvidence, job.contextUseRequest, signal, job.authorityClock
+      );
+      if (contextFailure) return 'authority';
+    }
     const after = safeClock(runtime);
     if (!after || after.epochId !== job.clockEpochId) return 'clock-unverifiable';
     if (deadlineExpired || after.now >= job.deadlineMonotonicMs) return 'time';
@@ -714,6 +807,9 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
   async function performAttempt(job, { correlationId, mockOutcome, signal, retryOfAttemptId, preflight,
     authorizationAction = 'execute' } = {}) {
     const priorAttempt = retryOfAttemptId ? job.lastAttempt : undefined;
+    const useRequest = job.contextEnabled ? contextUseRequest(job.production, authorizationAction) : undefined;
+    let contextEvidence = job.contextUseEvidence;
+    if (useRequest) job.contextUseRequest = useRequest;
     const cancellation = cancellationSignal(signal);
     const now = safeClock(runtime);
     if (!now || now.epochId !== job.clockEpochId) return markUnresolved(job, 'deadline-unverifiable');
@@ -874,9 +970,16 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
         }
         let authorityEvidence;
         try {
-          authorityEvidence = await requireExecutionAuthority(
-            authorizationAction, controller.signal, job.authorityClock
-          );
+          if (useRequest) {
+            const current = await requireContextBoundary(authorizationAction, useRequest, controller.signal,
+              job.authorityClock, job.clockEpochId, job.deadlineMonotonicMs);
+            authorityEvidence = current.executionEvidence;
+            contextEvidence = current.contextEvidence;
+          } else {
+            authorityEvidence = await requireExecutionAuthority(
+              authorizationAction, controller.signal, job.authorityClock
+            );
+          }
         } catch {
           dispatchBlocked = true;
           const afterAuthority = safeClock(runtime);
@@ -888,7 +991,7 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
             message: 'Current synthetic execution authority could not be confirmed.', retryable: false, stage: 'preflight' });
         }
         const authorityBoundary = dispatchBoundaryFailure(
-          authorityEvidence, authorizationAction, controller.signal, job, deadlineExpired
+          authorityEvidence, authorizationAction, controller.signal, job, deadlineExpired, contextEvidence
         );
         if (authorityBoundary) {
           dispatchBlocked = true;
@@ -918,9 +1021,16 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
         // points; recheck after them so the final awaited check precedes call.
         let finalAuthorityEvidence;
         try {
-          finalAuthorityEvidence = await requireExecutionAuthority(
-            authorizationAction, controller.signal, job.authorityClock
-          );
+          if (useRequest) {
+            const current = await requireContextBoundary(authorizationAction, useRequest, controller.signal,
+              job.authorityClock, job.clockEpochId, job.deadlineMonotonicMs);
+            finalAuthorityEvidence = current.executionEvidence;
+            contextEvidence = current.contextEvidence;
+          } else {
+            finalAuthorityEvidence = await requireExecutionAuthority(
+              authorizationAction, controller.signal, job.authorityClock
+            );
+          }
         } catch {
           dispatchBlocked = true;
           const afterAuthority = safeClock(runtime);
@@ -932,7 +1042,7 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
             message: 'Current synthetic execution authority could not be confirmed.', retryable: false, stage: 'preflight' });
         }
         const finalAuthorityBoundary = dispatchBoundaryFailure(
-          finalAuthorityEvidence, authorizationAction, controller.signal, job, deadlineExpired
+          finalAuthorityEvidence, authorizationAction, controller.signal, job, deadlineExpired, contextEvidence
         );
         if (finalAuthorityBoundary) {
           dispatchBlocked = true;
@@ -950,7 +1060,7 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
             message: 'Prior immutable retry evidence could not be confirmed.', retryable: false, stage: 'preflight' });
         }
         const finalSynchronousBoundary = dispatchBoundaryFailure(
-          finalAuthorityEvidence, authorizationAction, controller.signal, job, deadlineExpired
+          finalAuthorityEvidence, authorizationAction, controller.signal, job, deadlineExpired, contextEvidence
         );
         if (finalSynchronousBoundary) {
           dispatchBlocked = true;
@@ -1059,9 +1169,16 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
   }
 
   async function submit(options = {}) {
-    const { productionSource, correlation_id: correlationIdInput, signal, mockOutcome, noOutputResultVersion } = optionValues(
-      options, new Set(['productionSource', 'correlation_id', 'signal', 'mockOutcome', 'noOutputResultVersion']), 'INVALID_SUBMIT_OPTIONS'
+    const { productionSource, correlation_id: correlationIdInput, signal, mockOutcome, noOutputResultVersion,
+      syntheticContext } = optionValues(
+      options, new Set(['productionSource', 'correlation_id', 'signal', 'mockOutcome', 'noOutputResultVersion', 'syntheticContext']), 'INVALID_SUBMIT_OPTIONS'
     );
+    if (syntheticContext !== undefined && typeof syntheticContext !== 'boolean') {
+      throw new OfflineOrchestrationError('INVALID_SUBMIT_OPTIONS');
+    }
+    if (syntheticContext === true && !syntheticContextReaders) {
+      throw new OfflineOrchestrationError('SYNTHETIC_CONTEXT_AUTHORITY_UNAVAILABLE');
+    }
     if (noOutputResultVersion !== undefined && noOutputResultVersion !== '1.1.0') {
       throw new OfflineOrchestrationError('UNSUPPORTED_RESULT_VERSION');
     }
@@ -1104,11 +1221,35 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       if (initialAuthorityFailure) throw new OfflineOrchestrationError(initialAuthorityFailure);
       if (cancellation?.aborted) return freezeDeep({ kind: 'host-outcome', status: 'cancelled-before-admission' });
       const production = readProduction(productionSource);
-      const renderedPrompt = renderOfflineComicPrompt(production.value);
+      let initialClock;
+      let deadlineMonotonicMs;
+      let contextInput;
+      let contextRequest;
+      if (syntheticContext === true) {
+        initialClock = safeClock(runtime);
+        if (!initialClock) return freezeDeep({ kind: 'host-outcome', status: 'deadline-unverifiable' });
+        deadlineMonotonicMs = checkedAdd(initialClock.now, OFFLINE_ORCHESTRATION_LIMITS.jobBudgetMs);
+        if (deadlineMonotonicMs === undefined) return freezeDeep({ kind: 'host-outcome', status: 'deadline-unverifiable' });
+        contextRequest = contextUseRequest(production, 'execute');
+        if (!contextRequest) throw new OfflineOrchestrationError('SYNTHETIC_CONTEXT_INPUT_INVALID');
+        contextInput = await loadSyntheticContextInput({
+          production,
+          readers: installedContextReaders,
+          signal: cancellation,
+          authorize: async () => {
+            const current = await requireContextBoundary('execute', contextRequest, cancellation,
+              authorityClockState, initialClock.epochId, deadlineMonotonicMs);
+            return { request: contextRequest, evidence: current.contextEvidence,
+              authorization: current.contextEvidence.authorization,
+              at: current.contextEvidence.revocation.checked_at };
+          }
+        });
+      }
+      const renderedPrompt = contextInput?.renderedPrompt ?? renderOfflineComicPrompt(production.value);
       assertAtMost(renderedPrompt.byteSize, OFFLINE_ORCHESTRATION_LIMITS.maxPromptBytesPerAttempt, 'PROMPT_LIMIT_EXCEEDED');
-      const initialClock = safeClock(runtime);
+      initialClock ??= safeClock(runtime);
       if (!initialClock) return freezeDeep({ kind: 'host-outcome', status: 'deadline-unverifiable' });
-      const deadlineMonotonicMs = checkedAdd(initialClock.now, OFFLINE_ORCHESTRATION_LIMITS.jobBudgetMs);
+      deadlineMonotonicMs ??= checkedAdd(initialClock.now, OFFLINE_ORCHESTRATION_LIMITS.jobBudgetMs);
       if (deadlineMonotonicMs === undefined) return freezeDeep({ kind: 'host-outcome', status: 'deadline-unverifiable' });
 
       const ledger = new MaterialLedger();
@@ -1149,11 +1290,20 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       if (postPreflightClock.now >= deadlineMonotonicMs) {
         return freezeDeep({ kind: 'host-outcome', status: 'budget-exhausted', reason: 'time-before-admission' });
       }
-      const postPreflightAuthority = await requireExecutionAuthority('execute', cancellation, authorityClockState);
-      const postPreflightAuthorityFailure = currentAuthorityFailure(
-        postPreflightAuthority, 'execute', cancellation, authorityClockState
-      );
-      if (postPreflightAuthorityFailure) throw new OfflineOrchestrationError(postPreflightAuthorityFailure);
+      let postPreflightAuthority;
+      let contextUseEvidence;
+      if (contextRequest) {
+        const current = await requireContextBoundary('execute', contextRequest, cancellation, authorityClockState,
+          initialClock.epochId, deadlineMonotonicMs);
+        postPreflightAuthority = current.executionEvidence;
+        contextUseEvidence = current.contextEvidence;
+      } else {
+        postPreflightAuthority = await requireExecutionAuthority('execute', cancellation, authorityClockState);
+        const postPreflightAuthorityFailure = currentAuthorityFailure(
+          postPreflightAuthority, 'execute', cancellation, authorityClockState
+        );
+        if (postPreflightAuthorityFailure) throw new OfflineOrchestrationError(postPreflightAuthorityFailure);
+      }
       if (cancellation?.aborted) return freezeDeep({ kind: 'host-outcome', status: 'cancelled-before-admission' });
       const postAuthorityClock = safeClock(runtime);
       if (!postAuthorityClock || postAuthorityClock.epochId !== initialClock.epochId) {
@@ -1176,6 +1326,9 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
         jobId,
         production,
         noOutputResultVersion,
+        contextEnabled: contextRequest !== undefined,
+        contextUseRequest: contextRequest,
+        contextUseEvidence,
         renderedPrompt,
         promptBytes,
         ledger,
@@ -1238,6 +1391,12 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
         }
       }
       if (error instanceof OfflineOrchestrationError) throw error;
+      const safeContextErrors = new Set([
+        'SYNTHETIC_CONTEXT_INPUT_INVALID', 'EXECUTION_AUTHORITY_DENIED', 'EXECUTION_AUTHORITY_UNAVAILABLE',
+        'EXECUTION_AUTHORITY_STALE', 'EXECUTION_DEADLINE_EXPIRED', 'SYNTHETIC_CONTEXT_AUTHORITY_DENIED',
+        'SYNTHETIC_CONTEXT_AUTHORITY_UNAVAILABLE'
+      ]);
+      if (safeContextErrors.has(error?.message)) throw new OfflineOrchestrationError(error.message);
       throw new OfflineOrchestrationError('OFFLINE_ORCHESTRATION_FAILED');
     } finally {
       running = false;
@@ -1280,6 +1439,14 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       }
       if (!Number.isSafeInteger(job.retryNotBefore) || clock.now < job.retryNotBefore) {
         throw new OfflineOrchestrationError('RETRY_DELAY_NOT_ELAPSED');
+      }
+      if (job.contextEnabled) {
+        const request = contextUseRequest(job.production, 'retry');
+        if (!request) throw new OfflineOrchestrationError('SYNTHETIC_CONTEXT_INPUT_INVALID');
+        const current = await requireContextBoundary('retry', request, cancellation, job.authorityClock,
+          job.clockEpochId, job.deadlineMonotonicMs);
+        job.contextUseRequest = request;
+        job.contextUseEvidence = current.contextEvidence;
       }
       if (!verifyRetryEvidence(job, job.lastAttempt)) return markUnresolved(job);
       // Identity is pinned in the job and cannot be replaced on retry.
@@ -1390,8 +1557,9 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
   return Object.freeze({ submit, retry, closeJob, inspectRecovery });
 }
 
-export function createOfflineOrchestrationPrototype({ executionAuthorityProvider } = {}) {
-  return createRunner({ executionAuthorityProvider });
+export function createOfflineOrchestrationPrototype({ executionAuthorityProvider, syntheticContextReaders,
+  contextUseAuthorityProvider } = {}) {
+  return createRunner({ executionAuthorityProvider, syntheticContextReaders, contextUseAuthorityProvider });
 }
 
 /** Internal factory for deterministic tests; never exported from the package entry point. */
