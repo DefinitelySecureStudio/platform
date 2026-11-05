@@ -54,7 +54,7 @@ function makeAbortSignal() {
   };
 }
 
-function makePendingReaderHarness(pendingReader) {
+function makePendingReaderHarness(pendingSlot, pendingReader) {
   const report = validateComicManifest(canonicalJson(fixture.production));
   const production = { value: fixture.production, identity: report.identity, canonical: canonicalJson(fixture.production) };
   const executionRecord = (action, suffix) => ({
@@ -84,31 +84,49 @@ function makePendingReaderHarness(pendingReader) {
   const use = createSyntheticContextUseVerifier([
     useRecord('execute', '001', requests[0]), useRecord('retry', '002', requests[1])
   ]);
-  const slots = Object.fromEntries(SYNTHETIC_CONTEXT_READER_SLOTS.map(slot => [slot, Buffer.from('synthetic-reader-bytes')]));
+  const slots = Object.fromEntries(SYNTHETIC_CONTEXT_READER_SLOTS.map(slot => [slot, undefined]));
   const plan = planComicReferences(production.canonical);
-  const firstEntry = plan.references[0];
-  const firstSlot = firstEntry.reference.kind === 'public'
-    ? firstEntry.uses[0].role === 'canon' ? 'canon' : `dependency-${firstEntry.uses[0].index}`
-    : firstEntry.reference.kind === 'context-package' ? 'context-package' : 'builder-result';
+  for (const entry of plan.references) {
+    let slot;
+    if (entry.reference.kind === 'context-package') slot = 'context-package';
+    else if (entry.reference.kind === 'builder-result') slot = 'builder-result';
+    else if (entry.uses[0].role === 'canon') slot = 'canon';
+    else if (entry.uses[0].role === 'dependency') slot = `dependency-${entry.uses[0].index}`;
+    else if (entry.uses[0].role === 'prompt') slot = 'prompt-description';
+    if (entry.reference.kind === 'public') {
+      slots[slot] = Buffer.from(fixture.dependency_bytes[entry.reference.dependency.artifact.artifact_uri], 'utf8');
+    } else if (entry.reference.kind === 'context-package') {
+      slots[slot] = Buffer.from(canonicalJson(contextFixture.result.package), 'utf8');
+    } else {
+      slots[slot] = Buffer.from(canonicalJson(contextFixture.result), 'utf8');
+    }
+  }
   const reads = [];
-  let readerSignal;
+  const readerSignals = {};
   const readers = Object.fromEntries(SYNTHETIC_CONTEXT_READER_SLOTS.map(slot => [slot, async ({ signal }) => {
     reads.push(slot);
-    if (slot === firstSlot) { readerSignal = signal; return pendingReader(); }
+    readerSignals[slot] = signal;
+    if (slot === pendingSlot) return pendingReader();
     return Buffer.from(slots[slot]);
   }]));
   const context = { id: 'studio.synthetic.comic-context-readers', mode: 'synthetic', readers };
   const runtime = makeRuntime();
   const store = new InMemoryPrototypeStore();
   let mockFactoryCalls = 0;
+  const mocks = [];
   const value = createOfflineOrchestrationPrototypeForTest({
     runtime: runtime.runtime, store,
     executionAuthorityProvider: execution.verifier,
     syntheticContextReaders: context,
     contextUseAuthorityProvider: use.verifier,
-    mockAdapterFactory(configuration) { mockFactoryCalls++; return new MockTextAdapter(configuration); }
+    mockAdapterFactory(configuration) {
+      mockFactoryCalls++;
+      const mock = new MockTextAdapter(configuration);
+      mocks.push(mock);
+      return mock;
+    }
   });
-  return { value, store, reads, firstSlot, runtime, get readerSignal() { return readerSignal; },
+  return { value, store, reads, readerSignals, runtime, mocks,
     get mockFactoryCalls() { return mockFactoryCalls; } };
 }
 
@@ -119,63 +137,100 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
-for (const stop of ['cancel', 'timeout']) {
-  for (const late of ['fulfill', 'reject']) {
-    test(`pending protected reader: ${stop}, then late ${late}, has no downstream effects`, async t => {
-      t.mock.timers.enable({ apis: ['setTimeout'] });
-      const trackedTimers = new Set();
-      const nativeSetTimeout = globalThis.setTimeout;
-      const nativeClearTimeout = globalThis.clearTimeout;
-      globalThis.setTimeout = (callback, delay, ...args) => {
-        const handle = nativeSetTimeout(callback, delay, ...args);
-        trackedTimers.add(handle);
-        return handle;
-      };
-      globalThis.clearTimeout = handle => { trackedTimers.delete(handle); return nativeClearTimeout(handle); };
+function installTimeoutTracker(t) {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const tracked = new Set();
+  const nativeSetTimeout = globalThis.setTimeout;
+  const nativeClearTimeout = globalThis.clearTimeout;
+  globalThis.setTimeout = (callback, delay, ...args) => {
+    const handle = nativeSetTimeout(callback, delay, ...args);
+    tracked.add(handle);
+    return handle;
+  };
+  globalThis.clearTimeout = handle => { tracked.delete(handle); return nativeClearTimeout(handle); };
+  return {
+    tracked,
+    restore() {
+      globalThis.setTimeout = nativeSetTimeout;
+      globalThis.clearTimeout = nativeClearTimeout;
+      t.mock.timers.reset();
+    }
+  };
+}
 
-      const pending = deferred();
-      let readerStartedResolve;
-      const readerStarted = new Promise(resolve => { readerStartedResolve = resolve; });
-      const harness = makePendingReaderHarness(() => {
-        readerStartedResolve();
-        return pending.promise;
+for (const slot of SYNTHETIC_CONTEXT_READER_SLOTS) {
+  for (const stop of ['cancel', 'timeout']) {
+    for (const late of ['fulfill', 'reject']) {
+      test(`pending ${slot} reader: ${stop}, then late ${late}, has no downstream effects`, async t => {
+        const timeoutTracker = installTimeoutTracker(t);
+        const pending = deferred();
+        let readerStartedResolve;
+        const readerStarted = new Promise(resolve => { readerStartedResolve = resolve; });
+        const harness = makePendingReaderHarness(slot, () => {
+          readerStartedResolve();
+          return pending.promise;
+        });
+        const caller = makeAbortSignal();
+        const slotIndex = SYNTHETIC_CONTEXT_READER_SLOTS.indexOf(slot);
+        const expectedReads = SYNTHETIC_CONTEXT_READER_SLOTS.slice(0, slotIndex + 1);
+        try {
+          const submit = harness.value.submit({ productionSource, syntheticContext: true, signal: caller.signal });
+          await readerStarted;
+          assert.deepEqual(harness.reads, expectedReads);
+          assert.ok(harness.readerSignals[slot] instanceof AbortSignal);
+          assert.equal(harness.readerSignals[slot].aborted, false);
+          assert.equal(timeoutTracker.tracked.size, 1);
+          if (stop === 'cancel') caller.abort();
+          else t.mock.timers.tick(1000);
+
+          await assert.rejects(submit, error => error.code === 'SYNTHETIC_CONTEXT_INPUT_INVALID');
+          assert.deepEqual(harness.reads, expectedReads);
+          assert.equal(harness.mockFactoryCalls, 0);
+          assert.equal(harness.store.eventCount, 0);
+          assert.equal(harness.store.blobCount, 0);
+          assert.equal(harness.runtime.timers.size, 0);
+          assert.equal(timeoutTracker.tracked.size, 0);
+          assert.equal(caller.signal.listenerCount, 0);
+          assert.equal(harness.readerSignals[slot].aborted, true);
+          if (stop === 'cancel') assert.equal(caller.signal.aborted, true);
+
+          if (late === 'fulfill') pending.resolve(Buffer.from('late synthetic reader fulfillment'));
+          else pending.reject(new Error('late synthetic reader rejection'));
+          await Promise.resolve();
+          await Promise.resolve();
+          assert.deepEqual(harness.reads, expectedReads);
+          assert.equal(harness.mockFactoryCalls, 0);
+          assert.equal(harness.store.eventCount, 0);
+          assert.equal(harness.store.blobCount, 0);
+          assert.equal(harness.runtime.timers.size, 0);
+          assert.equal(timeoutTracker.tracked.size, 0);
+          assert.equal(harness.readerSignals[slot].aborted, true);
+        } finally {
+          timeoutTracker.restore();
+        }
       });
-      const caller = makeAbortSignal();
-      try {
-        const submit = harness.value.submit({ productionSource, syntheticContext: true, signal: caller.signal });
-        await readerStarted;
-        assert.deepEqual(harness.reads, [harness.firstSlot]);
-        assert.ok(harness.readerSignal instanceof AbortSignal);
-        assert.equal(harness.readerSignal.aborted, false);
-        assert.equal(trackedTimers.size, 1);
-        if (stop === 'cancel') caller.abort();
-        else t.mock.timers.tick(1000);
-
-        await assert.rejects(submit, error => error.code === 'SYNTHETIC_CONTEXT_INPUT_INVALID');
-        assert.deepEqual(harness.reads, [harness.firstSlot]);
-        assert.equal(harness.mockFactoryCalls, 0);
-        assert.equal(harness.store.eventCount, 0);
-        assert.equal(harness.store.blobCount, 0);
-        assert.equal(trackedTimers.size, 0);
-        assert.equal(caller.signal.listenerCount, 0);
-        assert.equal(harness.readerSignal.aborted, true);
-        if (stop === 'cancel') assert.equal(caller.signal.aborted, true);
-
-        if (late === 'fulfill') pending.resolve(Buffer.from('late synthetic reader fulfillment'));
-        else pending.reject(new Error('late synthetic reader rejection'));
-        await Promise.resolve();
-        await Promise.resolve();
-        assert.deepEqual(harness.reads, [harness.firstSlot]);
-        assert.equal(harness.mockFactoryCalls, 0);
-        assert.equal(harness.store.eventCount, 0);
-        assert.equal(harness.store.blobCount, 0);
-        assert.equal(trackedTimers.size, 0);
-        assert.equal(harness.readerSignal.aborted, true);
-      } finally {
-        globalThis.setTimeout = nativeSetTimeout;
-        globalThis.clearTimeout = nativeClearTimeout;
-        t.mock.timers.reset();
-      }
-    });
+    }
   }
 }
+
+test('successful protected reader completion clears per-read and caller cancellation controls', async t => {
+  const timeoutTracker = installTimeoutTracker(t);
+  const harness = makePendingReaderHarness(undefined, undefined);
+  const caller = makeAbortSignal();
+  try {
+    const result = await harness.value.submit({ productionSource, syntheticContext: true, signal: caller.signal });
+    assert.equal(result.result.status, 'complete');
+    assert.deepEqual(harness.reads, SYNTHETIC_CONTEXT_READER_SLOTS);
+    assert.equal(harness.mockFactoryCalls, 1);
+    assert.equal(harness.mocks[0].calls.length, 1);
+    assert.equal(caller.signal.listenerCount, 0);
+    assert.equal(timeoutTracker.tracked.size, 0);
+    assert.equal(harness.store.eventCount > 0, true);
+    assert.equal(harness.store.blobCount > 0, true);
+    assert.equal(harness.runtime.timers.size, 0);
+    assert.deepEqual(Object.keys(harness.readerSignals).sort(), [...SYNTHETIC_CONTEXT_READER_SLOTS].sort());
+    assert.equal(Object.values(harness.readerSignals).every(signal => signal.aborted), true);
+  } finally {
+    timeoutTracker.restore();
+  }
+});
