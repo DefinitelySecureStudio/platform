@@ -59,6 +59,46 @@ function createRuntime({ start = 10_000, epochId = 'test-monotonic-epoch' } = {}
   };
 }
 
+function createTrackedAbortSignal() {
+  const listeners = new Set();
+  let aborted = false;
+  let reason;
+  const signal = {
+    get aborted() { return aborted; },
+    get reason() { return reason; },
+    get listenerCount() { return listeners.size; },
+    addEventListener(type, listener) { if (type === 'abort') listeners.add(listener); },
+    removeEventListener(type, listener) { if (type === 'abort') listeners.delete(listener); }
+  };
+  return {
+    signal,
+    abort(nextReason = new Error('synthetic caller cancellation')) {
+      if (aborted) return;
+      aborted = true;
+      reason = nextReason;
+      for (const listener of [...listeners]) listener.call(signal, { type: 'abort', target: signal });
+    }
+  };
+}
+
+function installDeferredMockExecution(mock, onStart) {
+  let resolve;
+  let reject;
+  const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
+  mock.execute = function (request, options = {}) {
+    this.calls.push(structuredClone(request));
+    onStart?.(options.signal);
+    return promise;
+  };
+  return {
+    fulfill(content = 'Synthetic mock response.') {
+      resolve({ content, finish_reason: 'stop', usage: { provider_reported: true,
+        input_tokens: 18, output_tokens: 4, total_tokens: 22 }, provider_request_id: 'late-mock-0001', warnings: [] });
+    },
+    reject(error = new Error('late synthetic adapter rejection')) { reject(error); }
+  };
+}
+
 function idFactory() {
   let index = 1;
   return () => `10000000-0000-4000-8000-${String(index++).padStart(12, '0')}`;
@@ -1187,6 +1227,158 @@ test('cancellation during provider execution preserves the SDK outcome without f
   assert.equal(entries.some(entry => entry.type === 'terminal'), false);
 });
 
+test('host deadline after mock execution begins retains only the SDK cancellation outcome', async () => {
+  const clock = createRuntime();
+  const store = new InMemoryPrototypeStore();
+  const caller = createTrackedAbortSignal();
+  let mock;
+  let late;
+  let executionStarted = false;
+  const value = createOfflineOrchestrationPrototypeForTest({
+    store, runtime: clock.runtime, idFactory: idFactory(),
+    onMockCall({ phase, mock: instance }) {
+      if (phase !== 'created') return;
+      mock = instance;
+      late = installDeferredMockExecution(mock, () => {
+        executionStarted = true;
+        clock.set(10_000 + OFFLINE_ORCHESTRATION_LIMITS.jobBudgetMs);
+        clock.fireTimers();
+      });
+    }
+  });
+  const result = await value.submit({ productionSource, signal: caller.signal });
+  assert.equal(executionStarted, true);
+  assert.equal(result.status, 'contract-mapping-blocked');
+  assert.equal(mock.calls.length, 1);
+  assert.equal(clock.timerCount, 0);
+  assert.equal(caller.signal.listenerCount, 0);
+  const beforeEvents = structuredClone(store.readEvents(result.job_id));
+  const beforeBlobs = store.blobCount;
+  assert.ok(beforeEvents.some(item => item.type === 'budget-exhausted' && item.reason === 'time'));
+  const outcomeEvent = beforeEvents.find(item => item.type === 'provider-outcome');
+  const outcome = JSON.parse(store.readImmutable(outcomeEvent.payload_key).toString('utf8'));
+  assert.equal(outcome.status, 'cancelled');
+  assert.equal(outcome.error.code, 'EXECUTION_CANCELLED');
+  assert.equal(beforeEvents.some(item => item.type === 'terminal' || item.type === 'result-prepared'), false);
+  await assert.rejects(() => value.retry({ authorizeRetry: true }), error => error.code === 'RETRY_NOT_AVAILABLE');
+  assert.equal(mock.calls.length, 1);
+
+  late.fulfill();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(store.readEvents(result.job_id), beforeEvents);
+  assert.equal(store.blobCount, beforeBlobs);
+  assert.equal(mock.calls.length, 1);
+});
+
+test('caller cancellation after mock execution begins retains a late rejection without mutation', async () => {
+  const clock = createRuntime();
+  const store = new InMemoryPrototypeStore();
+  const caller = createTrackedAbortSignal();
+  let mock;
+  let late;
+  let executionStarted = false;
+  const value = createOfflineOrchestrationPrototypeForTest({
+    store, runtime: clock.runtime, idFactory: idFactory(),
+    onMockCall({ phase, mock: instance }) {
+      if (phase !== 'created') return;
+      mock = instance;
+      late = installDeferredMockExecution(mock, () => {
+        executionStarted = true;
+        caller.abort();
+      });
+    }
+  });
+  const result = await value.submit({ productionSource, signal: caller.signal });
+  assert.equal(executionStarted, true);
+  assert.equal(result.status, 'contract-mapping-blocked');
+  assert.equal(mock.calls.length, 1);
+  assert.equal(clock.timerCount, 0);
+  assert.equal(caller.signal.listenerCount, 0);
+  const beforeEvents = structuredClone(store.readEvents(result.job_id));
+  const beforeBlobs = store.blobCount;
+  assert.equal(beforeEvents.some(item => item.type === 'budget-exhausted'), false);
+  const outcomeEvent = beforeEvents.find(item => item.type === 'provider-outcome');
+  const outcome = JSON.parse(store.readImmutable(outcomeEvent.payload_key).toString('utf8'));
+  assert.equal(outcome.status, 'cancelled');
+  assert.equal(outcome.error.code, 'EXECUTION_CANCELLED');
+  assert.equal(beforeEvents.some(item => item.type === 'terminal' || item.type === 'result-prepared'), false);
+  await assert.rejects(() => value.retry({ authorizeRetry: true }), error => error.code === 'RETRY_NOT_AVAILABLE');
+  late.reject();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(store.readEvents(result.job_id), beforeEvents);
+  assert.equal(store.blobCount, beforeBlobs);
+  assert.equal(mock.calls.length, 1);
+});
+
+test('simultaneous in-flight deadline and caller cancellation use SDK cancellation with host deadline priority', async () => {
+  const clock = createRuntime();
+  const store = new InMemoryPrototypeStore();
+  const caller = createTrackedAbortSignal();
+  let mock;
+  let late;
+  const value = createOfflineOrchestrationPrototypeForTest({
+    store, runtime: clock.runtime, idFactory: idFactory(),
+    onMockCall({ phase, mock: instance }) {
+      if (phase !== 'created') return;
+      mock = instance;
+      late = installDeferredMockExecution(mock, () => {
+        clock.set(10_000 + OFFLINE_ORCHESTRATION_LIMITS.jobBudgetMs);
+        clock.fireTimers();
+        caller.abort();
+      });
+    }
+  });
+  const result = await value.submit({ productionSource, signal: caller.signal });
+  assert.equal(result.status, 'contract-mapping-blocked');
+  assert.equal(mock.calls.length, 1);
+  assert.equal(clock.timerCount, 0);
+  assert.equal(caller.signal.listenerCount, 0);
+  const entries = store.readEvents(result.job_id);
+  assert.ok(entries.some(item => item.type === 'budget-exhausted' && item.reason === 'time'));
+  const outcomeEvent = entries.find(item => item.type === 'provider-outcome');
+  const outcome = JSON.parse(store.readImmutable(outcomeEvent.payload_key).toString('utf8'));
+  assert.equal(outcome.status, 'cancelled');
+  assert.equal(outcome.error.code, 'EXECUTION_CANCELLED');
+  assert.equal(entries.some(item => item.type === 'terminal' || item.type === 'result-prepared'), false);
+  late.reject();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(store.eventCount, entries.length);
+  assert.equal(mock.calls.length, 1);
+});
+
+test('late deadline timer and caller abort after committed result do not mutate the job', async () => {
+  const clock = createRuntime();
+  let lateDeadline;
+  const runtime = Object.create(clock.runtime);
+  runtime.setTimer = (callback, delay) => {
+    lateDeadline = callback;
+    return clock.runtime.setTimer(callback, delay);
+  };
+  runtime.clearTimer = clock.runtime.clearTimer.bind(clock.runtime);
+  const store = new InMemoryPrototypeStore();
+  const caller = createTrackedAbortSignal();
+  let mock;
+  const value = createOfflineOrchestrationPrototypeForTest({
+    store, runtime, idFactory: idFactory(),
+    onMockCall({ phase, mock: instance }) { if (phase === 'created') mock = instance; }
+  });
+  const result = await value.submit({ productionSource, signal: caller.signal });
+  assert.equal(result.kind, 'terminal');
+  assert.equal(result.result.status, 'complete');
+  assert.equal(mock.calls.length, 1);
+  assert.equal(clock.timerCount, 0);
+  assert.equal(caller.signal.listenerCount, 0);
+  const beforeEvents = structuredClone(store.readEvents(result.job_id));
+  const beforeBlobs = store.blobCount;
+  lateDeadline();
+  caller.abort();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(store.readEvents(result.job_id), beforeEvents);
+  assert.equal(store.blobCount, beforeBlobs);
+  assert.equal(value.inspectRecovery(result.job_id).status, 'terminal');
+  assert.equal(mock.calls.length, 1);
+});
+
 test('unconfirmed dispatch marker prevents the only mock call and blocks future work', async () => {
   let ambiguous = false;
   const store = new InMemoryPrototypeStore({
@@ -1448,6 +1640,78 @@ test('explicit candidate enables one delayed caller-authorized retry with immuta
   assert.equal(events.filter(e => e.type === 'prepared')[1].retry_of_attempt_id, first.attempt_id);
   assert.equal(events.at(-1).type, 'job-closed');
   await assert.rejects(() => h.value.retry({ authorizeRetry: true }), e => e.code === 'RETRY_NOT_AVAILABLE');
+});
+
+test('deadline during the second attempt closes only the host job and preserves the original result and budget', async () => {
+  const clock = createRuntime();
+  const store = new InMemoryPrototypeStore();
+  const caller = createTrackedAbortSignal();
+  const mocks = [];
+  let late;
+  const value = createOfflineOrchestrationPrototypeForTest({
+    store, runtime: clock.runtime, idFactory: idFactory(),
+    onMockCall({ phase, mock }) {
+      if (phase === 'created') {
+        mocks.push(mock);
+        if (mocks.length === 2) {
+          late = installDeferredMockExecution(mock, () => {
+            const admitted = store.readEvents(firstJobId).find(item => item.type === 'admitted');
+            clock.set(admitted.deadline_monotonic_ms);
+            clock.fireTimers();
+          });
+        }
+      }
+    }
+  });
+  let firstJobId;
+  const first = await value.submit(candidateOptions);
+  firstJobId = first.job_id;
+  assert.equal(first.kind, 'terminal');
+  assert.equal(first.retry_eligible, true);
+  const firstResultKey = `result:${first.result.result_id}`;
+  const originalResultBytes = store.readImmutable(firstResultKey);
+  const originalEvents = store.readEvents(first.job_id);
+  const admitted = originalEvents.find(item => item.type === 'admitted');
+  const originalDeadline = admitted.deadline_monotonic_ms;
+  clock.advance(10);
+
+  const second = await value.retry({ authorizeRetry: true, signal: caller.signal });
+  assert.equal(second.kind, 'host-outcome');
+  assert.equal(second.status, 'contract-mapping-blocked');
+  assert.equal(second.job_closed, true);
+  assert.equal(mocks.length, 2);
+  assert.deepEqual(mocks.map(mock => mock.calls.length), [1, 1]);
+  assert.equal(clock.timerCount, 0);
+  assert.equal(caller.signal.listenerCount, 0);
+
+  const events = store.readEvents(first.job_id);
+  assert.equal(events.find(item => item.type === 'admitted').deadline_monotonic_ms, originalDeadline);
+  assert.ok(events.some(item => item.type === 'budget-exhausted'
+    && item.reason === 'time' && item.deadline_monotonic_ms === originalDeadline));
+  const outcomes = events.filter(item => item.type === 'provider-outcome');
+  assert.equal(outcomes.length, 2);
+  const priorOutcome = JSON.parse(store.readImmutable(outcomes[0].payload_key).toString('utf8'));
+  const stoppedOutcome = JSON.parse(store.readImmutable(outcomes[1].payload_key).toString('utf8'));
+  assert.equal(priorOutcome.status, 'failed');
+  assert.equal(stoppedOutcome.status, 'cancelled');
+  assert.equal(stoppedOutcome.error.code, 'EXECUTION_CANCELLED');
+  const terminals = events.filter(item => item.type === 'terminal');
+  assert.equal(terminals.length, 1);
+  assert.equal(terminals[0].result_id, first.result.result_id);
+  assert.equal(terminals[0].attempt_id, first.attempt_id);
+  assert.equal(events.some(item => item.type === 'result-prepared' && item.attempt_id === second.attempt_id), false);
+  assert.equal(events.at(-1).type, 'job-closed');
+  assert.deepEqual(store.readImmutable(firstResultKey), originalResultBytes);
+  await assert.rejects(() => value.retry({ authorizeRetry: true }), error => error.code === 'RETRY_NOT_AVAILABLE');
+
+  const beforeEvents = structuredClone(events);
+  const beforeBlobs = store.blobCount;
+  late.fulfill();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(store.readEvents(first.job_id), beforeEvents);
+  assert.equal(store.blobCount, beforeBlobs);
+  assert.deepEqual(store.readImmutable(firstResultKey), originalResultBytes);
+  assert.deepEqual(mocks.map(mock => mock.calls.length), [1, 1]);
 });
 
 test('retry authority is rechecked before reading protected retry evidence', async () => {
