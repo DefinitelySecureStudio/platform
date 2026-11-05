@@ -122,6 +122,18 @@ the exact SDK result and does not relabel it as success or timeout. A provider
 `timed-out` result is likewise preserved and marked `contract-mapping-blocked`,
 as its mapping is deferred in the RFC.
 
+The host's monotonic job deadline is a separate stop condition. If it fires
+after the mock call begins, the SDK observes an abort signal and preserves its
+existing normalized `cancelled` outcome; the host separately records
+`budget-exhausted`. Neither event creates a Comic Manifest result when the
+existing schema cannot represent that outcome. A non-cooperative mock may settle
+later, but the SDK/host processing race ignores that late fulfillment or
+rejection. The host timer and caller-abort listener are removed after execution
+settles; invoking a captured late callback after a committed terminal result
+does not change stored evidence. On a stopped second attempt, a confirmed SDK
+outcome may close the host job while leaving the earlier immutable Comic result
+unchanged. These are distinct host/SDK states, not a new result mapping.
+
 ## Using the prototype
 
 The package subpath is `@definitely-secure-studio/platform/offline-orchestration-prototype`.
