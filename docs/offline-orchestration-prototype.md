@@ -154,9 +154,19 @@ provide a Comic Manifest result mapping:
 
 | Stop point | Established facts | Current host behavior and mapping boundary |
 | --- | --- | --- |
-| Before admission | No job has been admitted or dispatched. In the opt-in context path, authorized fixture bytes may already have been read during preflight, but no immutable admitted input record or provider outcome exists. | Return a host-side `cancelled-before-admission` or `budget-exhausted` outcome. No Comic result is created because there is no admitted attempt or verified output to describe. |
+| Before admission | No job has been admitted or dispatched. In the opt-in context path, authorized fixture bytes may already have been read during preflight, but no immutable admitted input record or provider outcome exists. | A caller abort observed at the runner's pre-admission checks returns `cancelled-before-admission`; a job budget reached at the post-preflight check returns `budget-exhausted` with `time-before-admission`. An unverifiable host clock returns `deadline-unverifiable`. These host outcomes create no Comic result. |
 | After admission, before dispatch | The job may have immutable input and prepared evidence, but no provider call or provider outcome exists. Tests cover caller cancellation and deadline at this boundary. | Record the host stop (`cancelled-before-dispatch` or `budget-exhausted`) and close the host job when its writes are confirmed. Do not invent a provider outcome, Comic terminal result, or rate-limit retry eligibility. |
 | After dispatch begins | The mock execution call was made. A host deadline or caller cancellation aborts the SDK signal; a non-cooperative adapter may still have performed work. | Preserve the SDK's actual normalized outcome and separate host deadline evidence. Ignore late settlement. When no valid Comic mapping exists, return `contract-mapping-blocked`; if the outcome/write state is uncertain, keep the job unresolved for read-only inspection. |
+
+Not every pre-admission stop is returned as one of those host outcomes. A
+deadline reached while an awaited current-authority check is being verified
+rejects with `EXECUTION_DEADLINE_EXPIRED`; denied or unverifiable execution or
+package-use authority also rejects with its fixed authority error. In the
+opt-in context path, cancellation or the bounded reader timeout while a
+protected reader is pending rejects with `SYNTHETIC_CONTEXT_INPUT_INVALID`.
+These are rejected boundaries, not `cancelled-before-admission` or
+`budget-exhausted` return values, and they still create no admitted job or Comic
+result.
 
 Provider Execution's own `timed-out` outcome also remains unmapped. The local
 1.1.0 candidate described later is narrower: it does not map cancellation, timeout,
