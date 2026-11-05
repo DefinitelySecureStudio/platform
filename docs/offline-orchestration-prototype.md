@@ -4,11 +4,13 @@ Status: experimental, synthetic-only prototype. This is not a released
 orchestration contract or production execution path.
 
 The prototype exercises a bounded host-owned lifecycle around the existing
-Provider Execution and Comic Manifest implementations. It uses one exact public
-synthetic Comic Manifest fixture, the existing Prompt SDK, and one
-`MockTextAdapter` instance. It does not contact a provider, use credentials,
-write to a filesystem, or persist state across processes. The store is in-memory
-only.
+Provider Execution and Comic Manifest implementations. Its default path uses
+one exact public synthetic Comic Manifest fixture, the existing Prompt SDK, and
+one `MockTextAdapter` instance. An explicitly installed, opt-in path also reads
+the exact public Context Builder fixture through six bounded synthetic readers
+under separate current execution and package-use authority. It does not contact
+a provider, use credentials, write to a filesystem, or persist state across
+processes. The store is in-memory only.
 
 This implementation was informed by [RFC 0010 at Codex commit
 `3f5549f29faf1ca3e0912e6b8407dbe19310a7e2`](https://github.com/DefinitelySecureStudio/codex/blob/3f5549f29faf1ca3e0912e6b8407dbe19310a7e2/rfcs/0010-build-attempt-lifecycle.md)
@@ -100,7 +102,7 @@ durable or cross-process recovery.
 
 ### Current no-output mapping boundary
 
-The current Comic Manifest validator cannot represent an internal failed result
+The stable Comic Manifest v1 validator cannot represent an internal failed result
 with no output digest: an empty transformation list fails schema validation,
 while a transformation with empty output digests or withheld private outputs
 fails semantic validation (`src/comic-manifest/semantics.js`, lines 53–59).
@@ -115,15 +117,16 @@ reference. The current Manifest mapping reports `contract-mapping-blocked`; it
 does not create an artifact, fabricate a Comic result or mark the job
 successful. The failed mapping is not retry-eligible.
 
-Accordingly, this prototype preserves a normalized no-output rate-limit,
-cancellation, or other unsupported outcome in its in-memory host outcome record
-and returns `contract-mapping-blocked`; it does not fabricate an output,
-create an invalid Comic Manifest result, or retry. Although the retry method
-checks the draft allowlist, it cannot become eligible until the prior result is
-terminal and validated. The owner decision for this prototype is to keep the
-draft RFC retry path blocked until a separate design resolution provides a
-truthful result mapping. No host-only retry bypass, schema change, or
-released-contract change is authorized here.
+For a dispatched attempt with a retained provider outcome but no valid Comic
+Manifest mapping, the default v1 path preserves that outcome and returns
+`contract-mapping-blocked`; it does not fabricate output, create an invalid
+result, or authorize a retry. Pre-dispatch host stops instead return the
+host-side outcomes described below. There is one explicit local exception:
+callers may opt in to the unreleased 1.1.0 result candidate described later,
+which supports a confirmed no-action rate limit and a delayed, caller-authorized
+retry when its exact checks pass. This candidate does not change the default v1
+path, stable validators, or released contract. Cancellation, timeout, uncertain
+outcomes, and other unmappable failures remain outside that candidate.
 
 Provider Execution v1 reports cancellation according to its existing signal
 semantics. If cancellation wins before SDK settlement, this host cannot infer
@@ -143,6 +146,36 @@ settles; invoking a captured late callback after a committed terminal result
 does not change stored evidence. On a stopped second attempt, a confirmed SDK
 outcome may close the host job while leaving the earlier immutable Comic result
 unchanged. These are distinct host/SDK states, not a new result mapping.
+
+### Timeout and cancellation mapping analysis
+
+The stop point determines what the host can establish. It does not by itself
+provide a Comic Manifest result mapping:
+
+| Stop point | Established facts | Current host behavior and mapping boundary |
+| --- | --- | --- |
+| Before admission | No job has been admitted or dispatched. In the opt-in context path, authorized fixture bytes may already have been read during preflight, but no immutable admitted input record or provider outcome exists. | A caller abort observed at the runner's pre-admission checks returns `cancelled-before-admission`; a job budget reached at the post-preflight check returns `budget-exhausted` with `time-before-admission`. An unverifiable host clock returns `deadline-unverifiable`. These host outcomes create no Comic result. |
+| After admission, before dispatch | The job may have immutable input and prepared evidence, but no provider call or provider outcome exists. Tests cover caller cancellation and deadline at this boundary. | Record the host stop (`cancelled-before-dispatch` or `budget-exhausted`) and close the host job when its writes are confirmed. Do not invent a provider outcome, Comic terminal result, or rate-limit retry eligibility. |
+| After dispatch begins | The mock execution call was made. A host deadline or caller cancellation aborts the SDK signal; a non-cooperative adapter may still have performed work. | Preserve the SDK's actual normalized outcome and separate host deadline evidence. Ignore late settlement. When no valid Comic mapping exists, return `contract-mapping-blocked`; if the outcome/write state is uncertain, keep the job unresolved for read-only inspection. |
+
+Not every pre-admission stop is returned as one of those host outcomes. A
+deadline expiring during an awaited `requireContextBoundary` check in the
+opt-in context path rejects with `EXECUTION_DEADLINE_EXPIRED`. In the default
+no-context path, if the deadline expires during the post-preflight authority
+await, the following deadline check returns `budget-exhausted` with
+`time-before-admission` (covered by the no-context authority-await test).
+Denied or unverifiable execution or package-use authority rejects with its
+fixed authority error. In the opt-in context path, cancellation or the bounded
+reader timeout while a protected reader is pending rejects with
+`SYNTHETIC_CONTEXT_INPUT_INVALID`. Rejected boundaries are not
+`cancelled-before-admission` or `budget-exhausted` return values; these paths
+still create no admitted job or Comic result.
+
+Provider Execution's own `timed-out` outcome also remains unmapped. The local
+1.1.0 candidate described later is narrower: it does not map cancellation, timeout,
+pre-dispatch stops, or uncertain external effects. A truthful stable mapping
+for those cases remains a separate contract decision. This analysis records the
+current boundary and changes no runtime behavior.
 
 ## Using the prototype
 
@@ -187,15 +220,17 @@ Package bytes and raw authorization records never enter diagnostics or lifecycle
 events. Read-only recovery remains the previously accepted inspection path and
 is outside this new execution-read boundary.
 
-The checks happen before the runner parses or renders the submitted production
-input, after mock preflight and immediately before a mock call. After each
-awaited verification, the runner synchronously rechecks current revocation,
-wall-clock validity, cancellation, and the monotonic job deadline before any
-protected effect. Authority and SDK timing share the same wall-clock guard. A
-denied or unverifiable check fails closed. Preparation authority is separate and cannot
-authorize execution. The current synthetic prompt has no context slots and
-does not load context-package content, so this change does not establish
-package-use authorization coverage or complete O05's full package-use boundary.
+Execution authority is checked before the runner parses or renders the
+submitted production input, after mock preflight, and immediately before a mock
+call. In the opt-in context path, execution and package-use authority are both
+checked before protected reads and rechecked across awaited verification,
+preflight, and dispatch boundaries. The runner synchronously rechecks current
+revocation, wall-clock validity, cancellation, and the monotonic job deadline
+before each protected effect. A denied or unverifiable check fails closed.
+Preparation authority is separate and cannot authorize execution or package
+use. Omitting `syntheticContext` retains the no-context path; enabling it proves
+package-use controls only for the installed synthetic fixtures, not general or
+production package access.
 
 The prototype remains intended only for local synthetic experimentation. Its
 new factory option and `syntheticContext` switch are experimental JavaScript
@@ -271,3 +306,23 @@ The candidate validator's bounded no-output path requires exactly one prompt
 binding. Schema-valid productions with zero or multiple prompt bindings receive
 `ACTUAL_INPUTS`; validation does not throw or claim support for a broader
 transformation path. The stable schema and v1 validation behavior are unchanged.
+
+## Integrated O05–O07 evidence and remaining boundaries
+
+The following merged changes and tests describe the current bounded synthetic
+implementation: [PR #56](https://github.com/DefinitelySecureStudio/platform/pull/56)
+adds current execution authority; [PR #57](https://github.com/DefinitelySecureStudio/platform/pull/57)
+adds distinct package-use authority; [PR #58](https://github.com/DefinitelySecureStudio/platform/pull/58)
+covers in-flight deadline and cancellation; [PR #59](https://github.com/DefinitelySecureStudio/platform/pull/59)
+covers invalid inputs and partial outputs; and [PR #60](https://github.com/DefinitelySecureStudio/platform/pull/60)
+covers pending protected readers across cancellation and timeout.
+
+| Workstream | Evidence in this prototype | Remaining boundary |
+| --- | --- | --- |
+| O05: authorization before use | `tests/offline-orchestration-prototype/runner.test.js` exercises current execution authority before input use and dispatch, separate package-use authority for the opt-in Context Builder fixture, rechecks across awaits, revocation/expiry, and retry evidence. `tests/prompt-sdk/comic-manifest-contract.test.js` covers the exact offline handoff and package binding. | This proves only the installed synthetic fixtures and in-memory verifiers. It does not prove authorization for arbitrary readers, package discovery/fetch/renewal, real data, or production services. Preparation evidence remains distinct from use authority. |
+| O06: deadline and cancellation | `runner.test.js` covers pre-admission stops, known stops before dispatch, in-flight cancellation/deadline, late adapter settlement, and preservation of existing results. `context-reader-lifecycle.test.js` covers all six pending protected reader slots for cancellation and bounded timeout, late fulfill/reject, signal propagation, cleanup, and no downstream effects; it also checks successful reader cleanup. | Host stop states and SDK outcomes remain distinct from Comic Manifest results. No stable mapping is defined for pre-dispatch stops, cancellation, Provider Execution timeout, or uncertain in-flight effects when there is no valid verified output. O06's result-mapping boundary remains open. |
+| O07: invalid input and partial failure | `runner.test.js` covers resolved missing values, empty and corrupt bytes, and reader rejection at each installed fixture slot; malformed/unsupported production input; and partial/mismatched initial output. It verifies retained actual input and normalized provider outcome, sanitized diagnostics, no false Comic success, and no unauthorized retry. | Evidence is limited to the finite synthetic reader set, pinned public fixtures, and mock adapter. It is not a general-purpose input/provider or production failure guarantee. |
+
+These tests and this note do not close the Studio issues or claim broader
+production readiness. O08 and O09 are outside this change; their prerequisites
+and acceptance criteria are not assessed here.
