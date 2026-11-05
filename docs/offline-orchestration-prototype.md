@@ -159,14 +159,17 @@ provide a Comic Manifest result mapping:
 | After dispatch begins | The mock execution call was made. A host deadline or caller cancellation aborts the SDK signal; a non-cooperative adapter may still have performed work. | Preserve the SDK's actual normalized outcome and separate host deadline evidence. Ignore late settlement. When no valid Comic mapping exists, return `contract-mapping-blocked`; if the outcome/write state is uncertain, keep the job unresolved for read-only inspection. |
 
 Not every pre-admission stop is returned as one of those host outcomes. A
-deadline reached while an awaited current-authority check is being verified
-rejects with `EXECUTION_DEADLINE_EXPIRED`; denied or unverifiable execution or
-package-use authority also rejects with its fixed authority error. In the
-opt-in context path, cancellation or the bounded reader timeout while a
-protected reader is pending rejects with `SYNTHETIC_CONTEXT_INPUT_INVALID`.
-These are rejected boundaries, not `cancelled-before-admission` or
-`budget-exhausted` return values, and they still create no admitted job or Comic
-result.
+deadline expiring during an awaited `requireContextBoundary` check in the
+opt-in context path rejects with `EXECUTION_DEADLINE_EXPIRED`. In the default
+no-context path, if the deadline expires during the post-preflight authority
+await, the following deadline check returns `budget-exhausted` with
+`time-before-admission` (covered by the no-context authority-await test).
+Denied or unverifiable execution or package-use authority rejects with its
+fixed authority error. In the opt-in context path, cancellation or the bounded
+reader timeout while a protected reader is pending rejects with
+`SYNTHETIC_CONTEXT_INPUT_INVALID`. Rejected boundaries are not
+`cancelled-before-admission` or `budget-exhausted` return values; these paths
+still create no admitted job or Comic result.
 
 Provider Execution's own `timed-out` outcome also remains unmapped. The local
 1.1.0 candidate described later is narrower: it does not map cancellation, timeout,
