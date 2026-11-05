@@ -316,6 +316,29 @@ test('execution and package-use authority are rechecked across asynchronous boun
     assert.deepEqual(context.reads, []);
   });
 
+  await t.test('use verifier wall-clock advance to execution review boundary blocks the reader', async () => {
+    const context = syntheticContextFixture();
+    let wallNow = Date.parse(fixture.at);
+    context.runtime.runtime.wallNow = () => wallNow;
+    const executionReviewAfter = '2026-09-15T12:10:01Z';
+    const execution = authorityFixture({ execute: { review_after: executionReviewAfter } });
+    let useChecks = 0;
+    const provider = {
+      ...context.use,
+      isCurrent(input) {
+        const current = context.use.isCurrent(input);
+        if (++useChecks === 3) wallNow = Date.parse(executionReviewAfter);
+        return current;
+      }
+    };
+    const h = runner({ runtime: context.runtime.runtime, executionAuthorityProvider: execution.verifier,
+      syntheticContextReaders: context.contextInputProvider, contextUseAuthorityProvider: provider });
+    await assert.rejects(() => h.value.submit({ productionSource, syntheticContext: true }),
+      error => error.code === 'EXECUTION_AUTHORITY_STALE');
+    assert.equal(useChecks, 3);
+    assert.deepEqual(context.reads, []);
+  });
+
   await t.test('cancellation during awaited package-use verification precedes every reader', async () => {
     const context = syntheticContextFixture(); const controller = new AbortController();
     const provider = {
@@ -1526,6 +1549,43 @@ test('revocation scheduled during final authority verification prevents mock dis
   const result = await h.value.submit({ productionSource });
   assert.equal(result.status, 'authorization-denied');
   assert.equal(mocks.reduce((count, mock) => count + mock.calls.length, 0), 0);
+});
+
+test('package-use current check advancing wall time to execution review blocks retry dispatch', async () => {
+  const context = syntheticContextFixture();
+  let wallNow = Date.parse(fixture.at);
+  context.runtime.runtime.wallNow = () => wallNow;
+  const executionReviewAfter = '2026-09-15T12:10:01Z';
+  const execution = authorityFixture({ retry: { review_after: executionReviewAfter } });
+  let retryDispatchConfirmed = false;
+  let retryUseChecks = 0;
+  const provider = {
+    ...context.use,
+    isCurrent(input) {
+      const current = context.use.isCurrent(input);
+      if (input.request.action === 'retry' && retryDispatchConfirmed && ++retryUseChecks === 4) {
+        wallNow = Date.parse(executionReviewAfter);
+      }
+      return current;
+    }
+  };
+  const mocks = [];
+  const h = runner({ runtime: context.runtime.runtime, executionAuthorityProvider: execution.verifier,
+    syntheticContextReaders: context.contextInputProvider, contextUseAuthorityProvider: provider,
+    onMockCall({ phase, mock }) {
+      if (phase === 'created') mocks.push(mock);
+      if (phase === 'dispatch-confirmed' && mocks.length > 1) retryDispatchConfirmed = true;
+    }
+  });
+  const first = await h.value.submit({ productionSource, syntheticContext: true,
+    noOutputResultVersion: '1.1.0', mockOutcome: { kind: 'rate-limit', retry_after_ms: 5 } });
+  assert.equal(first.retry_eligible, true);
+  context.runtime.advance(5);
+  await h.value.retry({ authorizeRetry: true });
+  assert.equal(retryUseChecks, 4);
+  assert.equal(wallNow, Date.parse(executionReviewAfter));
+  assert.equal(mocks.length, 2);
+  assert.equal(mocks.reduce((count, mock) => count + mock.calls.length, 0), 1);
 });
 
 test('cancellation during final authority verification prevents mock dispatch', async () => {

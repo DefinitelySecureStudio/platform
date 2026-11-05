@@ -484,10 +484,24 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     return undefined;
   }
 
+  function currentPermitTimeFailure(executionEvidence, contextEvidence, state) {
+    let now;
+    try { now = authorityClock(state); } catch { return 'EXECUTION_AUTHORITY_UNAVAILABLE'; }
+    if (!executionEvidence || now >= Date.parse(executionEvidence.review_after)
+      || now >= Date.parse(executionEvidence.expires_at)) return 'EXECUTION_AUTHORITY_STALE';
+    if (contextEvidence && (now >= Date.parse(contextEvidence.review_after)
+      || now >= Date.parse(contextEvidence.expires_at)
+      || now >= Date.parse(contextEvidence.authorization.expires_at))) {
+      return 'SYNTHETIC_CONTEXT_AUTHORITY_DENIED';
+    }
+    return undefined;
+  }
+
   function assertContextBoundaryCurrent(action, request, executionEvidence, contextEvidence,
     signal, state, epochId, deadlineMonotonicMs) {
     const failure = currentAuthorityFailure(executionEvidence, action, signal, state)
       ?? currentContextUseFailure(contextEvidence, request, signal, state)
+      ?? currentPermitTimeFailure(executionEvidence, contextEvidence, state)
       ?? hostBoundaryFailure(signal, epochId, deadlineMonotonicMs);
     if (failure) throw new OfflineOrchestrationError(failure);
   }
@@ -518,6 +532,7 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       );
       if (contextFailure) return 'authority';
     }
+    if (currentPermitTimeFailure(evidence, contextEvidence, job.authorityClock)) return 'authority';
     const after = safeClock(runtime);
     if (!after || after.epochId !== job.clockEpochId) return 'clock-unverifiable';
     if (deadlineExpired || after.now >= job.deadlineMonotonicMs) return 'time';
