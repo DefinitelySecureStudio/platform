@@ -1766,6 +1766,50 @@ test('explicit candidate enables one delayed caller-authorized retry with immuta
   await assert.rejects(() => h.value.retry({ authorizeRetry: true }), e => e.code === 'RETRY_NOT_AVAILABLE');
 });
 
+test('bounded retry uses distinct per-attempt idempotency keys only after proven pre-acceptance failure', async () => {
+  const clock = createRuntime();
+  const mocks = [];
+  let calls = 0;
+  const h = runner({ runtime: clock.runtime,
+    mockAdapterFactory(configuration) {
+      const mock = new MockTextAdapter(configuration);
+      mocks.push(mock);
+      return mock;
+    },
+    onMockCall({ phase }) { if (phase === 'dispatch-confirmed') calls++; }
+  });
+
+  const first = await h.value.submit(candidateOptions);
+  assert.equal(first.retry_eligible, true);
+  assert.equal(calls, 1);
+  assert.equal(mocks.length, 1);
+  assert.equal(mocks[0].calls.length, 1);
+  const firstRequest = mocks[0].calls[0];
+  assert.equal(firstRequest.idempotency_key, `idem-${firstRequest.execution_id}`);
+
+  clock.advance(10);
+  await assert.rejects(() => h.value.retry(), e => e.code === 'EXPLICIT_RETRY_AUTHORIZATION_REQUIRED');
+  assert.equal(calls, 1);
+  assert.equal(mocks[0].calls.length, 1);
+
+  await h.value.retry({ authorizeRetry: true });
+  assert.equal(calls, 2);
+  assert.equal(mocks.length, 2);
+  assert.equal(mocks[1].calls.length, 1);
+  const secondRequest = mocks[1].calls[0];
+  assert.equal(secondRequest.idempotency_key, `idem-${secondRequest.execution_id}`);
+  assert.notEqual(secondRequest.idempotency_key, firstRequest.idempotency_key);
+  assert.notEqual(secondRequest.execution_id, firstRequest.execution_id);
+  assert.equal(h.store.readEvents(first.job_id).filter(e => e.type === 'dispatch-started').length, 2);
+
+  const restarted = createOfflineOrchestrationPrototypeForTest({ store: h.store, runtime: clock.runtime });
+  const counts = [h.store.blobCount, h.store.eventCount];
+  assert.equal(restarted.inspectRecovery(first.job_id).read_only, true);
+  await assert.rejects(() => restarted.retry({ authorizeRetry: true }), e => e.code === 'RETRY_NOT_AVAILABLE');
+  assert.deepEqual([h.store.blobCount, h.store.eventCount], counts);
+  assert.equal(calls, 2);
+});
+
 test('deadline during the second attempt closes only the host job and preserves the original result and budget', async () => {
   const clock = createRuntime();
   const store = new InMemoryPrototypeStore();
