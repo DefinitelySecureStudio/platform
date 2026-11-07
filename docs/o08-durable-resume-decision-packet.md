@@ -13,17 +13,20 @@ then rechecks current authority and immutable evidence, honors the original
 deadline and two-attempt limit, and creates one new attempt with a new execution
 ID and idempotency key. Recovery after a new runner/process is read-only.
 
-The supported store is in-memory only. The job deadline is monotonic and tied to
-the current clock epoch. The mock adapter records calls but does not deduplicate
-them. Provider Execution v1 carries an `idempotency_key`; the Platform mock
-currently derives a distinct key for each attempt. No existing contract here
-states that an arbitrary adapter/provider will honor that key or retain a
-deduplication record.
+The supported store is in-memory only. The job deadline and retry delay are
+monotonic and tied to the current clock epoch. Retry eligibility also retains
+the original `retry_not_before`; resume must preserve and verify both that value
+and the original job deadline. The mock adapter records calls but does not
+deduplicate them. Provider Execution v1 carries an `idempotency_key`; the
+Platform mock currently derives a distinct key for each attempt. No existing
+contract here states that an arbitrary adapter/provider will honor that key or
+retain a deduplication record.
 
 Therefore the current safe retry proof does not generalize to replaying an
 uncertain dispatch. A dispatch marker without a verified provider outcome must
 remain unresolved. A restart-resume implementation also needs a way to verify
-that the original job deadline has not expired without resetting its budget.
+that both the original job deadline and `retry_not_before` remain valid without
+resetting the budget or shortening the retry delay.
 
 ## Recommended first bounded resume contract
 
@@ -35,18 +38,25 @@ before-acceptance rate-limit outcome. On restart:
    and its pinned production identity. Reject malformed or ambiguous metadata.
 2. Verify current execution authority (and package-use authority on the opt-in
    context path) for the retry action before protected evidence access.
-3. Acquire an atomic single-runner claim. Recheck current authority after any
-   asynchronous claim/verification boundary and immediately before each
-   protected read or new effect.
-4. Validate the event chain and every pinned input, prompt, provider outcome,
-   and result byte against its recorded size and digest.
-5. Verify the original absolute deadline and remaining attempt budget. Never
-   replace an expired or unverifiable deadline with a fresh budget.
+3. Verify an injected synthetic time authority and its exact time-domain/epoch
+   identity. It must establish that neither the original job deadline nor
+   original `retry_not_before` has passed. Unknown epoch, rollback, or
+   unverifiable time fails closed; never reset either time bound.
+4. Acquire an atomic transactional single-runner claim. Recheck current
+   authority after asynchronous claim/verification boundaries and immediately
+   before each protected read or new effect.
+5. Validate immutable event and blob evidence, the event-chain integrity anchor,
+   and every pinned input, prompt, provider outcome, and result byte against its
+   recorded size and digest.
 6. Permit at most one caller-authorized new attempt, with a new execution ID and
-   idempotency key, only after the verified before-acceptance proof. Preserve
-   the first attempt's immutable result and evidence.
-7. Keep a dispatch with missing, ambiguous, corrupt, or unverifiable outcome in
-   reconciliation-required state. Do not replay it under this first contract.
+   idempotency key, only after the verified before-acceptance proof and after
+   `retry_not_before`. Preserve the original result, deadline, retry bound, and
+   evidence.
+7. Make the dispatch-intent marker durable before invoking the adapter. A
+   missing/ambiguous commit acknowledgement, a crash after that marker, or a
+   dispatch with no verified outcome is quarantined and never automatically
+   replayed. Ambiguous commits in claim, event, or blob transactions are also
+   quarantined for explicit reconciliation.
 
 This path avoids duplicate effects by requiring evidence that the prior request
 was not accepted. It does not promise deduplication across attempts or providers.
@@ -55,20 +65,34 @@ was not accepted. It does not promise deduplication across attempts or providers
 
 ### 1. Deadline across process restart
 
-The current monotonic deadline cannot be compared across a new process or boot.
-Choose a supported time basis and rollback policy for persisted jobs. A proposed
-option is a persisted absolute UTC deadline checked using a host clock with a
-persisted monotonic observation guard; if the clock is unavailable, moves
-backward, or cannot be reconciled, fail closed without resume. The current
-prototype has no durable trusted-clock service, so this is a contract choice,
-not an implementation assumption.
+The current monotonic deadline and `retry_not_before` cannot be compared across
+a new process or boot. For the finite synthetic proof, inject a deterministic
+time authority with an explicit domain ID/epoch and stable absolute instants.
+Persist both the original deadline and retry bound in that domain and fail
+closed if the authority is unavailable, its epoch is unknown/different, time
+moves backward, or either bound cannot be verified. A stored monotonic
+observation by itself does not prove elapsed time across reboot. A production
+clock service remains a separate contract decision; do not silently substitute
+local wall time or create a new deadline on restart.
 
 ### 2. Storage and single-runner claim
 
-Choose whether O08 authorizes a persistent job store, its atomic append/write
-and compare-and-claim guarantees, integrity protections, and behavior when a
-claim or commit acknowledgement is ambiguous. The current store is in-memory
-and has no crash-safe transaction or inter-process lease contract.
+Choose whether O08 authorizes a persistent job store, its atomic transactional
+append/write and compare-and-claim guarantees, integrity protections, and
+behavior when a claim or commit acknowledgement is ambiguous. Require immutable
+evidence and durable dispatch-intent markers before adapter invocation. The
+proposal prohibits automatic lease takeover; an abandoned/ambiguous claim is
+quarantined pending explicit reconciliation. The current store is in-memory
+and has no crash-safe transaction or inter-process claim contract.
+
+Digests detect byte mismatch only when the expected digest and event history
+are themselves trusted. If an actor can rewrite persisted bytes and matching
+digest/event metadata, plain hashes do not prove authenticity or prevent a
+fabricated before-acceptance outcome. The threat model must either trust
+storage access controls/append-only guarantees or define a separately protected
+authenticated chain/root (for example, a signing key unavailable to the store
+writer). The current prototype supplies neither durable integrity anchor nor a
+production threat model.
 
 ### 3. Uncertain dispatch and idempotency
 
@@ -79,26 +103,36 @@ request fingerprint binding, deduplication retention, and the response returned
 for a duplicate. A fresh key per attempt cannot suppress a duplicate effect.
 Provider Execution v1's key field alone does not establish those semantics.
 
-## Finite synthetic acceptance matrix after decisions
+## Finite synthetic restart and crash-point fixtures
 
-All rows use the existing exact synthetic production and mock adapter. Protected
-bytes, decisions, and effects remain synthetic. For every denied, blocked, or
-uncertain row, assert exact call counts and zero unauthorized effects.
+All rows use the existing exact synthetic production, an injected deterministic
+time authority, a transactional test store, and the mock adapter. Protected
+bytes, decisions, and effects remain synthetic. Automatic lease takeover is
+disabled. For every denied, blocked, or uncertain row, assert exact call counts
+and zero unauthorized effects.
 
-| Restart state / fixture | Expected decision | New provider calls | Required evidence |
+| Crash point / fixture | Expected decision | New provider calls | Required evidence |
 | --- | --- | ---: | --- |
-| First attempt has verified before-acceptance rate limit; current authorities allow; original deadline and attempt budget remain | One explicit resume may start attempt 2 | Exactly 1 | New attempt/key; prior result bytes unchanged; one atomic claim |
-| Same state, but authority is denied, expired, revoked, missing, or unverifiable | Deny resume | 0 | No protected evidence read after denial; no claim left active |
-| Two runners race to resume the same eligible job | One wins; the other receives a safe conflict/denial | At most 1 total | Atomic claim; immutable event sequence; no duplicate dispatch |
-| Original deadline expired or its persisted clock basis cannot be verified | Expired/unverifiable; do not resume | 0 | Original deadline retained; no reset |
+| Before resume claim transaction begins | Fresh explicit resume may proceed after current authority/time checks | Exactly 1 only if all gates pass | Original deadline and `retry_not_before` retained; one durable claim and new attempt/key |
+| Claim transaction definitely aborts before commit | No claim is held; a fresh explicit request may retry checks | 0 for aborted request | No partial event/blob mutation |
+| Claim commit acknowledgement is ambiguous | Quarantine; no automatic lease takeover | 0 | Claim/commit state marked for reconciliation; no protected reads or dispatch |
+| Claim commit is confirmed, process crashes before dispatch-intent marker | Quarantine; no automatic lease takeover | 0 | Durable claim retained; no provider call inferred; explicit reconciliation required |
+| Dispatch-intent transaction is ambiguous, or marker commits and process crashes before/while adapter invocation | Uncertain; never automatically replay | 0 after restart | Marker durable before invocation; no fabricated provider outcome/absence |
+| Adapter returns before-acceptance rate limit, then crash occurs before outcome and terminal evidence commits | Quarantine as an unverified outcome | 0 | Missing outcome cannot create retry eligibility |
+| Before-acceptance outcome, result, terminal link, and immutable evidence are durably committed | One explicit resume may start attempt 2 after both time bounds and authority pass | Exactly 1 | New attempt/key; original result, deadline, and `retry_not_before` unchanged |
+| Original deadline or `retry_not_before` has passed | Expired; do not resume | 0 | Both original time bounds retained; no reset or shortened wait |
+| Time authority epoch is unknown/different, unavailable, or rolled back | Unverifiable; do not resume | 0 | No use of persisted monotonic observation to infer elapsed reboot time |
+| Authority is denied, expired, revoked, missing, or unverifiable | Deny resume | 0 | No protected evidence read after denial; no dispatch |
+| Two runners race to resume the same eligible job | One confirmed claim at most; loser denied/conflict | At most 1 total | Atomic transaction; no automatic takeover; no duplicate dispatch |
 | Attempt limit already consumed | Exhausted; do not resume | 0 | Existing attempts preserved |
-| Any required event/blob is missing, malformed, corrupt, mismatched, or ambiguous | Reconciliation required | 0 | No new write that implies success; no provider call |
-| Dispatch-started exists but no verified outcome exists | Unresolved; do not replay | 0 | No fabricated absence/result; exact prior evidence retained |
-| Terminal result and job-close evidence are valid | Read-only terminal inspection | 0 | No new attempt, write, or mutation |
-| Resume was denied, then current authority is later granted | Re-evaluate current authority on a fresh explicit resume request | At most 1 if all other gates still pass | No cached authority; same original deadline and budgets |
+| Required event/blob is missing, malformed, corrupt, mismatched, or ambiguous | Quarantine/reconciliation required | 0 | No success-implying write and no provider call |
+| Persisted bytes and plain hashes are both edited to a self-consistent forgery | Outcome follows selected threat model; hashes alone cannot authenticate it | 0 | Test demonstrates limitation; require a protected chain/root or trusted-storage assumption |
+| Terminal result and close evidence are valid | Read-only terminal inspection | 0 | No new attempt, write, or mutation |
+| Resume was denied, then current authority is later granted | Re-evaluate authority on a fresh explicit request | At most 1 if all other gates pass | No cached authority; same original deadline, `retry_not_before`, and budgets |
 
-If the owner chooses to support replay of uncertain dispatch, add a separate
-finite adapter-conformance matrix for same-key/same-request replay,
+Uncertain dispatch replay is prohibited in the recommended first version. If a
+later owner-approved version considers it, require a separate finite
+adapter-conformance matrix for same-key/same-request replay,
 same-key/different-request rejection, dedupe-window expiry, duplicate response,
 and provider unavailability. Do not fold that behavior into the first
 before-acceptance-only resume path.
