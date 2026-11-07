@@ -29,7 +29,7 @@ the Comic Manifest schema.
   unresolved and reuse is blocked because this prototype has no cleanup path.
 - One exact `comic-production` fixture revision and its required text transcript
   rendition. Any other production identity, revision, or rendition is rejected.
-- At most two attempts per job and one mock provider call per attempt.
+- At most two attempts per job and at most one provider call per attempt.
 - A fixed 300,000 ms monotonic job budget. It is not reset between attempts.
 - One synthetic mock adapter only. No real providers, network, production
   storage, filesystem, scheduler, daemon, credential handling, or automatic
@@ -66,7 +66,7 @@ the Comic Manifest schema.
 | --- | ---: |
 | Active jobs | 1 |
 | Attempts per job | 2 |
-| Provider calls per attempt | 1 |
+| Provider calls per attempt (maximum) | 1 |
 | Job budget | 300,000 ms |
 | Prompt per attempt | 8 MiB, further reduced by the mock descriptor's 1 MiB input cap |
 | Normalized output per call | 16 MiB |
