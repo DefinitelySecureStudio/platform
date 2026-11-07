@@ -268,6 +268,7 @@ const asyncBoundaries = ['claim', 'evidence', 'preflight', 'dispatchMarker'];
 const timeFaults = [
   ['deadline expiry', 10, clock => { clock.now = 50; }, 'deadline-expired'],
   ['changed epoch', 10, clock => { clock.epoch = 'unexpected-epoch'; }, 'time-unverifiable'],
+  ['changed domain with matching epoch', 10, clock => { clock.domain = 'unexpected-domain'; }, 'time-unverifiable'],
   ['rollback above retry bound', 20, clock => { clock.now = 15; }, 'time-unverifiable'],
   ['unavailable clock', 10, clock => { clock.available = false; }, 'time-unverifiable'],
   ['non-finite clock sample', 10, clock => { clock.now = Number.NaN; }, 'time-unverifiable']
@@ -282,6 +283,8 @@ for (const boundary of asyncBoundaries) {
       });
       const result = await model.resume();
       assert.equal(result, expectedResult);
+      if (faultName === 'changed epoch') assert.equal(model.clock.domain, DOMAIN);
+      if (faultName === 'changed domain with matching epoch') assert.equal(model.clock.epoch, EPOCH);
       assert.equal(model.state.claimCount, 1);
       assert.equal(model.state.claimed, true);
       assert.equal(model.state.evidenceReads, boundary === 'claim' ? 0 : 1);
@@ -299,6 +302,8 @@ test('proposal harness does not take over a held claim or recover an ambiguous c
     model.state.claimed = true;
     assert.equal(await model.resume(), 'claim-held');
     assert.equal(model.state.claimCount, 0);
+    assert.equal(model.state.evidenceReads, 0);
+    assert.equal(model.state.dispatchIntent, false);
     assert.equal(model.state.providerCalls, 0);
   });
   await t.test('concurrent resume contenders have at most one call', async () => {
@@ -312,7 +317,10 @@ test('proposal harness does not take over a held claim or recover an ambiguous c
     const model = createResumeModel({ claimOutcome: 'ambiguous' });
     assert.equal(await model.resume(), 'claim-ambiguous');
     assert.equal(await model.resume(), 'quarantined');
+    assert.equal(model.state.claimCount, 1);
+    assert.equal(model.state.claimed, false);
     assert.equal(model.state.evidenceReads, 0);
+    assert.equal(model.state.dispatchIntent, false);
     assert.equal(model.state.providerCalls, 0);
   });
   await t.test('crash after confirmed claim does not trigger automatic takeover', async () => {
@@ -320,7 +328,9 @@ test('proposal harness does not take over a held claim or recover an ambiguous c
     assert.equal(await model.resume(), 'process-crashed');
     assert.equal(await model.resume(), 'quarantined');
     assert.equal(model.state.claimCount, 1);
+    assert.equal(model.state.claimed, true);
     assert.equal(model.state.evidenceReads, 0);
+    assert.equal(model.state.dispatchIntent, false);
     assert.equal(model.state.providerCalls, 0);
   });
 });
@@ -329,12 +339,20 @@ test('proposal harness quarantines corrupt evidence and ambiguous dispatch-marke
   await t.test('invalid evidence', async () => {
     const model = createResumeModel({ evidenceValid: false });
     assert.equal(await model.resume(), 'evidence-invalid');
+    assert.equal(model.state.evidenceReads, 1);
+    assert.equal(model.state.dispatchIntent, false);
+    assert.equal(model.state.trace.includes('dispatch-marker:committed'), false);
     assert.equal(model.state.providerCalls, 0);
+    assert.equal(model.state.quarantined, true);
   });
   await t.test('ambiguous dispatch-marker commit', async () => {
     const model = createResumeModel({ markerOutcome: 'ambiguous' });
     assert.equal(await model.resume(), 'marker-ambiguous');
+    assert.equal(model.state.evidenceReads, 1);
+    assert.equal(model.state.dispatchIntent, false);
+    assert.equal(model.state.trace.includes('dispatch-marker:committed'), false);
     assert.equal(model.state.providerCalls, 0);
+    assert.equal(model.state.quarantined, true);
   });
   await t.test('crash after marker commit is quarantined before the provider effect', async () => {
     const model = createResumeModel({ afterBoundary: { dispatchMarker: () => 'crash' } });
