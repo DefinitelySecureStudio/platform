@@ -39,6 +39,7 @@ function createResumeModel({
       return 'time-unverifiable';
     }
     state.lastValidatedNow = clock.now;
+    if (retryNotBefore >= originalDeadline) return 'empty-window';
     if (clock.now >= originalDeadline) return 'deadline-expired';
     if (clock.now < retryNotBefore) return 'retry-not-before';
     return undefined;
@@ -122,13 +123,8 @@ function createResumeModel({
     state.trace.push('dispatch-marker:committed');
     const markerFailure = await crossBoundary('dispatchMarker');
     if (markerFailure) return markerFailure;
-    failure = currentGate();
-    if (failure) {
-      state.quarantined = true;
-      return failure;
-    }
 
-    // This synchronous check and invocation intentionally have no await between them.
+    // This caller-side check and invocation intentionally have no await between them.
     failure = currentGate();
     if (failure) {
       state.quarantined = true;
@@ -218,10 +214,26 @@ test('proposal harness rejects early retry, the exclusive deadline, and an empty
     assert.equal(model.state.providerCalls, 0);
   });
   await t.test('retry_not_before at or after original_deadline', async () => {
-    const model = createResumeModel({ now: 50, retryNotBefore: 50, originalDeadline: 50 });
-    assert.equal(await model.resume(), 'deadline-expired');
+    const model = createResumeModel({ now: 10, retryNotBefore: 50, originalDeadline: 50 });
+    assert.equal(await model.resume(), 'empty-window');
+    assert.equal(model.state.claimCount, 0);
+    assert.equal(model.state.evidenceReads, 0);
     assert.equal(model.state.providerCalls, 0);
   });
+});
+
+test('caller-side final time check catches a clock change after the marker helper gate', async () => {
+  const model = createResumeModel({
+    afterBoundary: {
+      dispatchMarker: clock => {
+        queueMicrotask(() => queueMicrotask(() => { clock.now = 50; }));
+      }
+    }
+  });
+  assert.equal(await model.resume(), 'deadline-expired');
+  assert.equal(model.state.dispatchIntent, true);
+  assert.equal(model.state.providerCalls, 0);
+  assert.equal(model.state.quarantined, true);
 });
 
 const asyncBoundaries = ['claim', 'evidence', 'preflight', 'dispatchMarker'];
