@@ -35,6 +35,9 @@ function createResumeModel({
     if (!state.authorized) return 'authority-denied';
     if (!clock.available || clock.domain !== DOMAIN || clock.epoch !== EPOCH
       || !Number.isFinite(clock.now)) return 'time-unverifiable';
+    if (!Number.isFinite(retryNotBefore) || !Number.isFinite(originalDeadline)) {
+      return 'time-unverifiable';
+    }
     if (state.lastValidatedNow !== undefined && clock.now < state.lastValidatedNow) {
       return 'time-unverifiable';
     }
@@ -221,6 +224,31 @@ test('proposal harness rejects early retry, the exclusive deadline, and an empty
     assert.equal(model.state.providerCalls, 0);
   });
 });
+
+for (const [boundName, invalidBound] of [
+  ['retry_not_before', 'retryNotBefore'],
+  ['original_deadline', 'originalDeadline']
+]) {
+  for (const [sampleName, invalidSample] of [
+    ['NaN', Number.NaN],
+    ['positive infinity', Number.POSITIVE_INFINITY],
+    ['negative infinity', Number.NEGATIVE_INFINITY]
+  ]) {
+    test(`proposal harness rejects ${boundName}=${sampleName} before claiming`, async () => {
+      const options = { now: 10, retryNotBefore: 10, originalDeadline: 50 };
+      options[invalidBound] = invalidSample;
+      const model = createResumeModel(options);
+      assert.equal(await model.resume(), 'time-unverifiable');
+      assert.equal(model.state.claimCount, 0);
+      assert.equal(model.state.claimed, false);
+      assert.equal(model.state.evidenceReads, 0);
+      assert.equal(model.state.dispatchIntent, false);
+      assert.deepEqual(model.state.trace, []);
+      assert.equal(model.state.providerCalls, 0);
+      assert.equal(model.state.quarantined, false);
+    });
+  }
+}
 
 test('caller-side final time check catches a clock change after the marker helper gate', async () => {
   const model = createResumeModel({
