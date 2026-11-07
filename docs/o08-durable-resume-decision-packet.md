@@ -39,9 +39,11 @@ before-acceptance rate-limit outcome. On restart:
 2. Verify current execution authority (and package-use authority on the opt-in
    context path) for the retry action before protected evidence access.
 3. Verify an injected synthetic time authority and its exact time-domain/epoch
-   identity. It must establish that neither the original job deadline nor
-   original `retry_not_before` has passed. Unknown epoch, rollback, or
-   unverifiable time fails closed; never reset either time bound.
+   identity. Let `now` be its current time in that validated domain. Resume is
+   time-eligible exactly when `retry_not_before <= now < original_deadline`.
+   Before `retry_not_before`, wait without a provider call; at or after
+   `original_deadline`, fail closed without a provider call. Unknown epoch,
+   rollback, or unverifiable time also fails closed; never reset either bound.
 4. Acquire an atomic transactional single-runner claim. Recheck current
    authority after asynchronous claim/verification boundaries and immediately
    before each protected read or new effect.
@@ -49,9 +51,9 @@ before-acceptance rate-limit outcome. On restart:
    and every pinned input, prompt, provider outcome, and result byte against its
    recorded size and digest.
 6. Permit at most one caller-authorized new attempt, with a new execution ID and
-   idempotency key, only after the verified before-acceptance proof and after
-   `retry_not_before`. Preserve the original result, deadline, retry bound, and
-   evidence.
+   idempotency key, only after the verified before-acceptance proof and while
+   `retry_not_before <= now < original_deadline`. Preserve the original result,
+   deadline, retry bound, and evidence.
 7. Make the dispatch-intent marker durable before invoking the adapter. A
    missing/ambiguous commit acknowledgement, a crash after that marker, or a
    dispatch with no verified outcome is quarantined and never automatically
@@ -119,8 +121,10 @@ and zero unauthorized effects.
 | Claim commit is confirmed, process crashes before dispatch-intent marker | Quarantine; no automatic lease takeover | 0 | Durable claim retained; no provider call inferred; explicit reconciliation required |
 | Dispatch-intent transaction is ambiguous, or marker commits and process crashes before/while adapter invocation | Uncertain; never automatically replay | 0 after restart | Marker durable before invocation; no fabricated provider outcome/absence |
 | Adapter returns before-acceptance rate limit, then crash occurs before outcome and terminal evidence commits | Quarantine as an unverified outcome | 0 | Missing outcome cannot create retry eligibility |
-| Before-acceptance outcome, result, terminal link, and immutable evidence are durably committed | One explicit resume may start attempt 2 after both time bounds and authority pass | Exactly 1 | New attempt/key; original result, deadline, and `retry_not_before` unchanged |
-| Original deadline or `retry_not_before` has passed | Expired; do not resume | 0 | Both original time bounds retained; no reset or shortened wait |
+| Before-acceptance outcome, result, terminal link, and immutable evidence are durably committed; `now < retry_not_before` | Not yet time-eligible; preserve state and wait | 0 | Original result, deadline, and `retry_not_before` unchanged |
+| Same fully committed eligible state; `retry_not_before <= now < original_deadline` | Time-eligible; one explicit resume may start attempt 2 if all other gates pass | Exactly 1 | New attempt/key; original result, deadline, and `retry_not_before` unchanged |
+| `now >= original_deadline` | Expired; do not resume | 0 | Original deadline retained; no reset |
+| `retry_not_before >= original_deadline` | No eligible time interval exists; do not resume | 0 | Both original bounds retained |
 | Time authority epoch is unknown/different, unavailable, or rolled back | Unverifiable; do not resume | 0 | No use of persisted monotonic observation to infer elapsed reboot time |
 | Authority is denied, expired, revoked, missing, or unverifiable | Deny resume | 0 | No protected evidence read after denial; no dispatch |
 | Two runners race to resume the same eligible job | One confirmed claim at most; loser denied/conflict | At most 1 total | Atomic transaction; no automatic takeover; no duplicate dispatch |
