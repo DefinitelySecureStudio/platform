@@ -203,7 +203,7 @@ function runner({ store = new InMemoryPrototypeStore(), runtime = createRuntime(
   };
 }
 
-test('runs exactly one synthetic mock call and commits a validated immutable result in order', async () => {
+test('successful attempt makes one synthetic mock call and commits a validated immutable result in order', async () => {
   const h = runner();
   const mocks = [];
   let dispatchObservedBeforeMock = false;
