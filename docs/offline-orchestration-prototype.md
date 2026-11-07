@@ -272,6 +272,17 @@ uncertain outcomes or writes remain unresolved. There is no third attempt or
 hidden retry. Delay is measured conservatively from terminal completion. A caller may
 use `closeJob()` instead. A restart can only inspect; it cannot resume retry.
 
+The only retry admission proof in this prototype is the exact normalized mock
+rate-limit outcome that states the request was rate-limited before acceptance.
+Each attempt has one dispatch and a distinct `idempotency_key` derived from its
+fresh execution ID. The mock does not deduplicate across keys, and the prototype
+does not claim cross-attempt or restart deduplication, durable resume, or
+exactly-once effects. A retry is an explicit, same-process continuation after
+the no-acceptance proof, under the original job deadline and two-attempt cap;
+recovery after restart remains read-only. Tests cover denied retry (no second
+call), authorized retry (exactly one new call/key), immutable prior result,
+the second-attempt limit, and read-only recovery.
+
 The experimental validator lives in `src/comic-manifest/result-candidate.js`;
 the stable `validateComicManifest` entry point continues to reject 1.1.0.
 `candidate-contract.js` pins exact local Codex schema bytes. Regenerate with:
