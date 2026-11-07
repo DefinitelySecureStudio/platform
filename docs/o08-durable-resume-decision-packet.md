@@ -188,6 +188,14 @@ turn, with no await between them. A passing earlier sample is not evidence that
 the deadline or retry bound still passes after claim, evidence access, or
 preflight.
 
+The test-only `resume-proposal-harness.test.js` exercises this matrix against an
+in-memory reference model: the inclusive retry boundary, fresh checks after
+async claim/evidence/preflight/marker stages, marker-before-effect ordering,
+held/ambiguous claims, invalid evidence, and uncertain-dispatch quarantine.
+This validates the proposal's scenario logic only. It is not wired to the
+orchestration runner and does not establish runtime conformance, implement a
+durable store/time authority, prove storage authenticity, or satisfy O08.
+
 ## Scope estimate and exclusions
 
 The decision packet is a review artifact and fits within the discovery portion
