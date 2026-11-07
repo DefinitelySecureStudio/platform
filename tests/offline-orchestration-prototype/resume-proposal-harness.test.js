@@ -76,11 +76,25 @@ function createResumeModel({
     state.claimed = true;
     failure = await crossBoundary('claim');
     if (failure) return failure;
+    // The helper's gate can become stale before this caller resumes. Recheck
+    // synchronously before the protected evidence read.
+    failure = currentGate();
+    if (failure) {
+      state.quarantined = true;
+      return failure;
+    }
 
     state.evidenceReads++;
     state.trace.push('evidence:read');
     const evidenceFailure = await crossBoundary('evidence');
     if (evidenceFailure) return evidenceFailure;
+    // Do not trust a check performed inside the awaited helper across the
+    // promise continuation before preflight.
+    failure = currentGate();
+    if (failure) {
+      state.quarantined = true;
+      return failure;
+    }
     if (!evidenceValid) {
       state.quarantined = true;
       return 'evidence-invalid';
@@ -89,6 +103,11 @@ function createResumeModel({
     state.trace.push('preflight:begin');
     const preflightFailure = await crossBoundary('preflight');
     if (preflightFailure) return preflightFailure;
+    failure = currentGate();
+    if (failure) {
+      state.quarantined = true;
+      return failure;
+    }
 
     state.trace.push('dispatch-marker:begin');
     if (markerOutcome === 'ambiguous') {
@@ -103,6 +122,11 @@ function createResumeModel({
     state.trace.push('dispatch-marker:committed');
     const markerFailure = await crossBoundary('dispatchMarker');
     if (markerFailure) return markerFailure;
+    failure = currentGate();
+    if (failure) {
+      state.quarantined = true;
+      return failure;
+    }
 
     // This synchronous check and invocation intentionally have no await between them.
     failure = currentGate();
@@ -145,6 +169,39 @@ test('proposal harness checks current authority before protected evidence and ef
     assert.equal(model.state.evidenceReads, 0);
     assert.equal(model.state.providerCalls, 0);
   });
+  await t.test('revocation in the caller microtask gap after claim', async () => {
+    const model = createResumeModel({
+      afterBoundary: {
+        claim: (_clock, state) => {
+          queueMicrotask(() => queueMicrotask(() => { state.authorized = false; }));
+        }
+      }
+    });
+    assert.equal(await model.resume(), 'authority-denied');
+    assert.equal(model.state.evidenceReads, 0);
+    assert.equal(model.state.providerCalls, 0);
+    assert.equal(model.state.quarantined, true);
+  });
+  for (const [boundary, expectedEvidenceReads, expectMarker] of [
+    ['evidence', 1, false],
+    ['preflight', 1, false],
+    ['dispatchMarker', 1, true]
+  ]) {
+    await t.test(`revocation in the caller microtask gap after ${boundary}`, async () => {
+      const model = createResumeModel({
+        afterBoundary: {
+          [boundary]: (_clock, state) => {
+            queueMicrotask(() => queueMicrotask(() => { state.authorized = false; }));
+          }
+        }
+      });
+      assert.equal(await model.resume(), 'authority-denied');
+      assert.equal(model.state.evidenceReads, expectedEvidenceReads);
+      assert.equal(model.state.trace.includes('dispatch-marker:committed'), expectMarker);
+      assert.equal(model.state.providerCalls, 0);
+      assert.equal(model.state.quarantined, true);
+    });
+  }
 });
 
 test('proposal harness rejects early retry, the exclusive deadline, and an empty window', async t => {
