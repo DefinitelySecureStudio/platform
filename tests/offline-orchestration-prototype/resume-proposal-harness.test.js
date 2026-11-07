@@ -238,20 +238,27 @@ test('caller-side final time check catches a clock change after the marker helpe
 
 const asyncBoundaries = ['claim', 'evidence', 'preflight', 'dispatchMarker'];
 const timeFaults = [
-  ['deadline expiry', clock => { clock.now = 50; }],
-  ['changed epoch', clock => { clock.epoch = 'unexpected-epoch'; }],
-  ['rollback', clock => { clock.now = 9; }],
-  ['unavailable/non-finite time', clock => { clock.available = false; clock.now = Number.NaN; }]
+  ['deadline expiry', 10, clock => { clock.now = 50; }, 'deadline-expired'],
+  ['changed epoch', 10, clock => { clock.epoch = 'unexpected-epoch'; }, 'time-unverifiable'],
+  ['rollback above retry bound', 20, clock => { clock.now = 15; }, 'time-unverifiable'],
+  ['unavailable clock', 10, clock => { clock.available = false; }, 'time-unverifiable'],
+  ['non-finite clock sample', 10, clock => { clock.now = Number.NaN; }, 'time-unverifiable']
 ];
 
 for (const boundary of asyncBoundaries) {
-  for (const [faultName, mutate] of timeFaults) {
-    test(`proposal harness revalidates time after ${boundary}: ${faultName} makes zero provider calls`, async () => {
+  for (const [faultName, initialNow, mutate, expectedResult] of timeFaults) {
+    test(`proposal harness revalidates time after ${boundary}: ${faultName} is ${expectedResult}`, async () => {
       const model = createResumeModel({
+        now: initialNow,
         afterBoundary: { [boundary]: clock => mutate(clock) }
       });
       const result = await model.resume();
-      assert.notEqual(result, 'resumed');
+      assert.equal(result, expectedResult);
+      assert.equal(model.state.claimCount, 1);
+      assert.equal(model.state.claimed, true);
+      assert.equal(model.state.evidenceReads, boundary === 'claim' ? 0 : 1);
+      assert.equal(model.state.dispatchIntent, boundary === 'dispatchMarker');
+      assert.equal(model.state.trace.includes('dispatch-marker:committed'), boundary === 'dispatchMarker');
       assert.equal(model.state.providerCalls, 0);
       assert.equal(model.state.quarantined, true);
     });
