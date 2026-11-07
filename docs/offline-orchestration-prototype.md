@@ -29,7 +29,7 @@ the Comic Manifest schema.
   unresolved and reuse is blocked because this prototype has no cleanup path.
 - One exact `comic-production` fixture revision and its required text transcript
   rendition. Any other production identity, revision, or rendition is rejected.
-- At most two attempts per job and one mock provider call per attempt.
+- At most two attempts per job and at most one provider call per attempt.
 - A fixed 300,000 ms monotonic job budget. It is not reset between attempts.
 - One synthetic mock adapter only. No real providers, network, production
   storage, filesystem, scheduler, daemon, credential handling, or automatic
@@ -66,7 +66,7 @@ the Comic Manifest schema.
 | --- | ---: |
 | Active jobs | 1 |
 | Attempts per job | 2 |
-| Provider calls per attempt | 1 |
+| Provider calls per attempt (maximum) | 1 |
 | Job budget | 300,000 ms |
 | Prompt per attempt | 8 MiB, further reduced by the mock descriptor's 1 MiB input cap |
 | Normalized output per call | 16 MiB |
@@ -274,14 +274,15 @@ use `closeJob()` instead. A restart can only inspect; it cannot resume retry.
 
 The only retry admission proof in this prototype is the exact normalized mock
 rate-limit outcome that states the request was rate-limited before acceptance.
-Each attempt has one dispatch and a distinct `idempotency_key` derived from its
-fresh execution ID. The mock does not deduplicate across keys, and the prototype
+Each attempt makes at most one provider call and uses a distinct
+`idempotency_key` derived from its fresh execution ID. The mock does not
+deduplicate across keys, and the prototype
 does not claim cross-attempt or restart deduplication, durable resume, or
 exactly-once effects. A retry is an explicit, same-process continuation after
 the no-acceptance proof, under the original job deadline and two-attempt cap;
 recovery after restart remains read-only. Tests cover denied retry (no second
-call), authorized retry (exactly one new call/key), immutable prior result,
-the second-attempt limit, and read-only recovery.
+call), authorized retry (one new call/key on the successful fixture path),
+immutable prior result, the second-attempt limit, and read-only recovery.
 
 The experimental validator lives in `src/comic-manifest/result-candidate.js`;
 the stable `validateComicManifest` entry point continues to reject 1.1.0.

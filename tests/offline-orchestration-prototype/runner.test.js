@@ -203,7 +203,7 @@ function runner({ store = new InMemoryPrototypeStore(), runtime = createRuntime(
   };
 }
 
-test('runs exactly one synthetic mock call and commits a validated immutable result in order', async () => {
+test('successful attempt makes one synthetic mock call and commits a validated immutable result in order', async () => {
   const h = runner();
   const mocks = [];
   let dispatchObservedBeforeMock = false;
@@ -2117,13 +2117,48 @@ test('candidate cancellation during dispatch remains unmapped and cannot retry',
   await assert.rejects(() => h.value.retry({ authorizeRetry: true }), e => e.code === 'RETRY_NOT_AVAILABLE');
 });
 
-test('recovery of a candidate terminal attempt is read-only and cannot resume a retry', async () => {
-  const h = runner(); const r = await h.value.submit(candidateOptions);
+test('restart recovery stays read-only after the first result reaches the eligible retry time', async () => {
+  const clock = createRuntime();
+  const mocks = [];
+  let mockCreations = 0;
+  const h = runner({ runtime: clock.runtime,
+    mockAdapterFactory(configuration) {
+      mockCreations++;
+      const mock = new MockTextAdapter(configuration);
+      mocks.push(mock);
+      return mock;
+    }
+  });
+  const r = await h.value.submit(candidateOptions);
+  assert.equal(r.retry_eligible, true);
+  assert.equal(mockCreations, 1);
+  assert.equal(mocks[0].calls.length, 1);
+
+  const events = h.store.readEvents(r.job_id);
+  const outcomeEvent = events.find(item => item.type === 'provider-outcome');
+  const outcome = JSON.parse(h.store.readImmutable(outcomeEvent.payload_key).toString('utf8'));
+  assert.equal(outcome.error.retry_after_ms, 10);
+  const firstAttemptCompleted = clock.runtime.now();
+  clock.advance(outcome.error.retry_after_ms);
+  assert.equal(clock.runtime.now(), firstAttemptCompleted + outcome.error.retry_after_ms);
+
   const counts = [h.store.blobCount, h.store.eventCount];
-  const restarted = createOfflineOrchestrationPrototypeForTest({ store: h.store, runtime: h.runtime });
-  assert.equal(restarted.inspectRecovery(r.job_id).read_only, true);
+  const restarted = createOfflineOrchestrationPrototypeForTest({ store: h.store, runtime: clock.runtime,
+    mockAdapterFactory(configuration) {
+      mockCreations++;
+      const mock = new MockTextAdapter(configuration);
+      mocks.push(mock);
+      return mock;
+    }
+  });
+  const inspection = restarted.inspectRecovery(r.job_id);
+  assert.equal(inspection.read_only, true);
+  assert.equal(inspection.status, 'read-only-inspection-required');
   await assert.rejects(() => restarted.retry({ authorizeRetry: true }), e => e.code === 'RETRY_NOT_AVAILABLE');
   assert.deepEqual([h.store.blobCount, h.store.eventCount], counts);
+  assert.equal(mockCreations, 1);
+  assert.equal(mocks.length, 1);
+  assert.equal(mocks[0].calls.length, 1);
 });
 
 test('candidate retry rechecks proof after asynchronous mock preflight', async () => {
