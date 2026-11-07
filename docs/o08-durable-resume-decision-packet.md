@@ -38,25 +38,32 @@ before-acceptance rate-limit outcome. On restart:
    and its pinned production identity. Reject malformed or ambiguous metadata.
 2. Verify current execution authority (and package-use authority on the opt-in
    context path) for the retry action before protected evidence access.
-3. Verify an injected synthetic time authority and its exact time-domain/epoch
-   identity. Let `now` be its current time in that validated domain. Resume is
+3. After authority verification, read the injected synthetic time authority
+   with its exact time-domain/epoch identity. A current sample `now` is
    time-eligible exactly when `retry_not_before <= now < original_deadline`.
-   Before `retry_not_before`, wait without a provider call; at or after
-   `original_deadline`, fail closed without a provider call. Unknown epoch,
-   rollback, or unverifiable time also fails closed; never reset either bound.
-4. Acquire an atomic transactional single-runner claim. Recheck current
-   authority after asynchronous claim/verification boundaries and immediately
-   before each protected read or new effect.
+   Before `retry_not_before`, wait; at or after `original_deadline`, fail
+   closed. This sample is preliminary and must not be reused after an await.
+   Unknown epoch, rollback, or unverifiable time fails closed; never reset
+   either bound.
+4. Acquire an atomic transactional single-runner claim. If claim acquisition is
+   asynchronous, revalidate authority and obtain a fresh time sample after it
+   resolves and before protected evidence reads. Apply the same rule after each
+   asynchronous protected read or evidence-validation boundary.
 5. Validate immutable event and blob evidence, the event-chain integrity anchor,
    and every pinned input, prompt, provider outcome, and result byte against its
    recorded size and digest.
-6. Permit at most one caller-authorized new attempt, with a new execution ID and
-   idempotency key, only after the verified before-acceptance proof and while
-   `retry_not_before <= now < original_deadline`. Preserve the original result,
-   deadline, retry bound, and evidence.
-7. Make the dispatch-intent marker durable before invoking the adapter. A
-   missing/ambiguous commit acknowledgement, a crash after that marker, or a
-   dispatch with no verified outcome is quarantined and never automatically
+6. After asynchronous adapter preflight, revalidate current authority and obtain
+   a fresh time sample. Make the dispatch-intent marker durable before invoking
+   the adapter. Because marker commit may itself be asynchronous, revalidate
+   authority and time again after its confirmed commit. The fresh sample must
+   still satisfy `retry_not_before <= freshly_validated_now < original_deadline`.
+7. Permit at most one caller-authorized new attempt, with a new execution ID and
+   idempotency key, only after the verified before-acceptance proof and the final
+   fresh time/authority check. Preserve the original result, deadline, retry
+   bound, and evidence. There must be no await or other asynchronous boundary
+   between the final validated time sample and invoking the provider effect. A
+   missing/ambiguous marker commit acknowledgement, a crash after that marker,
+   or a dispatch with no verified outcome is quarantined and never automatically
    replayed. Ambiguous commits in claim, event, or blob transactions are also
    quarantined for explicit reconciliation.
 
@@ -122,6 +129,7 @@ and zero unauthorized effects.
 | Dispatch-intent transaction is ambiguous, or marker commits and process crashes before/while adapter invocation | Uncertain; never automatically replay | 0 after restart | Marker durable before invocation; no fabricated provider outcome/absence |
 | Adapter returns before-acceptance rate limit, then crash occurs before outcome and terminal evidence commits | Quarantine as an unverified outcome | 0 | Missing outcome cannot create retry eligibility |
 | Before-acceptance outcome, result, terminal link, and immutable evidence are durably committed; `now < retry_not_before` | Not yet time-eligible; preserve state and wait | 0 | Original result, deadline, and `retry_not_before` unchanged |
+| Fully committed eligible state; `now == retry_not_before < original_deadline` | Earliest time-eligible instant; one explicit resume may start attempt 2 if all other gates pass | Exactly 1 | Inclusive retry bound; original result, deadline, and `retry_not_before` unchanged |
 | Same fully committed eligible state; `retry_not_before <= now < original_deadline` | Time-eligible; one explicit resume may start attempt 2 if all other gates pass | Exactly 1 | New attempt/key; original result, deadline, and `retry_not_before` unchanged |
 | `now >= original_deadline` | Expired; do not resume | 0 | Original deadline retained; no reset |
 | `retry_not_before >= original_deadline` | No eligible time interval exists; do not resume | 0 | Both original bounds retained |
@@ -140,6 +148,45 @@ adapter-conformance matrix for same-key/same-request replay,
 same-key/different-request rejection, dedupe-window expiry, duplicate response,
 and provider unavailability. Do not fold that behavior into the first
 before-acceptance-only resume path.
+
+### Fresh-time checks across asynchronous boundaries
+
+Do not carry an admission/claim-time `now` snapshot into later work. Use a
+deterministic injected clock and cross each asynchronous boundary below with
+each listed anomaly. Every anomaly fixture must produce zero provider calls.
+
+| Asynchronous boundary | Time anomaly at the fresh post-boundary check | Expected result |
+| --- | --- | --- |
+| Claim acquisition | `now == original_deadline` | Fail closed; zero calls |
+| Claim acquisition | `now < retry_not_before` | Not yet eligible; zero calls |
+| Claim acquisition | Time authority epoch changes or becomes unknown | Fail closed; zero calls |
+| Claim acquisition | Authority reports a rollback from its last validated sample | Fail closed; zero calls |
+| Claim acquisition | Time authority is unavailable or returns a non-finite reading | Fail closed; zero calls |
+| Evidence read/validation | `now == original_deadline` | Fail closed; zero calls |
+| Evidence read/validation | `now < retry_not_before` | Not yet eligible; zero calls |
+| Evidence read/validation | Time authority epoch changes or becomes unknown | Fail closed; zero calls |
+| Evidence read/validation | Authority reports a rollback from its last validated sample | Fail closed; zero calls |
+| Evidence read/validation | Time authority is unavailable or returns a non-finite reading | Fail closed; zero calls |
+| Adapter preflight | `now == original_deadline` | Fail closed; zero calls |
+| Adapter preflight | `now < retry_not_before` | Not yet eligible; zero calls |
+| Adapter preflight | Time authority epoch changes or becomes unknown | Fail closed; zero calls |
+| Adapter preflight | Authority reports a rollback from its last validated sample | Fail closed; zero calls |
+| Adapter preflight | Time authority is unavailable or returns a non-finite reading | Fail closed; zero calls |
+| Dispatch-marker commit | `now == original_deadline` | Fail closed; zero calls |
+| Dispatch-marker commit | `now < retry_not_before` | Not yet eligible; zero calls |
+| Dispatch-marker commit | Time authority epoch changes or becomes unknown | Fail closed; zero calls |
+| Dispatch-marker commit | Authority reports a rollback from its last validated sample | Fail closed; zero calls |
+| Dispatch-marker commit | Time authority is unavailable or returns a non-finite reading | Fail closed; zero calls |
+| Immediately before provider effect | Fresh sample is within `retry_not_before <= now < original_deadline` | Time gate passes; continue only if every other gate passes |
+| Immediately before provider effect | `now == original_deadline` or `now < retry_not_before` | Fail closed/not yet eligible; zero calls |
+| Immediately before provider effect | Time authority epoch changes or becomes unknown | Fail closed; zero calls |
+| Immediately before provider effect | Authority reports rollback from its last validated sample | Fail closed; zero calls |
+| Immediately before provider effect | Time authority is unavailable or returns a non-finite reading | Fail closed; zero calls |
+
+The final time/authority check and provider invocation occur in one synchronous
+turn, with no await between them. A passing earlier sample is not evidence that
+the deadline or retry bound still passes after claim, evidence access, or
+preflight.
 
 ## Scope estimate and exclusions
 
