@@ -1632,8 +1632,10 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     }
     const expectedTypes = ['admitted', 'prepared', 'dispatch-started', 'provider-outcome',
       'result-prepared', 'persisting', 'terminal', 'resume-window'];
-    if (entries === UNKNOWN_STORE_STATE || !Array.isArray(entries) || entries.length !== expectedTypes.length
-      || entries.some((item, index) => item.type !== expectedTypes[index])) {
+    if (entries === UNKNOWN_STORE_STATE || !Array.isArray(entries)) {
+      return { status: 'reconciliation-required' };
+    }
+    if (entries.length !== expectedTypes.length || entries.some((item, index) => item.type !== expectedTypes[index])) {
       return { status: 'resume-not-eligible' };
     }
     const [admitted, prepared, dispatch, outcome, resultPrepared, persisting, terminal, resumeWindow] = entries;
@@ -1751,6 +1753,10 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       if (postClaimTime.status !== 'eligible') {
         return freezeDeep({ kind: 'resume-outcome', status: postClaimTime.status, job_id: jobId });
       }
+      const postClaimMonotonic = safeClock(runtime);
+      if (!postClaimMonotonic || postClaimMonotonic.epochId !== monotonic.epochId) {
+        return freezeDeep({ kind: 'resume-outcome', status: 'deadline-unverifiable', job_id: jobId });
+      }
 
       const currentResumeBoundary = () => {
         const authorityFailure = currentAuthorityFailure(authorityEvidence, 'retry', cancellation, authorityState);
@@ -1758,7 +1764,7 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
         const currentTime = resumeTimeStatus(timeBounds, resumeTimeState);
         if (currentTime.status !== 'eligible') throw new OfflineOrchestrationError(currentTime.status);
         const clock = safeClock(runtime);
-        const currentDeadline = checkedAdd(monotonic.now, timeBounds.deadlineAtMs - postClaimTime.now);
+        const currentDeadline = checkedAdd(postClaimMonotonic.now, timeBounds.deadlineAtMs - postClaimTime.now);
         if (!clock || clock.epochId !== monotonic.epochId || currentDeadline === undefined
           || clock.now >= currentDeadline) {
           throw new OfflineOrchestrationError('EXECUTION_DEADLINE_EXPIRED');
@@ -1775,12 +1781,15 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       } catch {
         return freezeDeep({ kind: 'resume-outcome', status: 'reconciliation-required', job_id: jobId });
       }
+      if (inspection.status === 'reconciliation-required') {
+        return freezeDeep({ kind: 'resume-outcome', status: 'reconciliation-required', job_id: jobId });
+      }
       if (inspection.status !== 'resume-candidate' || !candidate) {
         return freezeDeep({ kind: 'resume-outcome', status: 'resume-not-eligible', job_id: jobId });
       }
 
       const remainingMs = timeBounds.deadlineAtMs - postClaimTime.now;
-      const deadlineMonotonicMs = checkedAdd(monotonic.now, remainingMs);
+      const deadlineMonotonicMs = checkedAdd(postClaimMonotonic.now, remainingMs);
       if (deadlineMonotonicMs === undefined) {
         return freezeDeep({ kind: 'resume-outcome', status: 'deadline-unverifiable', job_id: jobId });
       }
@@ -1835,7 +1844,7 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
         renderedPrompt: candidate.renderedPrompt, promptBytes: candidate.promptBytes,
         ledger, attempts: [priorAttempt], lastAttempt: priorAttempt, retryOpen: true,
         retryNotBefore: undefined, state: 'retry-eligible', closed: false,
-        clockEpochId: monotonic.epochId, admittedMonotonicMs: monotonic.now,
+        clockEpochId: postClaimMonotonic.epochId, admittedMonotonicMs: postClaimMonotonic.now,
         deadlineMonotonicMs, authorityClock: authorityState,
         resumeTimeState, resumeTimeBounds: timeBounds,
         resumeAuthorityEvidence: authorityEvidence

@@ -401,6 +401,84 @@ test('resume time boundaries stop before claim, protected reads, or provider cal
   });
 });
 
+test('unknown event state is reconciliation-required before claiming or after a held claim', async t => {
+  const before = await seedRetryEligible(t, 10);
+  const beforeStore = new LocalFilePrototypeStore(before.root);
+  beforeStore.readEvents = () => UNKNOWN_STORE_STATE;
+  let beforeClaims = 0;
+  const claimBefore = beforeStore.claimResume.bind(beforeStore);
+  beforeStore.claimResume = jobId => { beforeClaims++; return claimBefore(jobId); };
+  const beforeRunner = createRunner(beforeStore, {
+    timeAuthority: resumeAuthority({ now: () => before.window.retry_not_before_at_ms })
+  });
+  assert.equal((await beforeRunner.resume({ jobId: before.jobId, authorizeResume: true })).status,
+    'reconciliation-required');
+  assert.equal(beforeClaims, 0);
+
+  const after = await seedRetryEligible(t, 10);
+  const afterStore = new LocalFilePrototypeStore(after.root);
+  const claimAfter = afterStore.claimResume.bind(afterStore);
+  afterStore.claimResume = jobId => {
+    const claim = claimAfter(jobId);
+    if (claim.status === 'acquired') afterStore.readEvents = () => UNKNOWN_STORE_STATE;
+    return claim;
+  };
+  let protectedReads = 0;
+  afterStore.readImmutable = () => { protectedReads++; return UNKNOWN_STORE_STATE; };
+  let providerCalls = 0;
+  const afterRunner = createRunner(afterStore, {
+    timeAuthority: resumeAuthority({ now: () => after.window.retry_not_before_at_ms }),
+    onMockCall: ({ phase }) => { if (phase === 'dispatch-confirmed') providerCalls++; }
+  });
+  const afterResult = await afterRunner.resume({ jobId: after.jobId, authorizeResume: true });
+  assert.equal(afterResult.status, 'reconciliation-required');
+  assert.equal(protectedReads, 0);
+  assert.equal(providerCalls, 0);
+  assert.equal(claimAfter(after.jobId).status, 'held');
+});
+
+test('deadline mapping pairs post-claim stable and monotonic samples after asynchronous authority advances both clocks', async t => {
+  const seeded = await seedRetryEligible(t, 10);
+  let stableNow = seeded.window.retry_not_before_at_ms;
+  const monotonic = runtime('resume-post-claim-paired-clock');
+  const base = authority();
+  let retryVerifications = 0;
+  const executionAuthorityProvider = Object.freeze({
+    id: base.verifier.id,
+    mode: 'synthetic',
+    async verify(request) {
+      const evidence = await base.verifier.verify(request);
+      if (request.action === 'retry' && ++retryVerifications === 2) {
+        stableNow += 50_000;
+        monotonic.advance(50_000);
+      }
+      return evidence;
+    },
+    isCurrent: base.verifier.isCurrent.bind(base.verifier)
+  });
+  class AdvancingDescriptionMock extends MockTextAdapter {
+    async describe() {
+      const result = await super.describe();
+      monotonic.advance(25_000);
+      return result;
+    }
+  }
+  let dispatches = 0;
+  const runner = createRunner(new LocalFilePrototypeStore(seeded.root), {
+    monotonicEpoch: 'resume-post-claim-paired-clock',
+    runtimeOverride: monotonic,
+    timeAuthority: resumeAuthority({ now: () => stableNow }),
+    executionAuthorityProvider,
+    mockAdapterFactory: configuration => new AdvancingDescriptionMock(configuration),
+    onMockCall: ({ phase }) => { if (phase === 'dispatch-confirmed') dispatches++; }
+  });
+  const result = await runner.resume({ jobId: seeded.jobId, authorizeResume: true });
+  assert.equal(result.kind, 'terminal');
+  assert.equal(retryVerifications, 5);
+  assert.equal(dispatches, 1);
+  assert.equal(monotonic.now(), 85_000);
+});
+
 test('concurrent resume calls share one atomic claim and make at most one provider call', async t => {
   const seeded = await seedRetryEligible(t, 10);
   const firstStore = new LocalFilePrototypeStore(seeded.root);

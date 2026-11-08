@@ -206,7 +206,11 @@ rechecks authority/time before reading protected input, prompt, provider
 outcome, and result blobs; the guard is repeated around each synchronous blob
 read. It validates the exact prior outcome/result evidence, reconstructs the
 material ledger from the verified blobs, and performs mock preflight. After the
-awaited preflight it rechecks authority and the original time interval.
+awaited preflight it rechecks authority and the original time interval. After
+post-claim authorization it pairs the validated stable-time sample with a fresh
+monotonic sample from the same epoch to map the remaining original deadline.
+Unreadable or unknown lifecycle state before or after claim returns
+`reconciliation-required` and never triggers replay.
 
 The same durable one-shot claim is acquired by the original runner's ordinary
 `retry()` path before protected retry evidence is read. Thus an in-flight
