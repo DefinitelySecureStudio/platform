@@ -620,7 +620,7 @@ test('explicit synthetic context retry reauthorizes cached context evidence with
 test('package subpath exposes only the synthetic offline runner surface', async () => {
   const authority = authorityFixture();
   const value = createOfflineOrchestrationPrototype({ executionAuthorityProvider: authority.verifier });
-  assert.deepEqual(Object.keys(value).sort(), ['closeJob', 'inspectRecovery', 'retry', 'submit']);
+  assert.deepEqual(Object.keys(value).sort(), ['closeJob', 'inspectRecovery', 'resume', 'retry', 'submit']);
   const result = await value.submit({ productionSource });
   assert.equal(result.kind, 'terminal');
   assert.equal(result.result.status, 'complete');

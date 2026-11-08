@@ -6,14 +6,16 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
-import {
-  createSyntheticExecutionAuthorityVerifier,
+import { createSyntheticExecutionAuthorityVerifier,
   SYNTHETIC_EXECUTION_PURPOSE
 } from '../../src/offline-orchestration-prototype/execution-authority.js';
+import { createOfflineOrchestrationPrototype } from '../../src/offline-orchestration-prototype/index.js';
+import { MockTextAdapter } from '../../src/prompt-sdk/index.js';
 import {
   createOfflineOrchestrationPrototypeForTest,
   LocalFilePrototypeStore
 } from '../../src/offline-orchestration-prototype/testing.js';
+import { UNKNOWN_STORE_STATE } from '../../src/offline-orchestration-prototype/memory-store.js';
 import { canonicalJson } from '../../src/prompt-sdk/index.js';
 import { OFFLINE_ORCHESTRATION_LIMITS } from '../../src/offline-orchestration-prototype/limits.js';
 
@@ -34,7 +36,7 @@ function authority() {
     expires_at: '2027-02-01T00:00:00Z',
     authority_reference: 'https://github.com/DefinitelySecureStudio/platform/issues/109'
   });
-  return createSyntheticExecutionAuthorityVerifier([record('execute', '1'), record('retry', '2')]).verifier;
+  return createSyntheticExecutionAuthorityVerifier([record('execute', '1'), record('retry', '2')]);
 }
 
 function runtime(epochId = 'original-monotonic-epoch') {
@@ -57,13 +59,15 @@ function resumeAuthority({ domain = 'synthetic-resume-time-v1', epoch = 'fixture
   };
 }
 
-function createRunner(store, { timeAuthority = resumeAuthority(), monotonicEpoch = 'original-monotonic-epoch', onMockCall } = {}) {
+function createRunner(store, { timeAuthority = resumeAuthority(), monotonicEpoch = 'original-monotonic-epoch',
+  onMockCall, executionAuthorityProvider, mockAdapterFactory, runtimeOverride } = {}) {
   return createOfflineOrchestrationPrototypeForTest({
     store,
-    runtime: runtime(monotonicEpoch),
+    runtime: runtimeOverride ?? runtime(monotonicEpoch),
     idFactory: randomUUID,
-    executionAuthorityProvider: authority(),
+    executionAuthorityProvider: executionAuthorityProvider ?? authority().verifier,
     resumeTimeAuthority: timeAuthority,
+    mockAdapterFactory,
     onMockCall
   });
 }
@@ -264,4 +268,416 @@ test('malformed or cross-execution provider outcomes never yield candidates', as
     assert.equal(resumeClaimCalls(), 0);
     assert.equal(providerCalls, 0);
   });
+});
+
+test('explicit writable resume uses a one-shot claim and appends attempt two before one mock call', async t => {
+  const seeded = await seedRetryEligible(t, 10);
+  const store = new LocalFilePrototypeStore(seeded.root);
+  const resumeClaimCalls = observeResumeClaims(store);
+  const callObservations = [];
+  const resumed = createRunner(store, {
+    monotonicEpoch: 'resume-happy-path',
+    timeAuthority: resumeAuthority({ now: () => seeded.window.retry_not_before_at_ms }),
+    onMockCall({ phase, mock, executionId }) {
+      if (phase === 'dispatch-confirmed') {
+        callObservations.push({ executionId, existingCalls: mock.calls.length,
+          dispatches: store.readEvents(seeded.jobId).filter(item => item.type === 'dispatch-started').length });
+      }
+    }
+  });
+
+  const result = await resumed.resume({ jobId: seeded.jobId, authorizeResume: true });
+  assert.equal(result.kind, 'terminal');
+  assert.equal(result.retry_eligible, false);
+  assert.equal(resumeClaimCalls(), 1);
+  assert.equal(callObservations.length, 1);
+  assert.equal(callObservations[0].existingCalls, 0);
+  assert.equal(callObservations[0].dispatches, 2);
+  assert.notEqual(callObservations[0].executionId, seeded.result.execution_id);
+  assert.equal(resumed.inspectRecovery(seeded.jobId).status, 'terminal');
+
+  const entries = store.readEvents(seeded.jobId);
+  const prepared = entries.filter(item => item.type === 'prepared');
+  const dispatches = entries.filter(item => item.type === 'dispatch-started');
+  assert.equal(prepared.length, 2);
+  assert.equal(prepared[1].retry_of_attempt_id, prepared[0].attempt_id);
+  assert.equal(dispatches.length, 2);
+  assert.equal(dispatches[1].execution_id, prepared[1].execution_id);
+  assert.equal(entries.filter(item => item.type === 'resume-window').length, 1);
+  assert.equal(entries.find(item => item.type === 'resume-window').retry_not_before_at_ms,
+    seeded.window.retry_not_before_at_ms);
+  assert.equal(entries.find(item => item.type === 'admitted').resume_time.deadline_at_ms,
+    seeded.admitted.resume_time.deadline_at_ms);
+  assert.equal(store.claimResume(seeded.jobId).status, 'held');
+
+  const repeat = await resumed.resume({ jobId: seeded.jobId, authorizeResume: true });
+  assert.notEqual(repeat.status, 'terminal');
+  assert.equal(callObservations.length, 1);
+});
+
+test('public prototype can resume a candidate only with an installed local store and synthetic time authority', async t => {
+  const seeded = await seedRetryEligible(t, 10);
+  const prototype = createOfflineOrchestrationPrototype({
+    store: new LocalFilePrototypeStore(seeded.root),
+    executionAuthorityProvider: authority().verifier,
+    resumeTimeAuthority: resumeAuthority({ now: () => seeded.window.retry_not_before_at_ms })
+  });
+  const result = await prototype.resume({ jobId: seeded.jobId, authorizeResume: true });
+  assert.equal(result.kind, 'terminal');
+  assert.equal(prototype.inspectRecovery(seeded.jobId).status, 'terminal');
+  assert.throws(() => createOfflineOrchestrationPrototype({
+    executionAuthorityProvider: authority().verifier,
+    resumeTimeAuthority: resumeAuthority()
+  }), error => error.code === 'RESUME_STORE_UNAVAILABLE');
+});
+
+test('resume requires explicit intent and current authority before claim or protected reads', async t => {
+  const seeded = await seedRetryEligible(t, 10);
+  const store = new LocalFilePrototypeStore(seeded.root);
+  const claimCalls = observeResumeClaims(store);
+  const originalRead = store.readImmutable.bind(store);
+  let protectedReads = 0;
+  store.readImmutable = key => { protectedReads++; return originalRead(key); };
+  let providerCalls = 0;
+  const runner = createRunner(store, {
+    timeAuthority: resumeAuthority({ now: () => seeded.window.retry_not_before_at_ms }),
+    onMockCall: ({ phase }) => { if (phase === 'dispatch-confirmed') providerCalls++; }
+  });
+
+  await assert.rejects(() => runner.resume({ jobId: seeded.jobId }),
+    error => error.code === 'EXPLICIT_RESUME_AUTHORIZATION_REQUIRED');
+  assert.equal(claimCalls(), 0);
+  assert.equal(protectedReads, 0);
+  assert.equal(providerCalls, 0);
+
+  const deniedAuthority = authority();
+  deniedAuthority.revoke('20000000-0000-4000-8000-000000000002');
+  const deniedRunner = createRunner(store, {
+    timeAuthority: resumeAuthority({ now: () => seeded.window.retry_not_before_at_ms }),
+    executionAuthorityProvider: deniedAuthority.verifier,
+    onMockCall: ({ phase }) => { if (phase === 'dispatch-confirmed') providerCalls++; }
+  });
+  const denied = await deniedRunner.resume({ jobId: seeded.jobId, authorizeResume: true });
+  assert.equal(denied.status, 'execution-authority-denied');
+  assert.equal(claimCalls(), 0);
+  assert.equal(protectedReads, 0);
+  assert.equal(providerCalls, 0);
+});
+
+test('resume time boundaries stop before claim, protected reads, or provider calls', async t => {
+  const seeded = await seedRetryEligible(t, 10);
+  for (const [label, now, expected] of [
+    ['before retry bound', seeded.window.retry_not_before_at_ms - 1, 'retry-delay-not-elapsed'],
+    ['at original deadline', seeded.admitted.resume_time.deadline_at_ms, 'budget-exhausted']
+  ]) await t.test(label, async t => {
+    const store = new LocalFilePrototypeStore(seeded.root);
+    const claimCalls = observeResumeClaims(store);
+    let protectedReads = 0;
+    const originalRead = store.readImmutable.bind(store);
+    store.readImmutable = key => { protectedReads++; return originalRead(key); };
+    let providerCalls = 0;
+    const runner = createRunner(store, {
+      monotonicEpoch: `resume-${label.replaceAll(' ', '-')}`,
+      timeAuthority: resumeAuthority({ now: () => now }),
+      onMockCall: ({ phase }) => { if (phase === 'dispatch-confirmed') providerCalls++; }
+    });
+    const result = await runner.resume({ jobId: seeded.jobId, authorizeResume: true });
+    assert.equal(result.status, expected);
+    assert.equal(claimCalls(), 0);
+    assert.equal(protectedReads, 0);
+    assert.equal(providerCalls, 0);
+  });
+});
+
+test('concurrent resume calls share one atomic claim and make at most one provider call', async t => {
+  const seeded = await seedRetryEligible(t, 10);
+  const firstStore = new LocalFilePrototypeStore(seeded.root);
+  const secondStore = new LocalFilePrototypeStore(seeded.root);
+  let providerCalls = 0;
+  const timeAuthority = resumeAuthority({ now: () => seeded.window.retry_not_before_at_ms });
+  const first = createRunner(firstStore, {
+    monotonicEpoch: 'resume-racer-one', timeAuthority,
+    onMockCall: ({ phase }) => { if (phase === 'dispatch-confirmed') providerCalls++; }
+  });
+  const second = createRunner(secondStore, {
+    monotonicEpoch: 'resume-racer-two', timeAuthority,
+    onMockCall: ({ phase }) => { if (phase === 'dispatch-confirmed') providerCalls++; }
+  });
+  const results = await Promise.all([
+    first.resume({ jobId: seeded.jobId, authorizeResume: true }),
+    second.resume({ jobId: seeded.jobId, authorizeResume: true })
+  ]);
+  assert.equal(results.filter(result => result.kind === 'terminal').length, 1);
+  assert.equal(results.filter(result => result.status === 'resume-claim-held').length, 1);
+  assert.equal(providerCalls, 1);
+});
+
+test('revocation during claim acquisition stops before any protected read or provider call', async t => {
+  const seeded = await seedRetryEligible(t, 10);
+  const store = new LocalFilePrototypeStore(seeded.root);
+  const claimResume = store.claimResume.bind(store);
+  let claimCalls = 0;
+  store.claimResume = jobId => {
+    claimCalls++;
+    const claim = claimResume(jobId);
+    if (claim.status === 'acquired') executionAuthority.revoke('20000000-0000-4000-8000-000000000002');
+    return claim;
+  };
+  let protectedReads = 0;
+  const originalRead = store.readImmutable.bind(store);
+  store.readImmutable = key => { protectedReads++; return originalRead(key); };
+  let providerCalls = 0;
+  const executionAuthority = authority();
+  const runner = createRunner(store, {
+    timeAuthority: resumeAuthority({ now: () => seeded.window.retry_not_before_at_ms }),
+    executionAuthorityProvider: executionAuthority.verifier,
+    onMockCall: ({ phase }) => { if (phase === 'dispatch-confirmed') providerCalls++; }
+  });
+  const result = await runner.resume({ jobId: seeded.jobId, authorizeResume: true });
+  assert.equal(result.status, 'execution-authority-denied');
+  assert.equal(claimCalls, 1);
+  assert.equal(protectedReads, 0);
+  assert.equal(providerCalls, 0);
+  assert.equal(claimResume(seeded.jobId).status, 'held');
+});
+
+test('stable-time rollback during claim acquisition stops before protected reads', async t => {
+  const seeded = await seedRetryEligible(t, 10);
+  const store = new LocalFilePrototypeStore(seeded.root);
+  let now = seeded.window.retry_not_before_at_ms + 1;
+  const claimResume = store.claimResume.bind(store);
+  store.claimResume = jobId => {
+    const claim = claimResume(jobId);
+    now = seeded.window.retry_not_before_at_ms;
+    return claim;
+  };
+  let protectedReads = 0;
+  const originalRead = store.readImmutable.bind(store);
+  store.readImmutable = key => { protectedReads++; return originalRead(key); };
+  let providerCalls = 0;
+  const runner = createRunner(store, {
+    timeAuthority: resumeAuthority({ now: () => now }),
+    onMockCall: ({ phase }) => { if (phase === 'dispatch-confirmed') providerCalls++; }
+  });
+  const result = await runner.resume({ jobId: seeded.jobId, authorizeResume: true });
+  assert.equal(result.status, 'deadline-unverifiable');
+  assert.equal(protectedReads, 0);
+  assert.equal(providerCalls, 0);
+  assert.equal(claimResume(seeded.jobId).status, 'held');
+});
+
+test('unknown one-shot claim fails closed before protected reads or provider calls', async t => {
+  const seeded = await seedRetryEligible(t, 10);
+  const store = new LocalFilePrototypeStore(seeded.root);
+  let claimCalls = 0;
+  store.claimResume = () => { claimCalls++; return { status: 'unknown' }; };
+  let protectedReads = 0;
+  const originalRead = store.readImmutable.bind(store);
+  store.readImmutable = key => { protectedReads++; return originalRead(key); };
+  let providerCalls = 0;
+  const runner = createRunner(store, {
+    timeAuthority: resumeAuthority({ now: () => seeded.window.retry_not_before_at_ms }),
+    onMockCall: ({ phase }) => { if (phase === 'dispatch-confirmed') providerCalls++; }
+  });
+  const result = await runner.resume({ jobId: seeded.jobId, authorizeResume: true });
+  assert.equal(result.status, 'reconciliation-required');
+  assert.equal(claimCalls, 1);
+  assert.equal(protectedReads, 0);
+  assert.equal(providerCalls, 0);
+});
+
+test('stable deadline expiry during asynchronous mock preflight prevents dispatch', async t => {
+  const seeded = await seedRetryEligible(t, 10);
+  const store = new LocalFilePrototypeStore(seeded.root);
+  let now = seeded.window.retry_not_before_at_ms;
+  const deadline = seeded.admitted.resume_time.deadline_at_ms;
+  class AdvancingMock extends MockTextAdapter {
+    async describe() {
+      const descriptor = await super.describe();
+      now = deadline;
+      return descriptor;
+    }
+  }
+  let dispatches = 0;
+  const runner = createRunner(store, {
+    timeAuthority: resumeAuthority({ now: () => now }),
+    mockAdapterFactory: configuration => new AdvancingMock(configuration),
+    onMockCall: ({ phase }) => { if (phase === 'dispatch-confirmed') dispatches++; }
+  });
+  const result = await runner.resume({ jobId: seeded.jobId, authorizeResume: true });
+  assert.equal(result.status, 'budget-exhausted');
+  assert.equal(dispatches, 0);
+  assert.equal(store.claimResume(seeded.jobId).status, 'held');
+});
+
+test('authority revocation during asynchronous mock preflight prevents dispatch', async t => {
+  const seeded = await seedRetryEligible(t, 10);
+  const store = new LocalFilePrototypeStore(seeded.root);
+  const executionAuthority = authority();
+  class RevokingMock extends MockTextAdapter {
+    async describe() {
+      const descriptor = await super.describe();
+      executionAuthority.revoke('20000000-0000-4000-8000-000000000002');
+      return descriptor;
+    }
+  }
+  let dispatches = 0;
+  const runner = createRunner(store, {
+    timeAuthority: resumeAuthority({ now: () => seeded.window.retry_not_before_at_ms }),
+    executionAuthorityProvider: executionAuthority.verifier,
+    mockAdapterFactory: configuration => new RevokingMock(configuration),
+    onMockCall: ({ phase }) => { if (phase === 'dispatch-confirmed') dispatches++; }
+  });
+  const result = await runner.resume({ jobId: seeded.jobId, authorizeResume: true });
+  assert.equal(result.status, 'execution-authority-denied');
+  assert.equal(dispatches, 0);
+  assert.equal(store.claimResume(seeded.jobId).status, 'held');
+});
+
+test('stable deadline expiry during final awaited authority check blocks the mock effect', async t => {
+  const seeded = await seedRetryEligible(t, 10);
+  const store = new LocalFilePrototypeStore(seeded.root);
+  const deadline = seeded.admitted.resume_time.deadline_at_ms;
+  let now = seeded.window.retry_not_before_at_ms;
+  const baseAuthority = authority();
+  let retryVerifications = 0;
+  const executionAuthorityProvider = Object.freeze({
+    id: baseAuthority.verifier.id,
+    mode: 'synthetic',
+    async verify(request) {
+      if (request.action === 'retry') retryVerifications++;
+      const evidence = await baseAuthority.verifier.verify(request);
+      if (retryVerifications === 5) now = deadline;
+      return evidence;
+    },
+    isCurrent: baseAuthority.verifier.isCurrent.bind(baseAuthority.verifier)
+  });
+  let providerCalls = 0;
+  const runner = createRunner(store, {
+    timeAuthority: resumeAuthority({ now: () => now }),
+    executionAuthorityProvider,
+    onMockCall({ phase, mock }) {
+      if (phase !== 'dispatch-confirmed') return;
+      const execute = mock.execute.bind(mock);
+      mock.execute = (...args) => { providerCalls++; return execute(...args); };
+    }
+  });
+  const result = await runner.resume({ jobId: seeded.jobId, authorizeResume: true });
+  assert.equal(result.status, 'reconciliation-required');
+  assert.equal(retryVerifications, 5);
+  assert.equal(providerCalls, 0);
+  assert.equal(store.readEvents(seeded.jobId).filter(item => item.type === 'dispatch-started').length, 2);
+});
+
+test('ambiguous prior result read after final authority verification quarantines without another provider call', async t => {
+  const seeded = await seedRetryEligible(t, 10);
+  const store = new LocalFilePrototypeStore(seeded.root);
+  const originalResultKey = `result:${seeded.terminal.result_id}`;
+  const readImmutable = store.readImmutable.bind(store);
+  let hidePriorResult = false;
+  store.readImmutable = key => key === originalResultKey && hidePriorResult
+    ? UNKNOWN_STORE_STATE : readImmutable(key);
+  const baseAuthority = authority();
+  let retryVerifications = 0;
+  const executionAuthorityProvider = Object.freeze({
+    id: baseAuthority.verifier.id,
+    mode: 'synthetic',
+    async verify(request) {
+      if (request.action === 'retry') retryVerifications++;
+      const evidence = await baseAuthority.verifier.verify(request);
+      if (retryVerifications === 5) hidePriorResult = true;
+      return evidence;
+    },
+    isCurrent: baseAuthority.verifier.isCurrent.bind(baseAuthority.verifier)
+  });
+  let providerCalls = 0;
+  const runner = createRunner(store, {
+    timeAuthority: resumeAuthority({ now: () => seeded.window.retry_not_before_at_ms }),
+    executionAuthorityProvider,
+    onMockCall({ phase, mock }) {
+      if (phase !== 'dispatch-confirmed') return;
+      const execute = mock.execute.bind(mock);
+      mock.execute = (...args) => { providerCalls++; return execute(...args); };
+    }
+  });
+  const result = await runner.resume({ jobId: seeded.jobId, authorizeResume: true });
+  assert.equal(result.status, 'reconciliation-required');
+  assert.equal(providerCalls, 0);
+  assert.equal(retryVerifications, 5);
+  assert.equal(store.claimResume(seeded.jobId).status, 'held');
+});
+
+test('unverifiable dispatch marker is quarantined and never replayed after restart', async t => {
+  const seeded = await seedRetryEligible(t, 10);
+  const store = new LocalFilePrototypeStore(seeded.root);
+  const append = store.append.bind(store);
+  const readEvents = store.readEvents.bind(store);
+  let hideDispatchReadback = false;
+  store.append = entry => {
+    append(entry);
+    if (entry.type === 'dispatch-started' && entry.attempt_id !== seeded.terminal.attempt_id) {
+      hideDispatchReadback = true;
+    }
+  };
+  store.readEvents = jobId => {
+    if (hideDispatchReadback) { hideDispatchReadback = false; return UNKNOWN_STORE_STATE; }
+    return readEvents(jobId);
+  };
+  let providerCalls = 0;
+  const runner = createRunner(store, {
+    timeAuthority: resumeAuthority({ now: () => seeded.window.retry_not_before_at_ms }),
+    onMockCall: ({ phase }) => { if (phase === 'dispatch-confirmed') providerCalls++; }
+  });
+  const result = await runner.resume({ jobId: seeded.jobId, authorizeResume: true });
+  assert.equal(result.status, 'reconciliation-required');
+  assert.equal(providerCalls, 0);
+  const restarted = createRunner(new LocalFilePrototypeStore(seeded.root), {
+    monotonicEpoch: 'resume-after-ambiguous-marker',
+    timeAuthority: resumeAuthority({ now: () => seeded.window.retry_not_before_at_ms }),
+    onMockCall: ({ phase }) => { if (phase === 'dispatch-confirmed') providerCalls++; }
+  });
+  const repeat = await restarted.resume({ jobId: seeded.jobId, authorizeResume: true });
+  assert.equal(repeat.status, 'resume-not-eligible');
+  assert.equal(providerCalls, 0);
+  assert.equal(readEvents(seeded.jobId).filter(item => item.type === 'dispatch-started').length, 2);
+});
+
+test('uncertain new provider-outcome write is not replayed after restart', async t => {
+  const seeded = await seedRetryEligible(t, 10);
+  const store = new LocalFilePrototypeStore(seeded.root);
+  const originalOutcomeKey = `provider-outcome:${seeded.terminal.execution_id}`;
+  const readImmutable = store.readImmutable.bind(store);
+  const writeImmutable = store.writeImmutable.bind(store);
+  let unknownNewOutcome = false;
+  store.readImmutable = key => key.startsWith('provider-outcome:') && key !== originalOutcomeKey && unknownNewOutcome
+    ? UNKNOWN_STORE_STATE : readImmutable(key);
+  store.writeImmutable = (key, bytes) => {
+    const result = writeImmutable(key, bytes);
+    if (key.startsWith('provider-outcome:') && key !== originalOutcomeKey) unknownNewOutcome = true;
+    return result;
+  };
+  let providerCalls = 0;
+  const runner = createRunner(store, {
+    timeAuthority: resumeAuthority({ now: () => seeded.window.retry_not_before_at_ms }),
+    onMockCall({ phase, mock }) {
+      if (phase !== 'dispatch-confirmed') return;
+      const execute = mock.execute.bind(mock);
+      mock.execute = (...args) => { providerCalls++; return execute(...args); };
+    }
+  });
+  const result = await runner.resume({ jobId: seeded.jobId, authorizeResume: true });
+  assert.equal(result.status, 'reconciliation-required');
+  assert.equal(providerCalls, 1);
+  const restarted = createRunner(new LocalFilePrototypeStore(seeded.root), {
+    monotonicEpoch: 'resume-after-uncertain-outcome',
+    timeAuthority: resumeAuthority({ now: () => seeded.window.retry_not_before_at_ms }),
+    onMockCall({ phase, mock }) {
+      if (phase !== 'dispatch-confirmed') return;
+      const execute = mock.execute.bind(mock);
+      mock.execute = (...args) => { providerCalls++; return execute(...args); };
+    }
+  });
+  const repeat = await restarted.resume({ jobId: seeded.jobId, authorizeResume: true });
+  assert.equal(repeat.status, 'resume-not-eligible');
+  assert.equal(providerCalls, 1);
 });

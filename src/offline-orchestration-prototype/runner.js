@@ -20,6 +20,7 @@ import {
   OFFLINE_ORCHESTRATION_LIMITS
 } from './limits.js';
 import { InMemoryPrototypeStore, UNKNOWN_STORE_STATE } from './memory-store.js';
+import { LocalFilePrototypeStore } from './local-file-store.js';
 import { renderOfflineComicPrompt } from './prompt.js';
 import {
   SYNTHETIC_EXECUTION_PURPOSE, validateExecutionAuthorityEvidence
@@ -382,6 +383,9 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     }
     installedResumeTimeAuthority = Object.freeze({ id: configured.id, mode: configured.mode,
       domain_id: configured.domain_id, epoch_id: configured.epoch_id, now: configured.now.bind(resumeTimeAuthority) });
+    if (!(store instanceof LocalFilePrototypeStore)) {
+      throw new OfflineOrchestrationError('RESUME_STORE_UNAVAILABLE');
+    }
   }
   const verifyExecutionAuthority = executionAuthorityProvider.verify.bind(executionAuthorityProvider);
   const checkExecutionAuthorityCurrent = executionAuthorityProvider.isCurrent.bind(executionAuthorityProvider);
@@ -572,6 +576,12 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       if (contextFailure) return 'authority';
     }
     if (currentPermitTimeFailure(evidence, contextEvidence, job.authorityClock)) return 'authority';
+    if (job.resumeTimeBounds) {
+      const resumeNow = sampleResumeTime(job.resumeTimeState);
+      if (resumeNow === undefined) return 'resume-time-unverifiable';
+      if (resumeNow < job.resumeTimeBounds.retryNotBeforeAtMs) return 'resume-delay';
+      if (resumeNow >= job.resumeTimeBounds.deadlineAtMs) return 'resume-deadline';
+    }
     const after = safeClock(runtime);
     if (!after || after.epochId !== job.clockEpochId) return 'clock-unverifiable';
     if (deadlineExpired || after.now >= job.deadlineMonotonicMs) return 'time';
@@ -865,11 +875,19 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     if (!prior?.terminalResult || !eligibleRateLimit(prior.providerResult)) return false;
     const result = stableResult(prior.terminalResult);
     const outcome = stableResult(prior.providerResult);
+    const readPinned = (key, bytes, sha) => {
+      try {
+        job.resumeBoundary?.();
+        const valid = readBackBlob(key, bytes, sha);
+        job.resumeBoundary?.();
+        return valid;
+      } catch { return false; }
+    };
     if (!validateComicBuildResultCandidate(result.source, job.production.canonical).valid
-      || !readBackBlob(`input:${job.jobId}`, Buffer.from(job.production.canonical), job.production.identity.sha256)
-      || !readBackBlob(`prompt:${job.jobId}`, job.promptBytes, job.renderedPrompt.sha256)
-      || !readBackBlob(`result:${prior.resultId}`, result.bytes, result.sha256)
-      || !readBackBlob(`provider-outcome:${prior.executionId}`, outcome.bytes, outcome.sha256)) return false;
+      || !readPinned(`input:${job.jobId}`, Buffer.from(job.production.canonical), job.production.identity.sha256)
+      || !readPinned(`prompt:${job.jobId}`, job.promptBytes, job.renderedPrompt.sha256)
+      || !readPinned(`result:${prior.resultId}`, result.bytes, result.sha256)
+      || !readPinned(`provider-outcome:${prior.executionId}`, outcome.bytes, outcome.sha256)) return false;
     let entries;
     try { entries = store.readEvents(job.jobId); } catch { return false; }
     if (!Array.isArray(entries) || entries.some(e => ['job-closed', 'contract-mapping-blocked'].includes(e.type))) return false;
@@ -1580,6 +1598,233 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     }
   }
 
+  function readResumeRoutingMetadata(jobId) {
+    let entries;
+    try { entries = store.readEvents(jobId); } catch {
+      return { status: 'reconciliation-required' };
+    }
+    const expectedTypes = ['admitted', 'prepared', 'dispatch-started', 'provider-outcome',
+      'result-prepared', 'persisting', 'terminal', 'resume-window'];
+    if (entries === UNKNOWN_STORE_STATE || !Array.isArray(entries) || entries.length !== expectedTypes.length
+      || entries.some((item, index) => item.type !== expectedTypes[index])) {
+      return { status: 'resume-not-eligible' };
+    }
+    const [admitted, prepared, dispatch, outcome, resultPrepared, persisting, terminal, resumeWindow] = entries;
+    const timeRecord = admitted.resume_time;
+    const timeKeys = 'authority_id|context_enabled|deadline_at_ms|domain_id|epoch_id|started_at_ms';
+    const attemptId = prepared.attempt_id;
+    const executionId = prepared.execution_id;
+    const isResourceId = value => typeof value === 'string' && value.startsWith('urn:uuid:')
+      && UUID.test(value.slice('urn:uuid:'.length));
+    const isExecutionId = value => typeof value === 'string' && value.startsWith('exec-offline-')
+      && UUID.test(value.slice('exec-offline-'.length));
+    if (!timeRecord || Object.keys(timeRecord).sort().join('|') !== timeKeys
+      || timeRecord.authority_id !== installedResumeTimeAuthority?.id
+      || timeRecord.domain_id !== installedResumeTimeAuthority?.domain_id
+      || timeRecord.epoch_id !== installedResumeTimeAuthority?.epoch_id
+      || timeRecord.context_enabled !== false
+      || !Number.isSafeInteger(timeRecord.started_at_ms)
+      || !Number.isSafeInteger(timeRecord.deadline_at_ms)
+      || timeRecord.deadline_at_ms !== checkedAdd(timeRecord.started_at_ms, OFFLINE_ORCHESTRATION_LIMITS.jobBudgetMs)
+      || admitted.production?.production_id !== EXPECTED_PRODUCTION_ID
+      || admitted.production?.revision !== 1
+      || admitted.production?.identity?.sha256 !== EXPECTED_PRODUCTION_SHA256
+      || admitted.no_output_result_version !== '1.1.0'
+      || prepared.retry_of_attempt_id !== null || !isResourceId(attemptId) || !isExecutionId(executionId)
+      || dispatch.attempt_id !== attemptId || dispatch.execution_id !== executionId || dispatch.call_number !== 1
+      || outcome.attempt_id !== attemptId || outcome.execution_id !== executionId || outcome.status !== 'failed'
+      || outcome.payload_key !== `provider-outcome:${executionId}`
+      || resultPrepared.attempt_id !== attemptId || resultPrepared.execution_id !== executionId
+      || resultPrepared.status !== 'failed'
+      || persisting.attempt_id !== attemptId || persisting.execution_id !== executionId
+      || terminal.attempt_id !== attemptId || terminal.execution_id !== executionId
+      || !isResourceId(terminal.result_id)
+      || resumeWindow.attempt_id !== attemptId || resumeWindow.execution_id !== executionId
+      || resumeWindow.terminal_result_id !== terminal.result_id
+      || resumeWindow.deadline_at_ms !== timeRecord.deadline_at_ms
+      || !Number.isSafeInteger(resumeWindow.checked_at_ms) || resumeWindow.checked_at_ms < timeRecord.started_at_ms
+      || !Number.isSafeInteger(resumeWindow.retry_not_before_at_ms)
+      || resumeWindow.retry_not_before_at_ms < 0
+      || resumeWindow.checked_at_ms >= timeRecord.deadline_at_ms) {
+      return { status: 'resume-not-eligible' };
+    }
+    if (resumeWindow.retry_not_before_at_ms >= timeRecord.deadline_at_ms) {
+      return { status: 'resume-window-empty' };
+    }
+    return { status: 'metadata-candidate', entries, admitted, prepared, dispatch, outcome,
+      resultPrepared, persisting, terminal, resumeWindow, timeRecord };
+  }
+
+  function resumeTimeStatus(bounds, state) {
+    const now = sampleResumeTime(state);
+    if (now === undefined) return { status: 'deadline-unverifiable' };
+    if (now < bounds.retryNotBeforeAtMs) return { status: 'retry-delay-not-elapsed' };
+    if (now >= bounds.deadlineAtMs) return { status: 'budget-exhausted' };
+    return { status: 'eligible', now };
+  }
+
+  async function resume(options = {}) {
+    const { jobId, authorizeResume, signal, mockOutcome } = optionValues(
+      options, new Set(['jobId', 'authorizeResume', 'signal', 'mockOutcome']), 'INVALID_RESUME_OPTIONS'
+    );
+    if (typeof jobId !== 'string' || !jobId) throw new OfflineOrchestrationError('INVALID_JOB_ID');
+    if (authorizeResume !== true) throw new OfflineOrchestrationError('EXPLICIT_RESUME_AUTHORIZATION_REQUIRED');
+    if (!installedResumeTimeAuthority || typeof store.claimResume !== 'function') {
+      throw new OfflineOrchestrationError('RESUME_AUTHORITY_OR_CLAIM_UNAVAILABLE');
+    }
+    if (running || (openJob && !openJob.closed)) throw new OfflineOrchestrationError('JOB_ALREADY_ACTIVE');
+    const cancellation = cancellationSignal(signal);
+    if (cancellation?.aborted) return freezeDeep({ kind: 'resume-outcome', status: 'resume-cancelled', job_id: jobId });
+    let configuration;
+    try { mockConfiguration(mockOutcome, { transcript: '' }); }
+    catch { throw new OfflineOrchestrationError('INVALID_MOCK_OUTCOME'); }
+
+    running = true;
+    const authorityState = { lastMs: undefined };
+    const timeBounds = { retryNotBeforeAtMs: undefined, deadlineAtMs: undefined };
+    let authorityEvidence;
+    let monotonic;
+    try {
+      const routing = readResumeRoutingMetadata(jobId);
+      if (routing.status !== 'metadata-candidate') {
+        return freezeDeep({ kind: 'resume-outcome', status: routing.status, job_id: jobId });
+      }
+      timeBounds.retryNotBeforeAtMs = routing.resumeWindow.retry_not_before_at_ms;
+      timeBounds.deadlineAtMs = routing.timeRecord.deadline_at_ms;
+      const firstTime = resumeTimeStatus(timeBounds, resumeTimeState);
+      if (firstTime.status !== 'eligible') {
+        return freezeDeep({ kind: 'resume-outcome', status: firstTime.status, job_id: jobId });
+      }
+      monotonic = safeClock(runtime);
+      if (!monotonic) return freezeDeep({ kind: 'resume-outcome', status: 'deadline-unverifiable', job_id: jobId });
+
+      try { authorityEvidence = await requireExecutionAuthority('retry', cancellation, authorityState); }
+      catch { return freezeDeep({ kind: 'resume-outcome', status: 'execution-authority-denied', job_id: jobId }); }
+      let failure = currentAuthorityFailure(authorityEvidence, 'retry', cancellation, authorityState);
+      if (failure) return freezeDeep({ kind: 'resume-outcome', status: 'execution-authority-denied', job_id: jobId });
+      const afterAuthorityTime = resumeTimeStatus(timeBounds, resumeTimeState);
+      if (afterAuthorityTime.status !== 'eligible') {
+        return freezeDeep({ kind: 'resume-outcome', status: afterAuthorityTime.status, job_id: jobId });
+      }
+
+      let claim;
+      try { claim = store.claimResume(jobId); } catch { claim = { status: 'unknown' }; }
+      if (claim?.status === 'held') {
+        return freezeDeep({ kind: 'resume-outcome', status: 'resume-claim-held', job_id: jobId });
+      }
+      if (claim?.status !== 'acquired' || !UUID.test(claim.claim_id ?? '')) {
+        return freezeDeep({ kind: 'resume-outcome', status: 'reconciliation-required', job_id: jobId });
+      }
+
+      try { authorityEvidence = await requireExecutionAuthority('retry', cancellation, authorityState); }
+      catch { return freezeDeep({ kind: 'resume-outcome', status: 'execution-authority-denied', job_id: jobId }); }
+      failure = currentAuthorityFailure(authorityEvidence, 'retry', cancellation, authorityState);
+      if (failure) return freezeDeep({ kind: 'resume-outcome', status: 'execution-authority-denied', job_id: jobId });
+      const postClaimTime = resumeTimeStatus(timeBounds, resumeTimeState);
+      if (postClaimTime.status !== 'eligible') {
+        return freezeDeep({ kind: 'resume-outcome', status: postClaimTime.status, job_id: jobId });
+      }
+
+      const currentResumeBoundary = () => {
+        const authorityFailure = currentAuthorityFailure(authorityEvidence, 'retry', cancellation, authorityState);
+        if (authorityFailure) throw new OfflineOrchestrationError('EXECUTION_AUTHORITY_DENIED');
+        const currentTime = resumeTimeStatus(timeBounds, resumeTimeState);
+        if (currentTime.status !== 'eligible') throw new OfflineOrchestrationError(currentTime.status);
+        const clock = safeClock(runtime);
+        const currentDeadline = checkedAdd(monotonic.now, timeBounds.deadlineAtMs - postClaimTime.now);
+        if (!clock || clock.epochId !== monotonic.epochId || currentDeadline === undefined
+          || clock.now >= currentDeadline) {
+          throw new OfflineOrchestrationError('EXECUTION_DEADLINE_EXPIRED');
+        }
+      };
+      let candidate;
+      let inspection;
+      try {
+        inspection = inspectRecoveryCore(jobId, {
+          beforeProtectedRead: currentResumeBoundary,
+          onCandidate: value => { candidate = value; }
+        });
+        currentResumeBoundary();
+      } catch {
+        return freezeDeep({ kind: 'resume-outcome', status: 'reconciliation-required', job_id: jobId });
+      }
+      if (inspection.status !== 'resume-candidate' || !candidate) {
+        return freezeDeep({ kind: 'resume-outcome', status: 'resume-not-eligible', job_id: jobId });
+      }
+
+      const remainingMs = timeBounds.deadlineAtMs - postClaimTime.now;
+      const deadlineMonotonicMs = checkedAdd(monotonic.now, remainingMs);
+      if (deadlineMonotonicMs === undefined) {
+        return freezeDeep({ kind: 'resume-outcome', status: 'deadline-unverifiable', job_id: jobId });
+      }
+      const ledger = new MaterialLedger();
+      if (!ledger.charge(`input:${candidate.production.identity.sha256}`, candidate.productionBytes.byteLength)
+        || !ledger.charge(`prompt:${candidate.renderedPrompt.sha256}`, candidate.promptBytes.byteLength)
+        || !ledger.charge(`provider-outcome:${digest(candidate.outcomeBytes)}`, candidate.outcomeBytes.byteLength)
+        || !ledger.charge(`result:${digest(candidate.resultBytes)}`, candidate.resultBytes.byteLength)) {
+        return freezeDeep({ kind: 'resume-outcome', status: 'budget-exhausted', job_id: jobId });
+      }
+
+      let mock;
+      let descriptor;
+      try {
+        configuration = mockConfiguration(mockOutcome, candidate.production.value.renditions[0]);
+        mock = mockAdapterFactory(configuration);
+        if (!(mock instanceof MockTextAdapter)) throw new TypeError();
+        descriptor = await mock.describe();
+      } catch {
+        return freezeDeep({ kind: 'resume-outcome', status: 'mock-preflight-failed', job_id: jobId });
+      }
+      if (!validateExecutionDocument(descriptor).valid) {
+        return freezeDeep({ kind: 'resume-outcome', status: 'mock-preflight-failed', job_id: jobId });
+      }
+      try { authorityEvidence = await requireExecutionAuthority('retry', cancellation, authorityState); }
+      catch { return freezeDeep({ kind: 'resume-outcome', status: 'execution-authority-denied', job_id: jobId }); }
+      failure = currentAuthorityFailure(authorityEvidence, 'retry', cancellation, authorityState);
+      if (failure) return freezeDeep({ kind: 'resume-outcome', status: 'execution-authority-denied', job_id: jobId });
+      const postPreflightTime = resumeTimeStatus(timeBounds, resumeTimeState);
+      if (postPreflightTime.status !== 'eligible') {
+        return freezeDeep({ kind: 'resume-outcome', status: postPreflightTime.status, job_id: jobId });
+      }
+
+      const priorAttempt = {
+        attemptId: candidate.attemptId,
+        executionId: candidate.executionId,
+        resultId: candidate.terminal.result_id,
+        terminalResult: candidate.result,
+        providerResult: candidate.providerResult,
+        providerCorrelationId: candidate.providerResult.correlation_id,
+        completedMonotonicMs: undefined,
+        state: 'terminal'
+      };
+      for (const value of [jobId, candidate.attemptId, candidate.executionId, priorAttempt.resultId]) {
+        const token = value.startsWith('urn:uuid:') ? value.slice(9)
+          : value.startsWith('exec-offline-') ? value.slice(13) : value;
+        if (UUID.test(token)) usedIds.add(token);
+      }
+      const job = {
+        jobId, production: candidate.production, noOutputResultVersion: '1.1.0',
+        contextEnabled: false, contextUseRequest: undefined, contextUseEvidence: undefined,
+        renderedPrompt: candidate.renderedPrompt, promptBytes: candidate.promptBytes,
+        ledger, attempts: [priorAttempt], lastAttempt: priorAttempt, retryOpen: true,
+        retryNotBefore: undefined, state: 'retry-eligible', closed: false,
+        clockEpochId: monotonic.epochId, admittedMonotonicMs: monotonic.now,
+        deadlineMonotonicMs, authorityClock: authorityState,
+        resumeTimeState, resumeTimeBounds: timeBounds,
+        resumeAuthorityEvidence: authorityEvidence
+      };
+      job.resumeBoundary = currentResumeBoundary;
+      openJob = job;
+      return await performAttempt(job, {
+        correlationId: priorAttempt.providerCorrelationId,
+        mockOutcome, signal: cancellation, retryOfAttemptId: priorAttempt.attemptId,
+        preflight: { mock, descriptor }, authorizationAction: 'retry'
+      });
+    } finally {
+      running = false;
+    }
+  }
+
   function closeJob() {
     if (running) throw new OfflineOrchestrationError('JOB_ALREADY_ACTIVE');
     const job = openJob;
@@ -1706,10 +1951,18 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     if (resumeWindow.retry_not_before_at_ms >= timeRecord.deadline_at_ms) return { status: 'resume-window-empty' };
     if (now >= timeRecord.deadline_at_ms) return { status: 'budget-exhausted' };
     if (now < resumeWindow.retry_not_before_at_ms) return { status: 'retry-delay-not-elapsed' };
-    return { status: 'resume-candidate' };
+    return {
+      status: 'resume-candidate',
+      candidate: {
+        admitted, first, outcomeRecord, terminal, resumeWindow,
+        production, renderedPrompt, providerResult, result,
+        productionBytes, promptBytes, outcomeBytes, resultBytes,
+        attemptId, executionId
+      }
+    };
   }
 
-  function inspectRecovery(jobId) {
+  function inspectRecoveryCore(jobId, { beforeProtectedRead, onCandidate } = {}) {
     if (typeof jobId !== 'string' || !jobId) throw new OfflineOrchestrationError('INVALID_JOB_ID');
     let entries;
     try { entries = store.readEvents(jobId); } catch {
@@ -1725,8 +1978,12 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     }
     const verifiedBlobs = new Map();
     const readVerifiedBlob = (key, expectedSize, expectedSha) => {
+      beforeProtectedRead?.();
       let bytes;
-      try { bytes = store.readImmutable(key); } catch { return false; }
+      let readFailed = false;
+      try { bytes = store.readImmutable(key); } catch { readFailed = true; }
+      beforeProtectedRead?.();
+      if (readFailed) return false;
       if (bytes === UNKNOWN_STORE_STATE || !Buffer.isBuffer(bytes)
         || bytes.byteLength !== expectedSize || digest(bytes) !== expectedSha) return false;
       verifiedBlobs.set(key, bytes);
@@ -1771,6 +2028,7 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     }
     const resumeClassification = classifyResumeCandidate(jobId, entries, admitted, verifiedBlobs);
     if (resumeClassification) {
+      if (resumeClassification.candidate) onCandidate?.(resumeClassification.candidate);
       return freezeDeep({ kind: 'recovery-inspection', status: resumeClassification.status,
         ...(resumeClassification.status === 'resume-candidate' ? { authority_check_required: true } : {}),
         last_lifecycle_event: last.type, job_id: jobId, read_only: true,
@@ -1793,12 +2051,21 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     });
   }
 
-  return Object.freeze({ submit, retry, closeJob, inspectRecovery });
+  function inspectRecovery(jobId) {
+    return inspectRecoveryCore(jobId);
+  }
+
+  return Object.freeze({ submit, retry, resume, closeJob, inspectRecovery });
 }
 
 export function createOfflineOrchestrationPrototype({ executionAuthorityProvider, syntheticContextReaders,
-  contextUseAuthorityProvider } = {}) {
-  return createRunner({ executionAuthorityProvider, syntheticContextReaders, contextUseAuthorityProvider });
+  contextUseAuthorityProvider, resumeTimeAuthority, store } = {}) {
+  if ((store !== undefined && !(store instanceof LocalFilePrototypeStore))
+    || (resumeTimeAuthority !== undefined && !(store instanceof LocalFilePrototypeStore))) {
+    throw new OfflineOrchestrationError('RESUME_STORE_UNAVAILABLE');
+  }
+  return createRunner({ executionAuthorityProvider, syntheticContextReaders, contextUseAuthorityProvider,
+    resumeTimeAuthority, store });
 }
 
 /** Internal factory for deterministic tests; never exported from the package entry point. */
