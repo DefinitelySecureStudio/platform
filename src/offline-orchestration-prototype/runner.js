@@ -39,6 +39,7 @@ const MAX_TIMER_DELAY_MS = 2_147_483_647;
 const MAX_PROVIDER_RETRY_AFTER_MS = 86_400_000;
 const RETRY_PROVIDER_CODE = 'RATE_LIMITED_BEFORE_ACCEPTANCE';
 const AUTHORITY_CHECK_TIMEOUT_MS = 1000;
+const SYNTHETIC_RESUME_TIME_AUTHORITY_ID = 'studio.synthetic.resume-time-v1';
 const EXPECTED_EXECUTION_SCOPE = Object.freeze({
   production_id: EXPECTED_PRODUCTION_ID,
   revision: 1,
@@ -254,6 +255,17 @@ function eligibleRateLimit(providerResult) {
     && providerResult.output === undefined;
 }
 
+function isEligiblePersistedProviderOutcome(providerResult, executionId) {
+  if (!providerResult || providerResult.kind !== 'execution-result') return false;
+  try {
+    return validateExecutionDocument(providerResult).valid
+      && providerResult.execution_id === executionId
+      && eligibleRateLimit(providerResult);
+  } catch {
+    return false;
+  }
+}
+
 function sameBytes(actual, expected, expectedSha256) {
   return Buffer.isBuffer(actual) && actual.byteLength === expected.byteLength
     && digest(actual) === expectedSha256 && actual.equals(expected);
@@ -343,7 +355,7 @@ function defaultMockFactory(configuration) {
 
 function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeStore(), idFactory = randomUUID,
   mockAdapterFactory = defaultMockFactory, onMockCall, executionAuthorityProvider,
-  syntheticContextReaders, contextUseAuthorityProvider } = {}) {
+  syntheticContextReaders, contextUseAuthorityProvider, resumeTimeAuthority } = {}) {
   if (!executionAuthorityProvider || executionAuthorityProvider.mode !== 'synthetic'
     || typeof executionAuthorityProvider.id !== 'string'
     || typeof executionAuthorityProvider.verify !== 'function'
@@ -355,6 +367,22 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       || !validateContextUseProvider(contextUseAuthorityProvider)))) {
     throw new OfflineOrchestrationError('SYNTHETIC_CONTEXT_AUTHORITY_UNAVAILABLE');
   }
+  let installedResumeTimeAuthority;
+  if (resumeTimeAuthority !== undefined) {
+    let configured;
+    try {
+      configured = optionValues(resumeTimeAuthority,
+        new Set(['id', 'mode', 'domain_id', 'epoch_id', 'now']), 'RESUME_TIME_AUTHORITY_UNAVAILABLE');
+    } catch { throw new OfflineOrchestrationError('RESUME_TIME_AUTHORITY_UNAVAILABLE'); }
+    if (configured.id !== SYNTHETIC_RESUME_TIME_AUTHORITY_ID || configured.mode !== 'synthetic'
+      || typeof configured.domain_id !== 'string' || !SAFE_ID.test(configured.domain_id)
+      || typeof configured.epoch_id !== 'string' || !SAFE_ID.test(configured.epoch_id)
+      || typeof configured.now !== 'function') {
+      throw new OfflineOrchestrationError('RESUME_TIME_AUTHORITY_UNAVAILABLE');
+    }
+    installedResumeTimeAuthority = Object.freeze({ id: configured.id, mode: configured.mode,
+      domain_id: configured.domain_id, epoch_id: configured.epoch_id, now: configured.now.bind(resumeTimeAuthority) });
+  }
   const verifyExecutionAuthority = executionAuthorityProvider.verify.bind(executionAuthorityProvider);
   const checkExecutionAuthorityCurrent = executionAuthorityProvider.isCurrent.bind(executionAuthorityProvider);
   const verifyContextUse = contextUseAuthorityProvider?.verify.bind(contextUseAuthorityProvider);
@@ -365,6 +393,17 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
   let openJob;
   let running = false;
   const usedIds = new Set();
+  const resumeTimeState = { lastMs: undefined };
+
+  function sampleResumeTime(state) {
+    if (!installedResumeTimeAuthority) return undefined;
+    let now;
+    try { now = installedResumeTimeAuthority.now(); } catch { return undefined; }
+    if (!Number.isSafeInteger(now) || now < 0 || !Number.isFinite(new Date(now).getTime())
+      || (state.lastMs !== undefined && now < state.lastMs)) return undefined;
+    state.lastMs = now;
+    return now;
+  }
 
   function authorityClock(state, errorCode = 'EXECUTION_AUTHORITY_UNAVAILABLE') {
     let now;
@@ -637,6 +676,25 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     job.state = 'attempt-terminal';
     const isEligibleRetry = job.attempts.length === 1 && job.retryOpen && eligibleRateLimit(attempt.providerResult)
       && terminalClock?.epochId === job.clockEpochId && terminalClock.now < job.deadlineMonotonicMs;
+    if (isEligibleRetry && installedResumeTimeAuthority && !job.contextEnabled
+      && Number.isSafeInteger(job.resumeDeadlineAtMs)) {
+      const checkedAt = sampleResumeTime(job.resumeTimeState);
+      if (checkedAt !== undefined) {
+        const retryNotBeforeAtMs = checkedAdd(checkedAt, attempt.providerResult.error.retry_after_ms);
+        if (retryNotBeforeAtMs !== undefined) {
+          const resumeWindow = event(job.jobId, 'resume-window', {
+            attempt_id: attempt.attemptId,
+            execution_id: attempt.executionId,
+            terminal_result_id: result.result_id,
+            checked_at_ms: checkedAt,
+            retry_not_before_at_ms: retryNotBeforeAtMs,
+            deadline_at_ms: job.resumeDeadlineAtMs
+          });
+          if (!appendConfirmed(store, job.jobId, resumeWindow)) return markUnresolved(job);
+          job.resumeRetryNotBeforeAtMs = retryNotBeforeAtMs;
+        }
+      }
+    }
     if (!isEligibleRetry || job.attempts.length >= OFFLINE_ORCHESTRATION_LIMITS.maxAttemptsPerJob) {
       if (!closeIfTerminal(job, isEligibleRetry ? 'attempt-limit-reached' : 'no-eligible-retry')) return markUnresolved(job);
     }
@@ -1244,6 +1302,8 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       const production = readProduction(productionSource);
       let initialClock;
       let deadlineMonotonicMs;
+      let resumeTimeStartedAtMs;
+      let resumeDeadlineAtMs;
       let contextInput;
       let contextRequest;
       if (syntheticContext === true) {
@@ -1277,6 +1337,14 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       if (!initialClock) return freezeDeep({ kind: 'host-outcome', status: 'deadline-unverifiable' });
       deadlineMonotonicMs ??= checkedAdd(initialClock.now, OFFLINE_ORCHESTRATION_LIMITS.jobBudgetMs);
       if (deadlineMonotonicMs === undefined) return freezeDeep({ kind: 'host-outcome', status: 'deadline-unverifiable' });
+      if (installedResumeTimeAuthority) {
+        resumeTimeStartedAtMs = sampleResumeTime(resumeTimeState);
+        resumeDeadlineAtMs = resumeTimeStartedAtMs === undefined ? undefined
+          : checkedAdd(resumeTimeStartedAtMs, OFFLINE_ORCHESTRATION_LIMITS.jobBudgetMs);
+        if (resumeDeadlineAtMs === undefined) {
+          return freezeDeep({ kind: 'host-outcome', status: 'deadline-unverifiable' });
+        }
+      }
 
       const ledger = new MaterialLedger();
       const productionBytes = Buffer.from(production.canonical, 'utf8');
@@ -1340,6 +1408,15 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       if (postAuthorityClock.now >= deadlineMonotonicMs) {
         return freezeDeep({ kind: 'host-outcome', status: 'budget-exhausted', reason: 'time-before-admission' });
       }
+      if (installedResumeTimeAuthority) {
+        const postPreflightResumeTime = sampleResumeTime(resumeTimeState);
+        if (postPreflightResumeTime === undefined) {
+          return freezeDeep({ kind: 'host-outcome', status: 'deadline-unverifiable' });
+        }
+        if (postPreflightResumeTime >= resumeDeadlineAtMs) {
+          return freezeDeep({ kind: 'host-outcome', status: 'budget-exhausted', reason: 'time-before-admission' });
+        }
+      }
 
       const slotReservation = store.reserveJobSlot();
       if (slotReservation === 'reserved') throw new OfflineOrchestrationError('JOB_ALREADY_ACTIVE');
@@ -1364,6 +1441,9 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
         admittedMonotonicMs: initialClock.now,
         deadlineMonotonicMs,
         authorityClock: authorityClockState,
+        resumeTimeState,
+        resumeTimeStartedAtMs,
+        resumeDeadlineAtMs,
         attempts: [],
         retryOpen: false,
         retryNotBefore: undefined,
@@ -1400,6 +1480,14 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
         admitted_monotonic_ms: initialClock.now,
         clock_epoch_id: initialClock.epochId,
         deadline_monotonic_ms: deadlineMonotonicMs,
+        ...(installedResumeTimeAuthority ? { resume_time: {
+          authority_id: installedResumeTimeAuthority.id,
+          domain_id: installedResumeTimeAuthority.domain_id,
+          epoch_id: installedResumeTimeAuthority.epoch_id,
+          started_at_ms: resumeTimeStartedAtMs,
+          deadline_at_ms: resumeDeadlineAtMs,
+          context_enabled: job.contextEnabled
+        } } : {}),
         limits: OFFLINE_ORCHESTRATION_LIMITS,
         material: ledger.snapshot
       });
@@ -1507,6 +1595,120 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     return freezeDeep({ kind: 'host-outcome', status: 'closed-without-retry', job_id: job.jobId });
   }
 
+  function classifyResumeCandidate(jobId, entries, admitted, verifiedBlobs) {
+    if (!installedResumeTimeAuthority) return undefined;
+    const timeRecord = admitted.resume_time;
+    const timeKeys = 'authority_id|context_enabled|deadline_at_ms|domain_id|epoch_id|started_at_ms';
+    if (!timeRecord || Object.keys(timeRecord).sort().join('|') !== timeKeys
+      || timeRecord.authority_id !== installedResumeTimeAuthority.id
+      || timeRecord.domain_id !== installedResumeTimeAuthority.domain_id
+      || timeRecord.epoch_id !== installedResumeTimeAuthority.epoch_id
+      || timeRecord.context_enabled !== false
+      || !Number.isSafeInteger(timeRecord.started_at_ms) || !Number.isFinite(new Date(timeRecord.started_at_ms).getTime())
+      || !Number.isSafeInteger(timeRecord.deadline_at_ms)
+      || timeRecord.deadline_at_ms !== checkedAdd(timeRecord.started_at_ms, OFFLINE_ORCHESTRATION_LIMITS.jobBudgetMs)) {
+      return undefined;
+    }
+
+    const prepared = entries.filter(item => item.type === 'prepared');
+    const dispatches = entries.filter(item => item.type === 'dispatch-started');
+    const outcomes = entries.filter(item => item.type === 'provider-outcome');
+    const resultPrepared = entries.filter(item => item.type === 'result-prepared');
+    const persisting = entries.filter(item => item.type === 'persisting');
+    const terminals = entries.filter(item => item.type === 'terminal');
+    const resumeWindows = entries.filter(item => item.type === 'resume-window');
+    const expectedTypes = ['admitted', 'prepared', 'dispatch-started', 'provider-outcome',
+      'result-prepared', 'persisting', 'terminal', 'resume-window'];
+    if (entries.length !== expectedTypes.length
+      || entries.some((item, index) => item.type !== expectedTypes[index])
+      || prepared.length !== 1 || dispatches.length !== 1
+      || outcomes.length !== 1 || resultPrepared.length !== 1 || persisting.length !== 1 || terminals.length !== 1
+      || resumeWindows.length !== 1
+      || entries.some(item => ['job-closed', 'contract-mapping-blocked', 'budget-exhausted', 'authorization-blocked'].includes(item.type))) {
+      return undefined;
+    }
+    const first = prepared[0];
+    const dispatch = dispatches[0];
+    const outcomeRecord = outcomes[0];
+    const terminal = terminals[0];
+    const resumeWindow = resumeWindows[0];
+    const attemptId = first.attempt_id;
+    const executionId = first.execution_id;
+    const isResourceId = value => typeof value === 'string' && value.startsWith('urn:uuid:')
+      && UUID.test(value.slice('urn:uuid:'.length));
+    const isExecutionId = value => typeof value === 'string' && value.startsWith('exec-offline-')
+      && UUID.test(value.slice('exec-offline-'.length));
+    if (first.retry_of_attempt_id !== null || !isResourceId(attemptId)
+      || !isExecutionId(executionId)
+      || dispatch.attempt_id !== attemptId || dispatch.execution_id !== executionId || dispatch.call_number !== 1
+      || outcomeRecord.attempt_id !== attemptId || outcomeRecord.execution_id !== executionId
+      || resultPrepared[0].attempt_id !== attemptId || persisting[0].attempt_id !== attemptId
+      || resultPrepared[0].execution_id !== executionId || persisting[0].execution_id !== executionId
+      || terminal.attempt_id !== attemptId || terminal.execution_id !== executionId
+      || !isResourceId(terminal.result_id) || resultPrepared[0].status !== 'failed'
+      || resumeWindow.attempt_id !== attemptId || resumeWindow.execution_id !== executionId
+      || resumeWindow.terminal_result_id !== terminal.result_id
+      || !Number.isSafeInteger(resumeWindow.checked_at_ms) || resumeWindow.checked_at_ms < 0
+      || !Number.isSafeInteger(resumeWindow.retry_not_before_at_ms) || resumeWindow.retry_not_before_at_ms < 0
+      || resumeWindow.deadline_at_ms !== timeRecord.deadline_at_ms) return undefined;
+    const eventIndices = [entries.indexOf(admitted), entries.indexOf(first), entries.indexOf(dispatch),
+      entries.indexOf(outcomeRecord), entries.indexOf(resultPrepared[0]), entries.indexOf(persisting[0]),
+      entries.indexOf(terminal), entries.indexOf(resumeWindow)];
+    if (eventIndices.some((value, index) => index > 0 && value <= eventIndices[index - 1])) return undefined;
+    if (entries.some(item => item.attempt_id !== undefined && item.attempt_id !== attemptId)) return undefined;
+
+    const productionBytes = verifiedBlobs.get(admitted.input_key);
+    const promptBytes = verifiedBlobs.get(admitted.prompt_key);
+    const outcomeBytes = verifiedBlobs.get(outcomeRecord.payload_key);
+    const resultBytes = verifiedBlobs.get(`result:${terminal.result_id}`);
+    if (!Buffer.isBuffer(productionBytes) || !Buffer.isBuffer(promptBytes)
+      || !Buffer.isBuffer(outcomeBytes) || !Buffer.isBuffer(resultBytes)) return undefined;
+    let production;
+    let providerResult;
+    let result;
+    let admittedProduction;
+    let preparedProduction;
+    try {
+      production = readProduction(productionBytes.toString('utf8'));
+      providerResult = JSON.parse(outcomeBytes.toString('utf8'));
+      result = JSON.parse(resultBytes.toString('utf8'));
+      admittedProduction = canonicalJson(admitted.production);
+      preparedProduction = canonicalJson(first.production);
+    } catch { return undefined; }
+    const renderedPrompt = renderOfflineComicPrompt(production.value);
+    if (!productionBytes.equals(Buffer.from(production.canonical, 'utf8'))
+      || production.identity.sha256 !== EXPECTED_PRODUCTION_SHA256
+      || admittedProduction !== canonicalJson(production.reference)
+      || preparedProduction !== admittedProduction
+      || admitted.input_key !== `input:${jobId}` || admitted.prompt_key !== `prompt:${jobId}`
+      || !promptBytes.equals(Buffer.from(renderedPrompt.canonical, 'utf8'))
+      || admitted.prompt_sha256 !== renderedPrompt.sha256
+      || admitted.no_output_result_version !== '1.1.0'
+      || !isEligiblePersistedProviderOutcome(providerResult, executionId)
+      || outcomeRecord.status !== 'failed'
+      || outcomeRecord.payload_key !== `provider-outcome:${executionId}`
+      || terminal.result_sha256 !== digest(resultBytes) || terminal.result_byte_size !== resultBytes.byteLength
+      || resumeWindow.checked_at_ms >= timeRecord.deadline_at_ms
+      || resultPrepared[0].result_id !== terminal.result_id || persisting[0].result_id !== terminal.result_id
+      || resultPrepared[0].result_sha256 !== terminal.result_sha256
+      || persisting[0].result_sha256 !== terminal.result_sha256
+      || resultPrepared[0].result_byte_size !== terminal.result_byte_size
+      || persisting[0].result_byte_size !== terminal.result_byte_size
+      || !validateComicBuildResultCandidate(canonicalJson(result), production.canonical).valid
+      || result.attempt_id !== attemptId || result.result_id !== terminal.result_id || result.status !== 'failed'
+      || (result.outputs?.length ?? 0) !== 0
+      || resumeWindow.retry_not_before_at_ms !== checkedAdd(resumeWindow.checked_at_ms,
+        providerResult.error.retry_after_ms)
+      || resumeWindow.checked_at_ms < timeRecord.started_at_ms) return undefined;
+
+    const now = sampleResumeTime(resumeTimeState);
+    if (now === undefined || now < resumeWindow.checked_at_ms) return { status: 'deadline-unverifiable' };
+    if (resumeWindow.retry_not_before_at_ms >= timeRecord.deadline_at_ms) return { status: 'resume-window-empty' };
+    if (now >= timeRecord.deadline_at_ms) return { status: 'budget-exhausted' };
+    if (now < resumeWindow.retry_not_before_at_ms) return { status: 'retry-delay-not-elapsed' };
+    return { status: 'resume-candidate' };
+  }
+
   function inspectRecovery(jobId) {
     if (typeof jobId !== 'string' || !jobId) throw new OfflineOrchestrationError('INVALID_JOB_ID');
     let entries;
@@ -1521,12 +1723,16 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     if (!admitted || entries.filter(item => item.type === 'admitted').length !== 1) {
       return freezeDeep({ kind: 'recovery-inspection', status: 'reconciliation-required', job_id: jobId, read_only: true });
     }
-    const verifyBlob = (key, expectedSize, expectedSha) => {
+    const verifiedBlobs = new Map();
+    const readVerifiedBlob = (key, expectedSize, expectedSha) => {
       let bytes;
       try { bytes = store.readImmutable(key); } catch { return false; }
-      return bytes !== UNKNOWN_STORE_STATE && Buffer.isBuffer(bytes)
-        && bytes.byteLength === expectedSize && digest(bytes) === expectedSha;
+      if (bytes === UNKNOWN_STORE_STATE || !Buffer.isBuffer(bytes)
+        || bytes.byteLength !== expectedSize || digest(bytes) !== expectedSha) return false;
+      verifiedBlobs.set(key, bytes);
+      return bytes;
     };
+    const verifyBlob = (key, expectedSize, expectedSha) => readVerifiedBlob(key, expectedSize, expectedSha) !== false;
     if (!verifyBlob(admitted.input_key, admitted.input_byte_size, admitted.input_sha256)
       || !verifyBlob(admitted.prompt_key, admitted.prompt_byte_size, admitted.prompt_sha256)) {
       return freezeDeep({ kind: 'recovery-inspection', status: 'reconciliation-required', job_id: jobId, read_only: true });
@@ -1537,12 +1743,8 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
         return freezeDeep({ kind: 'recovery-inspection', status: 'reconciliation-required', job_id: jobId, read_only: true });
       }
       if (item.type === 'persisting' || item.type === 'terminal') {
-        let resultBytes;
-        try { resultBytes = store.readImmutable(`result:${item.result_id}`); } catch {
-          return freezeDeep({ kind: 'recovery-inspection', status: 'reconciliation-required', job_id: jobId, read_only: true });
-        }
-        if (resultBytes === UNKNOWN_STORE_STATE || !Buffer.isBuffer(resultBytes)
-          || resultBytes.byteLength !== item.result_byte_size || digest(resultBytes) !== item.result_sha256) {
+        const resultBytes = readVerifiedBlob(`result:${item.result_id}`, item.result_byte_size, item.result_sha256);
+        if (resultBytes === false) {
           return freezeDeep({ kind: 'recovery-inspection', status: 'reconciliation-required', job_id: jobId, read_only: true });
         }
         let result;
@@ -1566,6 +1768,13 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     if (terminal) {
       return freezeDeep({ kind: 'recovery-inspection', status: 'terminal', last_lifecycle_event: last.type,
         job_id: jobId, read_only: true, writes_performed: 0, provider_calls_performed: 0 });
+    }
+    const resumeClassification = classifyResumeCandidate(jobId, entries, admitted, verifiedBlobs);
+    if (resumeClassification) {
+      return freezeDeep({ kind: 'recovery-inspection', status: resumeClassification.status,
+        ...(resumeClassification.status === 'resume-candidate' ? { authority_check_required: true } : {}),
+        last_lifecycle_event: last.type, job_id: jobId, read_only: true,
+        writes_performed: 0, provider_calls_performed: 0 });
     }
     const clock = safeClock(runtime);
     const deadlineUnverifiable = !clock || clock.epochId !== admitted.clock_epoch_id

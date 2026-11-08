@@ -7,15 +7,18 @@ creative material.
 
 ## Current evidence and gap
 
-Platform `main` at `94e4fe60c84a455b524d14f57b1adaa4c4ad7c9f` has a bounded
-same-process retry. The first attempt is retry-eligible only when its verified
+Platform `main` at `e0d31cf9505858aea81f94615dc18eb546197c60` has a bounded
+same-process retry and an experimental local file store with atomic claims and
+durable writes. The first attempt is retry-eligible only when its verified
 provider outcome is the exact rate-limit-before-acceptance case. Explicit retry
 then rechecks current authority and immutable evidence, honors the original
 deadline and two-attempt limit, and creates one new attempt with a new execution
 ID and idempotency key. Recovery after a new runner/process is read-only.
 
-The supported store is in-memory only. The job deadline and retry delay are
-monotonic and tied to the current clock epoch. Retry eligibility also retains
+The ordinary prototype still uses in-memory state and monotonic retry timing;
+the separately exported local-file testing/store implementation supplies
+durable primitives but is not yet wired to resumed jobs. The job deadline and
+retry delay are monotonic and tied to the current clock epoch. Retry eligibility also retains
 the original `retry_not_before`; resume must preserve and verify both that value
 and the original job deadline. The mock adapter records calls but does not
 deduplicate them. Provider Execution v1 carries an `idempotency_key`; the
@@ -145,12 +148,53 @@ Stored digests detect mismatch against trusted event metadata; they do not
 authenticate an event log and do not resist an actor who can rewrite both data
 and metadata. No signing key or separate integrity service is introduced.
 
-The implementation is deliberately split at the storage boundary to fit the
-issue's 1–2 focused-day cap: this slice supplies local persistent store and
-claim primitives plus restart/corruption tests, but does not reconstruct jobs
-or dispatch resumed attempts. Writable resume rehydration and effect
-authorization remain the next bounded implementation slice. O09 remains open
-and is not satisfied by this store primitive.
+The initial storage slice supplies local persistent store and claim primitives
+plus restart/corruption tests, but does not reconstruct jobs or dispatch resumed
+attempts. The bounded follow-up below adds only read-only candidate
+rehydration/classification; it does not consume a claim or dispatch. A later
+slice must integrate writable resume and effect authorization. O09 remains open
+and is not satisfied by these primitives.
+
+## Bounded read-only candidate rehydration slice — 2026-11-08
+
+The runner's internal test factory accepts an explicitly injected synthetic
+resume-time authority with fixed authority, domain, and epoch identifiers.
+There is no fallback to the machine wall clock. At admission, the runner stores
+the stable start and original deadline alongside the existing pinned
+production/prompt evidence. After a safe first-attempt terminal result, it
+samples that same authority and appends a separate `resume-window` event with
+the sample time, original deadline, and `retry_not_before` derived from the
+provider's verified before-acceptance rate-limit result. This event is appended
+after terminal persistence so the bound cannot be shortened by an earlier
+sample. Same-process retry behavior is unchanged.
+
+On a reopened local store, read-only recovery first validates the exact
+no-context synthetic path: the pinned comic-manifest-v1 production and prompt,
+single first-attempt lifecycle, immutable provider outcome/result bytes,
+terminal links, stable time authority identity, and the separate resume-window
+link. It then samples the injected stable time and classifies inclusive
+`retry_not_before <= now < original_deadline`, expired, not-yet-eligible,
+empty-window, and unverifiable cases. Corrupt or mismatched evidence cannot
+produce a candidate. A candidate response is explicitly read-only and says
+current authority must still be checked. This slice does not read package
+content, support context-enabled jobs, acquire a resume claim, rebuild the
+material ledger/job, issue a new attempt, or call the mock/provider.
+
+The deterministic tests use the pinned synthetic fixture and a fixed test time
+inside its review period. A real-time run does not rewind the fixture's review
+date. The time authority is an injected test seam, not a production clock
+service. The local-store trust assumption above still applies: a writer able to
+rewrite both persisted records and digests can forge self-consistent evidence.
+This is a candidate classifier only, not proof of durable resume safety or
+exactly-once behavior.
+
+The slice is bounded to roughly one focused day: persist/link the stable retry
+window, validate and classify read-only restart evidence, and add a finite
+boundary/corruption matrix. Actual resume integration remains a separate slice
+because it must reconstruct job and ledger state and compose current execution
+authority, atomic one-shot claim, fresh stable-time checks, durable dispatch
+marker, and uncertain-outcome quarantine at every asynchronous boundary. O09
+remains a separate dependency gate.
 
 ## Finite synthetic restart and crash-point fixtures
 
@@ -238,9 +282,10 @@ durable store/time authority, prove storage authenticity, or satisfy O08.
 
 ## Scope estimate and exclusions
 
-The owner-approved local store slice is estimated at 1–2 focused days, including
-focused tests and handoff. The complete writable-resume/reconstruction flow is
-estimated above that bound and is intentionally split. Production-grade
+The owner-approved local store slice was estimated at 1–2 focused days. This
+read-only candidate slice is separately bounded to roughly one focused day.
+The complete writable-resume/reconstruction flow is estimated above that bound
+and is intentionally split. Production-grade
 persistent storage, an authenticated integrity root, provider-specific
 deduplication, and O09's result linkage remain separate decisions. This slice
 does not introduce a provider, alter current retry behavior, close O08, or
