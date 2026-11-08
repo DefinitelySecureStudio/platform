@@ -40,12 +40,14 @@ function authority() {
 }
 
 function runtime(epochId = 'original-monotonic-epoch') {
+  let monotonic = 10_000;
   return {
-    now: () => 10_000,
+    now: () => monotonic,
     epochId,
     wallNow: () => Date.parse('2026-11-08T02:40:00Z'),
     setTimer: () => 1,
-    clearTimer: () => {}
+    clearTimer: () => {},
+    advance: delta => { monotonic += delta; }
   };
 }
 
@@ -95,12 +97,21 @@ function rewriteProviderOutcome(root, jobId, transform) {
   writeFileSync(eventPath, `${lines.map(item => canonicalJson(item)).join('\n')}\n`);
 }
 
-async function seedRetryEligible(t, retryAfterMs = 10) {
+async function seedRetryEligible(t, retryAfterMs = 10, {
+  mockAdapterFactory, runtimeOverride = runtime(), timeAuthority
+} = {}) {
   const root = mkdtempSync(join(tmpdir(), 'dss-o08-resume-candidate-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const store = new LocalFilePrototypeStore(root);
   let providerCalls = 0;
-  const runner = createRunner(store, { onMockCall: ({ phase }) => { if (phase === 'dispatch-confirmed') providerCalls++; } });
+  const runner = createRunner(store, {
+    mockAdapterFactory,
+    runtimeOverride,
+    timeAuthority: timeAuthority ?? resumeAuthority({
+      now: () => stableStart + runtimeOverride.now() - 10_000
+    }),
+    onMockCall: ({ phase }) => { if (phase === 'dispatch-confirmed') providerCalls++; }
+  });
   const result = await runner.submit({
     productionSource,
     noOutputResultVersion: '1.1.0',
@@ -115,7 +126,8 @@ async function seedRetryEligible(t, retryAfterMs = 10) {
   assert.ok(admitted.resume_time);
   assert.equal(typeof window?.retry_not_before_at_ms, 'number');
   assert.equal(providerCalls, 1);
-  return { root, jobId: result.job_id, store, result, admitted, terminal, window, providerCalls };
+  return { root, jobId: result.job_id, store, runner, result, admitted, terminal, window,
+    providerCalls: () => providerCalls, runtime: runtimeOverride };
 }
 
 test('reopened local store reports a read-only candidate at the inclusive retry bound', async t => {
@@ -141,7 +153,7 @@ test('reopened local store reports a read-only candidate at the inclusive retry 
   assert.equal(reopened.blobCount, beforeBlobs);
   assert.equal(resumeClaimCalls(), 0);
   assert.equal(laterCalls, 0);
-  assert.equal(seeded.providerCalls, 1);
+  assert.equal(seeded.providerCalls(), 1);
 });
 
 test('read-only resume candidate classification enforces retry and deadline boundaries', async t => {
@@ -410,6 +422,85 @@ test('concurrent resume calls share one atomic claim and make at most one provid
   assert.equal(results.filter(result => result.kind === 'terminal').length, 1);
   assert.equal(results.filter(result => result.status === 'resume-claim-held').length, 1);
   assert.equal(providerCalls, 1);
+});
+
+test('resume claim blocks the original runner retry while resumed adapter preflight is pending', async t => {
+  const seeded = await seedRetryEligible(t, 10);
+  seeded.runtime.advance(10);
+  let enteredDescribeResolve;
+  const enteredDescribe = new Promise(resolve => { enteredDescribeResolve = resolve; });
+  let releaseDescribe;
+  const describeGate = new Promise(resolve => { releaseDescribe = resolve; });
+  class PendingDescriptionMock extends MockTextAdapter {
+    async describe() {
+      enteredDescribeResolve();
+      await describeGate;
+      return super.describe();
+    }
+  }
+  let resumedDispatches = 0;
+  const resumed = createRunner(new LocalFilePrototypeStore(seeded.root), {
+    timeAuthority: resumeAuthority({ now: () => seeded.window.retry_not_before_at_ms }),
+    mockAdapterFactory: configuration => new PendingDescriptionMock(configuration),
+    onMockCall: ({ phase }) => { if (phase === 'dispatch-confirmed') resumedDispatches++; }
+  });
+
+  const resumePending = resumed.resume({ jobId: seeded.jobId, authorizeResume: true });
+  await enteredDescribe;
+  await assert.rejects(
+    () => seeded.runner.retry({ authorizeRetry: true }),
+    error => error.code === 'RETRY_CLAIM_HELD'
+  );
+  assert.equal(seeded.providerCalls(), 1);
+  assert.equal(resumedDispatches, 0);
+
+  releaseDescribe();
+  const result = await resumePending;
+  assert.equal(result.kind, 'terminal');
+  assert.equal(seeded.providerCalls(), 1);
+  assert.equal(resumedDispatches, 1);
+  assert.equal(seeded.store.readEvents(seeded.jobId).filter(item => item.type === 'dispatch-started').length, 2);
+});
+
+test('pending original retry owns the durable claim and blocks resumed dispatch', async t => {
+  let executeCount = 0;
+  let executionStartedResolve;
+  const executionStarted = new Promise(resolve => { executionStartedResolve = resolve; });
+  let releaseExecution;
+  const executionGate = new Promise(resolve => { releaseExecution = resolve; });
+  class PendingOutcomeMock extends MockTextAdapter {
+    async execute(request, options) {
+      if (++executeCount === 2) {
+        executionStartedResolve();
+        await executionGate;
+      }
+      return super.execute(request, options);
+    }
+  }
+  const retryRuntime = runtime();
+  const seeded = await seedRetryEligible(t, 10, {
+    mockAdapterFactory: configuration => new PendingOutcomeMock(configuration),
+    runtimeOverride: retryRuntime
+  });
+  retryRuntime.advance(10);
+  let resumedDispatches = 0;
+  const resumed = createRunner(new LocalFilePrototypeStore(seeded.root), {
+    timeAuthority: resumeAuthority({ now: () => seeded.window.retry_not_before_at_ms }),
+    onMockCall: ({ phase }) => { if (phase === 'dispatch-confirmed') resumedDispatches++; }
+  });
+
+  const retryPending = seeded.runner.retry({ authorizeRetry: true });
+  await executionStarted;
+  const resumeResult = await resumed.resume({ jobId: seeded.jobId, authorizeResume: true });
+  assert.equal(resumeResult.status, 'resume-not-eligible');
+  assert.equal(resumedDispatches, 0);
+  assert.equal(seeded.providerCalls(), 2);
+
+  releaseExecution();
+  const retryResult = await retryPending;
+  assert.equal(retryResult.kind, 'terminal');
+  assert.equal(seeded.providerCalls(), 2);
+  assert.equal(seeded.store.readEvents(seeded.jobId).filter(item => item.type === 'dispatch-started').length, 2);
 });
 
 test('revocation during claim acquisition stops before any protected read or provider call', async t => {

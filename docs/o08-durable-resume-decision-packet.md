@@ -208,6 +208,12 @@ read. It validates the exact prior outcome/result evidence, reconstructs the
 material ledger from the verified blobs, and performs mock preflight. After the
 awaited preflight it rechecks authority and the original time interval.
 
+The same durable one-shot claim is acquired by the original runner's ordinary
+`retry()` path before protected retry evidence is read. Thus an in-flight
+resume and a same-process retry cannot both proceed to a second dispatch. If
+the other path already owns the claim, the caller fails closed; a held claim is
+never taken over or released.
+
 The existing attempt path creates a new attempt and idempotency key, writes
 the durable `dispatch-started` marker before the mock effect, then performs the
 final current-authority/time and pinned-evidence checks immediately before the

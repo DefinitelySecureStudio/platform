@@ -702,6 +702,10 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
           });
           if (!appendConfirmed(store, job.jobId, resumeWindow)) return markUnresolved(job);
           job.resumeRetryNotBeforeAtMs = retryNotBeforeAtMs;
+          job.resumeTimeBounds = {
+            retryNotBeforeAtMs,
+            deadlineAtMs: job.resumeDeadlineAtMs
+          };
         }
       }
     }
@@ -1583,6 +1587,29 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
           cancellation, job.authorityClock, job.clockEpochId, job.deadlineMonotonicMs);
         job.contextUseRequest = request;
         job.contextUseEvidence = current.contextEvidence;
+      }
+      if (typeof store.claimResume === 'function') {
+        let claim;
+        try { claim = store.claimResume(job.jobId); } catch { claim = { status: 'unknown' }; }
+        if (claim?.status === 'held') throw new OfflineOrchestrationError('RETRY_CLAIM_HELD');
+        if (claim?.status !== 'acquired' || !UUID.test(claim.claim_id ?? '')) {
+          throw new OfflineOrchestrationError('RETRY_CLAIM_UNCERTAIN');
+        }
+        const durableRetryBoundary = () => {
+          const failure = currentAuthorityFailure(retryAuthority, 'retry', cancellation, job.authorityClock)
+            ?? (job.contextEnabled
+              ? currentContextUseFailure(job.contextUseEvidence, job.contextUseRequest, cancellation, job.authorityClock)
+              : undefined)
+            ?? currentPermitTimeFailure(retryAuthority, job.contextUseEvidence, job.authorityClock)
+            ?? hostBoundaryFailure(cancellation, job.clockEpochId, job.deadlineMonotonicMs);
+          if (failure) throw new OfflineOrchestrationError(failure);
+          if (job.resumeTimeBounds) {
+            const time = resumeTimeStatus(job.resumeTimeBounds, job.resumeTimeState);
+            if (time.status !== 'eligible') throw new OfflineOrchestrationError(time.status);
+          }
+        };
+        job.resumeBoundary = durableRetryBoundary;
+        durableRetryBoundary();
       }
       if (!verifyRetryEvidence(job, job.lastAttempt)) return markUnresolved(job);
       // Identity is pinned in the job and cannot be replaced on retry.
