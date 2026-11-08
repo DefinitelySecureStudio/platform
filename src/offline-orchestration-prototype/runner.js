@@ -255,6 +255,17 @@ function eligibleRateLimit(providerResult) {
     && providerResult.output === undefined;
 }
 
+function isEligiblePersistedProviderOutcome(providerResult, executionId) {
+  if (!providerResult || providerResult.kind !== 'execution-result') return false;
+  try {
+    return validateExecutionDocument(providerResult).valid
+      && providerResult.execution_id === executionId
+      && eligibleRateLimit(providerResult);
+  } catch {
+    return false;
+  }
+}
+
 function sameBytes(actual, expected, expectedSha256) {
   return Buffer.isBuffer(actual) && actual.byteLength === expected.byteLength
     && digest(actual) === expectedSha256 && actual.equals(expected);
@@ -1673,9 +1684,7 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       || !promptBytes.equals(Buffer.from(renderedPrompt.canonical, 'utf8'))
       || admitted.prompt_sha256 !== renderedPrompt.sha256
       || admitted.no_output_result_version !== '1.1.0'
-      || !validateExecutionDocument(providerResult).valid
-      || providerResult.execution_id !== executionId
-      || !eligibleRateLimit(providerResult)
+      || !isEligiblePersistedProviderOutcome(providerResult, executionId)
       || outcomeRecord.status !== 'failed'
       || outcomeRecord.payload_key !== `provider-outcome:${executionId}`
       || terminal.result_sha256 !== digest(resultBytes) || terminal.result_byte_size !== resultBytes.byteLength

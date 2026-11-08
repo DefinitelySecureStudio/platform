@@ -236,6 +236,12 @@ test('corrupt or mismatched persisted resume evidence never yields a candidate',
 test('malformed or cross-execution provider outcomes never yield candidates', async t => {
   const cases = [
     ['malformed provider outcome', value => ({ ...value, unexpected_field: 'invalid' })],
+    ['wrong-kind provider document with malformed descriptor field', value => ({
+      ...value, kind: 'provider-adapter-descriptor', supported_extensions: 1
+    })],
+    ['malformed same-kind error category', value => ({
+      ...value, error: { ...value.error, category: { toString: null } }
+    })],
     ['provider outcome for a different execution', value => ({
       ...value, execution_id: `exec-offline-${randomUUID()}`
     })]
