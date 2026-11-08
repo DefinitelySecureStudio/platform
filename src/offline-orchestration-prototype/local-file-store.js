@@ -116,6 +116,10 @@ function writeAtomicRecord(path, record, directory) {
   try {
     renameSync(temporary, path);
     syncDirectory(directory);
+    const actual = readJsonRecord(path);
+    if (actual === UNKNOWN_STORE_STATE || !actual || canonicalJson(actual) !== canonicalJson(record)) {
+      throw new Error('LOCAL_STORE_READBACK_MISMATCH');
+    }
   } catch (error) {
     try { unlinkSync(temporary); } catch { /* keep an ambiguous temporary for reconciliation */ }
     throw error;
@@ -189,6 +193,10 @@ export class LocalFilePrototypeStore {
     const token = randomUUID();
     try {
       writeNewFile(path, Buffer.from(canonicalJson({ status: 'reserved', token }), 'utf8'), this.#root);
+      const actual = readJsonRecord(path);
+      if (actual === UNKNOWN_STORE_STATE || !actual || canonicalJson(actual) !== canonicalJson({ status: 'reserved', token })) {
+        return { status: 'unknown' };
+      }
       return Object.freeze({ status: 'acquired', token });
     } catch (error) {
       if (error.code !== 'EEXIST') return { status: 'unknown' };
@@ -223,7 +231,7 @@ export class LocalFilePrototypeStore {
     try {
       unlinkSync(path);
       syncDirectory(this.#root);
-      return true;
+      return readJsonRecord(path) === undefined;
     } catch {
       return false;
     }
@@ -378,6 +386,10 @@ export class LocalFilePrototypeStore {
     const record = { job_id: jobId, claim_id: claimId, state: 'held' };
     try {
       writeNewFile(path, Buffer.from(canonicalJson(record), 'utf8'), this.#claimsDirectory);
+      const actual = readJsonRecord(path);
+      if (actual === UNKNOWN_STORE_STATE || !actual || canonicalJson(actual) !== canonicalJson(record)) {
+        return Object.freeze({ status: 'unknown' });
+      }
       return Object.freeze({ status: 'acquired', claim_id: claimId });
     } catch (error) {
       if (error.code !== 'EEXIST') return Object.freeze({ status: 'unknown' });
