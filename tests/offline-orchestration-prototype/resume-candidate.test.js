@@ -67,6 +67,16 @@ function createRunner(store, { timeAuthority = resumeAuthority(), monotonicEpoch
   });
 }
 
+function observeResumeClaims(store) {
+  const claimResume = store.claimResume.bind(store);
+  let calls = 0;
+  store.claimResume = (...args) => {
+    calls++;
+    return claimResume(...args);
+  };
+  return () => calls;
+}
+
 async function seedRetryEligible(t, retryAfterMs = 10) {
   const root = mkdtempSync(join(tmpdir(), 'dss-o08-resume-candidate-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -93,6 +103,7 @@ async function seedRetryEligible(t, retryAfterMs = 10) {
 test('reopened local store reports a read-only candidate at the inclusive retry bound', async t => {
   const seeded = await seedRetryEligible(t, 10);
   const reopened = new LocalFilePrototypeStore(seeded.root);
+  const resumeClaimCalls = observeResumeClaims(reopened);
   const beforeEvents = reopened.eventCount;
   const beforeBlobs = reopened.blobCount;
   let laterCalls = 0;
@@ -110,6 +121,7 @@ test('reopened local store reports a read-only candidate at the inclusive retry 
   assert.equal(inspected.provider_calls_performed, 0);
   assert.equal(reopened.eventCount, beforeEvents);
   assert.equal(reopened.blobCount, beforeBlobs);
+  assert.equal(resumeClaimCalls(), 0);
   assert.equal(laterCalls, 0);
   assert.equal(seeded.providerCalls, 1);
 });
@@ -128,6 +140,14 @@ test('read-only resume candidate classification enforces retry and deadline boun
     monotonicEpoch: 'restart-before-deadline', timeAuthority: resumeAuthority({ now: () => deadline - 1 })
   });
   assert.equal(beforeDeadline.inspectRecovery(late.jobId).status, 'resume-candidate');
+  const candidateStore = new LocalFilePrototypeStore(late.root);
+  const resumeClaimCalls = observeResumeClaims(candidateStore);
+  const repeatedCandidateRunner = createRunner(candidateStore, {
+    monotonicEpoch: 'restart-repeated-candidate',
+    timeAuthority: resumeAuthority({ now: () => deadline - 1 })
+  });
+  assert.equal(repeatedCandidateRunner.inspectRecovery(late.jobId).status, 'resume-candidate');
+  assert.equal(resumeClaimCalls(), 0);
   const atDeadline = createRunner(new LocalFilePrototypeStore(late.root), {
     monotonicEpoch: 'restart-at-deadline', timeAuthority: resumeAuthority({ now: () => deadline })
   });
@@ -157,6 +177,23 @@ test('unknown or rolled-back stable time never yields a resume candidate', async
     });
     assert.equal(restarted.inspectRecovery(seeded.jobId).status, 'deadline-unverifiable');
   });
+});
+
+test('repeated read-only inspection detects rollback within the otherwise eligible interval', async t => {
+  const seeded = await seedRetryEligible(t, 10);
+  let now = seeded.window.retry_not_before_at_ms + 1;
+  const store = new LocalFilePrototypeStore(seeded.root);
+  const resumeClaimCalls = observeResumeClaims(store);
+  const restarted = createRunner(store, {
+    monotonicEpoch: 'restart-eligible-time-rollback',
+    timeAuthority: resumeAuthority({ now: () => now })
+  });
+
+  assert.equal(restarted.inspectRecovery(seeded.jobId).status, 'resume-candidate');
+  now--;
+  assert.equal(now, seeded.window.retry_not_before_at_ms);
+  assert.equal(restarted.inspectRecovery(seeded.jobId).status, 'deadline-unverifiable');
+  assert.equal(resumeClaimCalls(), 0);
 });
 
 test('corrupt or mismatched persisted resume evidence never yields a candidate', async t => {
