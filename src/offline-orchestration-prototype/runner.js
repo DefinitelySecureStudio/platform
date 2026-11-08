@@ -1673,6 +1673,8 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       || !promptBytes.equals(Buffer.from(renderedPrompt.canonical, 'utf8'))
       || admitted.prompt_sha256 !== renderedPrompt.sha256
       || admitted.no_output_result_version !== '1.1.0'
+      || !validateExecutionDocument(providerResult).valid
+      || providerResult.execution_id !== executionId
       || !eligibleRateLimit(providerResult)
       || outcomeRecord.status !== 'failed'
       || outcomeRecord.payload_key !== `provider-outcome:${executionId}`

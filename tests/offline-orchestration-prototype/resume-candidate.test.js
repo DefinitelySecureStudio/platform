@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
@@ -75,6 +76,19 @@ function observeResumeClaims(store) {
     return claimResume(...args);
   };
   return () => calls;
+}
+
+function rewriteProviderOutcome(root, jobId, transform) {
+  const eventPath = join(root, 'events', `${Buffer.from(jobId).toString('base64url')}.jsonl`);
+  const lines = readFileSync(eventPath, 'utf8').trimEnd().split('\n').map(line => JSON.parse(line));
+  const row = lines.find(item => item.type === 'provider-outcome');
+  const blobPath = join(root, 'blobs', `${Buffer.from(row.payload_key).toString('base64url')}.blob`);
+  const value = transform(JSON.parse(readFileSync(blobPath, 'utf8')));
+  const bytes = Buffer.from(canonicalJson(value), 'utf8');
+  writeFileSync(blobPath, bytes);
+  row.byte_size = bytes.byteLength;
+  row.sha256 = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+  writeFileSync(eventPath, `${lines.map(item => canonicalJson(item)).join('\n')}\n`);
 }
 
 async function seedRetryEligible(t, retryAfterMs = 10) {
@@ -217,4 +231,31 @@ test('corrupt or mismatched persisted resume evidence never yields a candidate',
     monotonicEpoch: 'restart-bad-retry-bound', timeAuthority: resumeAuthority({ now: () => stableStart + 100 })
   });
   assert.notEqual(mismatchRunner.inspectRecovery(badBound.jobId).status, 'resume-candidate');
+});
+
+test('malformed or cross-execution provider outcomes never yield candidates', async t => {
+  const cases = [
+    ['malformed provider outcome', value => ({ ...value, unexpected_field: 'invalid' })],
+    ['provider outcome for a different execution', value => ({
+      ...value, execution_id: `exec-offline-${randomUUID()}`
+    })]
+  ];
+  for (const [name, transform] of cases) await t.test(name, async t => {
+    const seeded = await seedRetryEligible(t, 10);
+    rewriteProviderOutcome(seeded.root, seeded.jobId, transform);
+    const store = new LocalFilePrototypeStore(seeded.root);
+    const resumeClaimCalls = observeResumeClaims(store);
+    let providerCalls = 0;
+    const restarted = createRunner(store, {
+      monotonicEpoch: `restart-${name.replaceAll(' ', '-')}`,
+      timeAuthority: resumeAuthority({ now: () => seeded.window.retry_not_before_at_ms }),
+      onMockCall: () => { providerCalls++; }
+    });
+
+    const inspected = restarted.inspectRecovery(seeded.jobId);
+    assert.notEqual(inspected.status, 'resume-candidate');
+    assert.equal(inspected.read_only, true);
+    assert.equal(resumeClaimCalls(), 0);
+    assert.equal(providerCalls, 0);
+  });
 });
