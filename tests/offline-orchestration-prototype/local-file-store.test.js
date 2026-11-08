@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, statSync, symlinkSync, appendFileSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync, closeSync, fsyncSync, lstatSync, mkdirSync, mkdtempSync,
+  openSync, rmSync, statSync, symlinkSync, writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -21,6 +24,35 @@ const productionSource = JSON.stringify(fixture.production);
 
 function temporaryDirectory() {
   return mkdtempSync(join(tmpdir(), 'dss-o08-local-store-'));
+}
+
+function recordingBootstrapFilesystem({ failPath } = {}) {
+  const calls = [];
+  const paths = new Map();
+  return {
+    calls,
+    filesystem: {
+      mkdirSync(path, options) { calls.push(['mkdir', path]); return mkdirSync(path, options); },
+      lstatSync,
+      openSync(path, flags) {
+        const fd = openSync(path, flags);
+        paths.set(fd, path);
+        calls.push(['open', path]);
+        return fd;
+      },
+      fsyncSync(fd) {
+        const path = paths.get(fd);
+        calls.push(['fsync', path]);
+        if (path === failPath) throw new Error('INJECTED_BOOTSTRAP_FSYNC_FAILURE');
+        return fsyncSync(fd);
+      },
+      closeSync(fd) {
+        calls.push(['close', paths.get(fd)]);
+        paths.delete(fd);
+        return closeSync(fd);
+      }
+    }
+  };
 }
 
 function authority() {
@@ -98,6 +130,41 @@ test('local file store preserves one-shot claims across instances and never take
   const reopened = new LocalFilePrototypeStore(root);
   assert.deepEqual(reopened.claimResume(jobId), { status: 'held' });
   assert.equal(reopened.readEvents(jobId).length, 0);
+});
+
+test('bootstrap fsyncs each directory and its parent before continuing initialization', t => {
+  const parent = temporaryDirectory();
+  t.after(() => rmSync(parent, { recursive: true, force: true }));
+  const root = join(parent, 'store');
+  const { calls, filesystem } = recordingBootstrapFilesystem();
+  new LocalFilePrototypeStore(root, { bootstrapFilesystem: filesystem });
+
+  const expected = [];
+  const durableDirectory = (path, parentPath) => {
+    expected.push(['mkdir', path]);
+    for (const syncedPath of [path, parentPath]) {
+      expected.push(['open', syncedPath], ['fsync', syncedPath], ['close', syncedPath]);
+    }
+  };
+  durableDirectory(root, parent);
+  durableDirectory(join(root, 'events'), root);
+  durableDirectory(join(root, 'blobs'), root);
+  durableDirectory(join(root, 'resume-claims'), root);
+  assert.deepEqual(calls, expected);
+});
+
+test('bootstrap fsync failures stop initialization before child directories or store use', async t => {
+  const parent = temporaryDirectory();
+  t.after(() => rmSync(parent, { recursive: true, force: true }));
+  const root = join(parent, 'store');
+  for (const failPath of [root, parent]) await t.test(`failure syncing ${failPath === root ? 'root' : 'parent'}`, () => {
+    const { calls, filesystem } = recordingBootstrapFilesystem({ failPath });
+    assert.throws(() => new LocalFilePrototypeStore(root, { bootstrapFilesystem: filesystem }),
+      /INJECTED_BOOTSTRAP_FSYNC_FAILURE/);
+    assert.ok(calls.some(([operation, path]) => operation === 'fsync' && path === failPath));
+    assert.equal(calls.some(([operation, path]) => operation === 'mkdir' && path === join(root, 'events')), false);
+  });
+  assert.equal(new LocalFilePrototypeStore(root).readJobIds().length, 0);
 });
 
 test('local file store returns unknown for a truncated event log and rejects a symlinked root', t => {

@@ -3,7 +3,7 @@ import {
   openSync, readFileSync, readdirSync, renameSync, unlinkSync, writeSync
 } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { isAbsolute, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { canonicalJson } from '../prompt-sdk/canonical-json.js';
 import { OFFLINE_ORCHESTRATION_LIMITS } from './limits.js';
 import { UNKNOWN_STORE_STATE } from './memory-store.js';
@@ -12,6 +12,7 @@ const PRIVATE_DIRECTORY_MODE = 0o700;
 const PRIVATE_FILE_MODE = 0o600;
 const NOFOLLOW = constants.O_NOFOLLOW ?? 0;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const NATIVE_BOOTSTRAP_FILESYSTEM = Object.freeze({ mkdirSync, lstatSync, openSync, fsyncSync, closeSync });
 
 function cloneFrozen(value) {
   const cloned = JSON.parse(canonicalJson(value));
@@ -43,16 +44,20 @@ function decoded(value) {
   return Buffer.from(text, 'utf8').equals(bytes) ? text : undefined;
 }
 
-function ensurePrivateDirectory(path) {
-  try { mkdirSync(path, { mode: PRIVATE_DIRECTORY_MODE }); } catch (error) {
+function ensurePrivateDirectory(path, parentPath, filesystem) {
+  try { filesystem.mkdirSync(path, { mode: PRIVATE_DIRECTORY_MODE }); } catch (error) {
     if (error.code !== 'EEXIST') throw error;
   }
-  const info = lstatSync(path);
+  const info = filesystem.lstatSync(path);
   const uid = typeof process.getuid === 'function' ? process.getuid() : undefined;
   if (info.isSymbolicLink() || !info.isDirectory() || (info.mode & 0o077) !== 0
     || (uid !== undefined && info.uid !== uid)) {
     throw new Error('LOCAL_STORE_UNSAFE_DIRECTORY');
   }
+  // Persist both directory metadata and its name in the parent before any
+  // store operation can acknowledge a durable marker or write.
+  syncDirectory(path, filesystem);
+  if (parentPath) syncDirectory(parentPath, filesystem);
 }
 
 function openNoFollow(path, flags, mode = PRIVATE_FILE_MODE) {
@@ -87,9 +92,9 @@ function writeAll(fd, bytes) {
   }
 }
 
-function syncDirectory(path) {
-  const fd = openSync(path, constants.O_RDONLY);
-  try { fsyncSync(fd); } finally { closeSync(fd); }
+function syncDirectory(path, filesystem = NATIVE_BOOTSTRAP_FILESYSTEM) {
+  const fd = filesystem.openSync(path, constants.O_RDONLY);
+  try { filesystem.fsyncSync(fd); } finally { filesystem.closeSync(fd); }
 }
 
 function writeNewFile(path, bytes, directory) {
@@ -154,19 +159,24 @@ export class LocalFilePrototypeStore {
   #uncertainEvents = new Set();
   #uncertainBlobs = new Set();
 
-  constructor(rootDirectory) {
+  constructor(rootDirectory, { bootstrapFilesystem = NATIVE_BOOTSTRAP_FILESYSTEM } = {}) {
     if (!NOFOLLOW) throw new Error('LOCAL_STORE_NOFOLLOW_UNSUPPORTED');
     if (typeof rootDirectory !== 'string' || !isAbsolute(rootDirectory)) {
       throw new TypeError('An absolute local store directory is required.');
     }
+    if (!bootstrapFilesystem || typeof bootstrapFilesystem.mkdirSync !== 'function'
+      || typeof bootstrapFilesystem.lstatSync !== 'function' || typeof bootstrapFilesystem.openSync !== 'function'
+      || typeof bootstrapFilesystem.fsyncSync !== 'function' || typeof bootstrapFilesystem.closeSync !== 'function') {
+      throw new TypeError('Invalid local store bootstrap filesystem.');
+    }
     this.#root = resolve(rootDirectory);
-    ensurePrivateDirectory(this.#root);
+    ensurePrivateDirectory(this.#root, dirname(this.#root), bootstrapFilesystem);
     this.#eventsDirectory = join(this.#root, 'events');
     this.#blobsDirectory = join(this.#root, 'blobs');
     this.#claimsDirectory = join(this.#root, 'resume-claims');
-    ensurePrivateDirectory(this.#eventsDirectory);
-    ensurePrivateDirectory(this.#blobsDirectory);
-    ensurePrivateDirectory(this.#claimsDirectory);
+    ensurePrivateDirectory(this.#eventsDirectory, this.#root, bootstrapFilesystem);
+    ensurePrivateDirectory(this.#blobsDirectory, this.#root, bootstrapFilesystem);
+    ensurePrivateDirectory(this.#claimsDirectory, this.#root, bootstrapFilesystem);
   }
 
   #eventPath(jobId) {

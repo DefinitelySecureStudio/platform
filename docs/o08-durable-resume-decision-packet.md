@@ -123,18 +123,21 @@ them. This does not authorize generic exactly-once claims or provider
 deduplication.
 
 For the first local synthetic implementation slice, use a caller-selected,
-owner-controlled directory on a supported local filesystem. The implementation
-checks private directory/file modes, current-user ownership where the platform
-exposes it, and rejects symlinked roots/files. The caller must ensure the path
-is on supported local storage; network/shared filesystem detection is not
-reliable and such filesystems are outside this contract. Store one canonical
-newline-delimited lifecycle event log per job and immutable blobs created
-exclusively. Event and blob writes are not reported successful until `fsync`,
-exact read-back and pending-marker removal are confirmed. A pending marker after
-a crash makes the record unknown and requires reconciliation. Use an exclusive
-per-job claim marker; never expire, steal, or automatically release a claim
-after restart. A malformed log, partial blob, or ambiguous claim/write is
-unknown. No provider call occurs from this storage-only slice.
+owner-controlled directory on a supported local filesystem, with an existing,
+durably provisioned owner-controlled parent. The implementation checks private
+directory/file modes, current-user ownership where the platform exposes it,
+and rejects symlinked roots/files. Initialization fsyncs the store root and its
+parent, then each child directory and its parent, before it returns. The caller
+must ensure the path is on supported local storage; network/shared filesystem
+detection is not reliable and such filesystems are outside this contract. Store
+one canonical newline-delimited lifecycle event log per job and immutable
+blobs created exclusively. Event and blob writes are not reported successful
+until `fsync`, exact read-back and pending-marker removal are confirmed. A
+pending marker after a crash makes the record unknown and requires
+reconciliation. Use an exclusive per-job claim marker; never expire, steal, or
+automatically release a claim after restart. A malformed log, partial blob, or
+ambiguous claim/write is unknown. No provider call occurs from this
+storage-only slice.
 
 Trust assumption: the filesystem, OS account boundary, and directory owner are
 trusted against malicious modification by the same account or an administrator.
