@@ -1,12 +1,13 @@
 # O08 durable-resume decision packet
 
-Status: proposal for contract-owner review. This document does not change the
-prototype, define a released contract, authorize persistent storage, or claim
-O08 completion. It contains no private creative material.
+Status: the narrow synthetic resume scope was accepted by the contract owner
+on 2026-11-08; the local storage trust boundary is selected below. This does
+not define a released contract or claim O08 completion. It contains no private
+creative material.
 
 ## Current evidence and gap
 
-Platform `main` at `2466db85c13b8f16038d147a0d650614535198c5` has a bounded
+Platform `main` at `94e4fe60c84a455b524d14f57b1adaa4c4ad7c9f` has a bounded
 same-process retry. The first attempt is retry-eligible only when its verified
 provider outcome is the exact rate-limit-before-acceptance case. Explicit retry
 then rechecks current authority and immutable evidence, honors the original
@@ -70,7 +71,7 @@ before-acceptance rate-limit outcome. On restart:
 This path avoids duplicate effects by requiring evidence that the prior request
 was not accepted. It does not promise deduplication across attempts or providers.
 
-## Owner decisions required before implementation
+## Production decisions remain outside the accepted synthetic scope
 
 ### 1. Deadline across process restart
 
@@ -111,6 +112,42 @@ an adapter/provider-specific contract that specifies stable key scope, exact
 request fingerprint binding, deduplication retention, and the response returned
 for a duplicate. A fresh key per attempt cannot suppress a duplicate effect.
 Provider Execution v1's key field alone does not establish those semantics.
+
+## Accepted first-resume contract and selected local trust boundary — 2026-11-08
+
+Andy (@andrewperis), as contract owner, approved the narrow first-resume scope:
+resume only from a fully committed, terminal first-attempt result that proves
+the provider rejected the request before acceptance; recheck current authority
+and the original time bounds; quarantine uncertain outcomes rather than replay
+them. This does not authorize generic exactly-once claims or provider
+deduplication.
+
+For the first local synthetic implementation slice, use a caller-selected,
+owner-controlled directory on a supported local filesystem. The implementation
+checks private directory/file modes, current-user ownership where the platform
+exposes it, and rejects symlinked roots/files. The caller must ensure the path
+is on supported local storage; network/shared filesystem detection is not
+reliable and such filesystems are outside this contract. Store one canonical
+newline-delimited lifecycle event log per job and immutable blobs created
+exclusively. Event and blob writes are not reported successful until `fsync`,
+exact read-back and pending-marker removal are confirmed. A pending marker after
+a crash makes the record unknown and requires reconciliation. Use an exclusive
+per-job claim marker; never expire, steal, or automatically release a claim
+after restart. A malformed log, partial blob, or ambiguous claim/write is
+unknown. No provider call occurs from this storage-only slice.
+
+Trust assumption: the filesystem, OS account boundary, and directory owner are
+trusted against malicious modification by the same account or an administrator.
+Stored digests detect mismatch against trusted event metadata; they do not
+authenticate an event log and do not resist an actor who can rewrite both data
+and metadata. No signing key or separate integrity service is introduced.
+
+The implementation is deliberately split at the storage boundary to fit the
+issue's 1–2 focused-day cap: this slice supplies local persistent store and
+claim primitives plus restart/corruption tests, but does not reconstruct jobs
+or dispatch resumed attempts. Writable resume rehydration and effect
+authorization remain the next bounded implementation slice. O09 remains open
+and is not satisfied by this store primitive.
 
 ## Finite synthetic restart and crash-point fixtures
 
@@ -198,9 +235,10 @@ durable store/time authority, prove storage authenticity, or satisfy O08.
 
 ## Scope estimate and exclusions
 
-The decision packet is a review artifact and fits within the discovery portion
-of O08. A runtime implementation should be re-estimated after the owner selects
-the deadline and storage guarantees; it likely exceeds the existing two-focused-
-day bound if it includes production-grade persistent storage or a real provider
-deduplication integration. This proposal does not change schemas, add storage,
-introduce a provider, alter current retry behavior, close O08, or unblock O09.
+The owner-approved local store slice is estimated at 1–2 focused days, including
+focused tests and handoff. The complete writable-resume/reconstruction flow is
+estimated above that bound and is intentionally split. Production-grade
+persistent storage, an authenticated integrity root, provider-specific
+deduplication, and O09's result linkage remain separate decisions. This slice
+does not introduce a provider, alter current retry behavior, close O08, or
+unblock O09.
