@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync, watch, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, watch, writeFileSync } from 'node:fs';
 import { createSyntheticExecutionAuthorityVerifier, SYNTHETIC_EXECUTION_PURPOSE } from '../../src/offline-orchestration-prototype/execution-authority.js';
 import { createOfflineOrchestrationPrototypeForTest, LocalFilePrototypeStore } from '../../src/offline-orchestration-prototype/testing.js';
 import { MockTextAdapter } from '../../src/prompt-sdk/index.js';
@@ -26,6 +26,14 @@ const record = (action, suffix) => ({
 });
 const authority = createSyntheticExecutionAuthorityVerifier([record('execute', '1'), record('retry', '2')]);
 const store = new LocalFilePrototypeStore(root);
+const effectLog = process.env.DSS_O08_EFFECT_LOG;
+
+class ObservedMock extends MockTextAdapter {
+  async execute(request, options) {
+    appendFileSync(effectLog, `${process.pid}\n`, { flag: 'a', mode: 0o600 });
+    return super.execute(request, options);
+  }
+}
 
 if (mode === 'crash-after-claim') {
   const claimResume = store.claimResume.bind(store);
@@ -45,9 +53,9 @@ if (mode === 'crash-after-dispatch-marker') {
   };
 }
 
-let mockAdapterFactory;
+let mockAdapterFactory = configuration => new ObservedMock(configuration);
 if (mode === 'hold-preflight') {
-  mockAdapterFactory = configuration => new class extends MockTextAdapter {
+  mockAdapterFactory = configuration => new class extends ObservedMock {
     async describe() {
       const ready = process.env.DSS_O08_READY_MARKER;
       const release = process.env.DSS_O08_RELEASE_MARKER;
@@ -69,13 +77,6 @@ if (mode === 'crash-after-outcome-blob') {
     if (key.startsWith('provider-outcome:')) process.exit(75);
     return result;
   };
-  mockAdapterFactory = configuration => new class extends MockTextAdapter {
-    async execute(request, options) {
-      const result = await super.execute(request, options);
-      writeFileSync(process.env.DSS_O08_PROVIDER_EFFECT_MARKER, 'one synthetic mock call\n', { flag: 'wx', mode: 0o600 });
-      return result;
-    }
-  }(configuration);
 }
 
 const monotonicEpoch = `subprocess-${process.pid}`;

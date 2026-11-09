@@ -251,8 +251,9 @@ preflight and only one dispatches; process exit immediately after claim leaves
 a held claim with no takeover; exit after the durable dispatch marker leaves no
 mock effect and no replay; and exit after one mock effect plus a durable but
 unlinked provider-outcome blob is quarantined without a second mock effect.
-The test-only worker records effects in a temporary marker file and all results
-are checked against the durable event history.
+The test-only worker records every adapter `execute()` entry in a shared
+temporary per-execution effect log, including normal restarts and both crash
+points; all call counts are checked against the durable event history.
 
 These are process-crash and local-filesystem integration tests around the
 existing fsync-backed prototype store. They do not simulate power loss, prove

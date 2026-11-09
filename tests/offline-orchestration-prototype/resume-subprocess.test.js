@@ -66,6 +66,7 @@ async function seedCandidate(t) {
 }
 
 function startWorker(seed, mode = 'normal', extraEnv = {}) {
+  const effectLog = extraEnv.DSS_O08_EFFECT_LOG ?? join(seed.root, 'synthetic-effects.log');
   const childEnvironment = {};
   for (const key of ['PATH', 'TMPDIR', 'TEMP', 'SystemRoot', 'WINDIR', 'LANG', 'LC_ALL']) {
     if (process.env[key] !== undefined) childEnvironment[key] = process.env[key];
@@ -78,6 +79,7 @@ function startWorker(seed, mode = 'normal', extraEnv = {}) {
       DSS_O08_JOB_ID: seed.jobId,
       DSS_O08_STABLE_NOW: String(seed.window.retry_not_before_at_ms),
       DSS_O08_WORKER_MODE: mode,
+      DSS_O08_EFFECT_LOG: effectLog,
       ...extraEnv
     },
     stdio: ['pipe', 'pipe', 'pipe']
@@ -107,17 +109,31 @@ function startWorker(seed, mode = 'normal', extraEnv = {}) {
   };
 }
 
+function effectCount(path) {
+  if (!existsSync(path)) return 0;
+  const contents = readFileSync(path, 'utf8').trim();
+  return contents ? contents.split('\n').length : 0;
+}
+
 async function waitForFile(path, root, child) {
   if (existsSync(path)) return;
   await new Promise((resolve, reject) => {
-    const watcher = watch(root, () => {
-      if (existsSync(path)) { watcher.close(); clearTimeout(timer); resolve(); }
-    });
-    const timer = setTimeout(() => {
-      watcher.close();
-      child.kill('SIGKILL');
-      reject(new Error(`Expected subprocess marker was not created: ${path}`));
-    }, 5_000);
+    let settled = false;
+    let timer;
+    let watcher;
+    const finish = error => {
+      if (settled) return;
+      settled = true;
+      watcher?.close();
+      clearTimeout(timer);
+      if (error) {
+        child.kill('SIGKILL');
+        reject(error);
+      } else resolve();
+    };
+    watcher = watch(root, () => { if (existsSync(path)) finish(); });
+    timer = setTimeout(() => finish(new Error(`Expected subprocess marker was not created: ${path}`)), 5_000);
+    if (existsSync(path)) finish();
   });
 }
 
@@ -142,6 +158,7 @@ test('a separate Node process resumes the pinned synthetic candidate from the du
   assert.equal(prepared.length, 2);
   assert.equal(prepared[1].retry_of_attempt_id, prepared[0].attempt_id);
   assert.equal(events.filter(event => event.type === 'dispatch-started').length, 2);
+  assert.equal(effectCount(join(seeded.root, 'synthetic-effects.log')), 1);
 });
 
 test('two Node processes contend for one durable claim and only the winner dispatches', async t => {
@@ -150,17 +167,20 @@ test('two Node processes contend for one durable claim and only the winner dispa
   const release = join(seeded.root, 'preflight.release');
   const winner = startWorker(seeded, 'hold-preflight', {
     DSS_O08_READY_MARKER: ready,
-    DSS_O08_RELEASE_MARKER: release
+    DSS_O08_RELEASE_MARKER: release,
+    DSS_O08_EFFECT_LOG: join(seeded.root, 'synthetic-effects.log')
   });
   await waitForFile(ready, seeded.root, winner.child);
   const contender = await runWorker(seeded);
   assert.equal(contender.code, 0, contender.stderr);
   assert.equal(contender.result.status, 'resume-claim-held');
+  assert.equal(effectCount(join(seeded.root, 'synthetic-effects.log')), 0);
   writeFileSync(release, 'release\n', { flag: 'wx', mode: 0o600 });
   const completed = await winner.closed;
   assert.equal(completed.code, 0, completed.stderr);
   const result = JSON.parse(completed.stdout.trim().split('\n').at(-1)).result;
   assert.equal(result.kind, 'terminal');
+  assert.equal(effectCount(join(seeded.root, 'synthetic-effects.log')), 1);
   assert.equal(seeded.store.readEvents(seeded.jobId).filter(event => event.type === 'dispatch-started').length, 2);
 });
 
@@ -171,35 +191,34 @@ test('process death after claim leaves a permanent claim and no takeover', async
   const restarted = await runWorker(seeded);
   assert.equal(restarted.code, 0, restarted.stderr);
   assert.equal(restarted.result.status, 'resume-claim-held');
+  assert.equal(effectCount(join(seeded.root, 'synthetic-effects.log')), 0);
   assert.equal(seeded.store.readEvents(seeded.jobId).filter(event => event.type === 'dispatch-started').length, 1);
 });
 
 test('process death after durable dispatch marker does not replay the mock call', async t => {
   const seeded = await seedCandidate(t);
-  const effectMarker = join(seeded.root, 'provider-effect.marker');
-  const crashed = await runWorker(seeded, 'crash-after-dispatch-marker', {
-    DSS_O08_PROVIDER_EFFECT_MARKER: effectMarker
-  });
+  const effectLog = join(seeded.root, 'synthetic-effects.log');
+  const crashed = await runWorker(seeded, 'crash-after-dispatch-marker', { DSS_O08_EFFECT_LOG: effectLog });
   assert.equal(crashed.code, 74);
-  assert.throws(() => readFileSync(effectMarker));
-  const restarted = await runWorker(seeded, 'normal', { DSS_O08_PROVIDER_EFFECT_MARKER: effectMarker });
+  assert.equal(effectCount(effectLog), 0);
+  const restarted = await runWorker(seeded);
   assert.equal(restarted.code, 0, restarted.stderr);
   assert.equal(restarted.result.status, 'resume-not-eligible');
+  assert.equal(effectCount(effectLog), 0);
   assert.equal(seeded.store.readEvents(seeded.jobId).filter(event => event.type === 'dispatch-started').length, 2);
-  assert.throws(() => readFileSync(effectMarker));
 });
 
 test('process death after one mock effect and an unlinked outcome blob quarantines without replay', async t => {
   const seeded = await seedCandidate(t);
-  const effectMarker = join(seeded.root, 'provider-effect.marker');
+  const effectLog = join(seeded.root, 'synthetic-effects.log');
   const crashed = await runWorker(seeded, 'crash-after-outcome-blob', {
-    DSS_O08_PROVIDER_EFFECT_MARKER: effectMarker
+    DSS_O08_EFFECT_LOG: effectLog
   });
   assert.equal(crashed.code, 75);
-  assert.equal(readFileSync(effectMarker, 'utf8'), 'one synthetic mock call\n');
-  const restarted = await runWorker(seeded, 'normal', { DSS_O08_PROVIDER_EFFECT_MARKER: effectMarker });
+  assert.equal(effectCount(effectLog), 1);
+  const restarted = await runWorker(seeded);
   assert.equal(restarted.code, 0, restarted.stderr);
   assert.equal(restarted.result.status, 'resume-not-eligible');
+  assert.equal(effectCount(effectLog), 1);
   assert.equal(seeded.store.readEvents(seeded.jobId).filter(event => event.type === 'dispatch-started').length, 2);
-  assert.equal(readFileSync(effectMarker, 'utf8'), 'one synthetic mock call\n');
 });
