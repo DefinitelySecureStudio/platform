@@ -15,10 +15,10 @@ then rechecks current authority and immutable evidence, honors the original
 deadline and two-attempt limit, and creates one new attempt with a new execution
 ID and idempotency key. Recovery after a new runner/process is read-only.
 
-The ordinary prototype still uses in-memory state and monotonic retry timing;
-the separately exported local-file testing/store implementation supplies
-durable primitives but is not yet wired to resumed jobs. The job deadline and
-retry delay are monotonic and tied to the current clock epoch. Retry eligibility also retains
+The ordinary prototype defaults to in-memory state and monotonic retry timing.
+The opt-in local-file store supplies the durable primitives used by the
+no-context resume path below. The job deadline and same-process retry delay are
+monotonic and tied to the current clock epoch. Retry eligibility also retains
 the original `retry_not_before`; resume must preserve and verify both that value
 and the original job deadline. The mock adapter records calls but does not
 deduplicate them. Provider Execution v1 carries an `idempotency_key`; the
@@ -185,8 +185,56 @@ inside its review period. A real-time run does not rewind the fixture's review
 date. The time authority is an injected test seam, not a production clock
 service. The local-store trust assumption above still applies: a writer able to
 rewrite both persisted records and digests can forge self-consistent evidence.
-This is a candidate classifier only, not proof of durable resume safety or
-exactly-once behavior.
+The classifier by itself is not proof of durable resume safety or exactly-once
+behavior; the separately bounded runtime slice below adds a narrow synthetic
+resume path, without making either broader claim.
+
+## Narrow no-context writable resume slice — 2026-11-08
+
+The experimental prototype now exposes `resume({ jobId, authorizeResume: true,
+signal?, mockOutcome? })` when constructed with an explicit `LocalFilePrototypeStore`,
+execution authority provider, and synthetic resume-time authority. No local
+wall-clock substitution is permitted for cross-restart eligibility. The new
+JavaScript method and local-store export are experimental; no wire schema or
+production service contract is added.
+
+Resume first reads only lifecycle routing metadata and checks that it names the
+single pinned, no-context, first-attempt rate-limit candidate. It verifies
+current retry authority and stable time before an atomic one-shot claim. A
+missing, held, malformed, or uncertain claim fails closed. After claim, it
+rechecks authority/time before reading protected input, prompt, provider
+outcome, and result blobs; the guard is repeated around each synchronous blob
+read. It validates the exact prior outcome/result evidence, reconstructs the
+material ledger from the verified blobs, and performs mock preflight. After the
+awaited preflight it rechecks authority and the original time interval. After
+post-claim authorization it pairs the validated stable-time sample with a fresh
+monotonic sample from the same epoch to map the remaining original deadline.
+Unreadable or unknown lifecycle state before or after claim returns
+`reconciliation-required` and never triggers replay.
+
+The same durable one-shot claim is acquired by the original runner's ordinary
+`retry()` path before protected retry evidence is read. Thus an in-flight
+resume and a same-process retry cannot both proceed to a second dispatch. If
+the other path already owns the claim, the caller fails closed; a held claim is
+never taken over or released.
+
+The existing attempt path creates a new attempt and idempotency key, writes
+the durable `dispatch-started` marker before the mock effect, then performs the
+final current-authority/time and pinned-evidence checks immediately before the
+single mock call. The persisted deadline and retry bound are unchanged, and
+the event history enforces a maximum of two attempts. Any acquired claim is
+never released or taken over. Uncertain marker, evidence, or outcome writes
+remain quarantined; a restart cannot replay them. This is bounded at-most-one
+mock invocation for this claimed attempt, not provider-level deduplication or
+generic exactly-once behavior.
+
+Tests cover explicit authorization, authority denial before claim, revocation
+during claim/preflight, retry and deadline boundaries, concurrent callers,
+unknown claims, final evidence uncertainty, marker uncertainty, uncertain
+provider-outcome persistence, successful attempt-two linkage, and repeated
+resume. Context-enabled recovery, live providers, production data, automatic
+claim takeover, and O09 remain out of scope. O08 stays open pending remaining
+criteria and independent review.
 
 The slice is bounded to roughly one focused day: persist/link the stable retry
 window, validate and classify read-only restart evidence, and add a finite
@@ -282,10 +330,11 @@ durable store/time authority, prove storage authenticity, or satisfy O08.
 
 ## Scope estimate and exclusions
 
-The owner-approved local store slice was estimated at 1–2 focused days. This
-read-only candidate slice is separately bounded to roughly one focused day.
-The complete writable-resume/reconstruction flow is estimated above that bound
-and is intentionally split. Production-grade
+The owner-approved local store slice was estimated at 1–2 focused days. The
+read-only candidate slice was separately bounded to roughly one focused day.
+The no-context writable slice above is likewise narrow; the broader O08
+durable-resume acceptance remains incomplete and subject to independent review.
+Production-grade
 persistent storage, an authenticated integrity root, provider-specific
 deduplication, and O09's result linkage remain separate decisions. This slice
 does not introduce a provider, alter current retry behavior, close O08, or

@@ -6,6 +6,10 @@ export {
   OFFLINE_ORCHESTRATION_LIMITS
 } from './limits.js';
 export {
+  LocalFilePrototypeStore,
+  LOCAL_FILE_STORE_TRUST_BOUNDARY
+} from './local-file-store.js';
+export {
   createSyntheticExecutionAuthorityVerifier,
   SYNTHETIC_EXECUTION_PURPOSE,
   SYNTHETIC_EXECUTION_ACTIONS
