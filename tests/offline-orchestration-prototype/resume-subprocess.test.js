@@ -220,7 +220,9 @@ test('two Node processes released together immediately before atomic claim produ
       JSON.parse(exit.stdout.trim().split('\n').at(-1)).result
     );
     assert.equal(results.filter(result => result.kind === 'terminal').length, 1);
-    assert.equal(results.filter(result => result.status === 'resume-claim-held').length, 1);
+    const contender = results.find(result => result.kind !== 'terminal');
+    assert.ok(contender);
+    assert.ok(['resume-claim-held', 'reconciliation-required'].includes(contender.status));
 
     const events = seeded.store.readEvents(seeded.jobId);
     const prepared = events.filter(event => event.type === 'prepared');
@@ -246,6 +248,26 @@ test('two Node processes released together immediately before atomic claim produ
     first.child.kill('SIGKILL');
     second.child.kill('SIGKILL');
   }
+});
+
+test('a partially published claim fails closed and is not taken over after restart', async t => {
+  const seeded = await seedCandidate(t);
+  const effectLog = join(seeded.root, 'synthetic-effects.log');
+  const interrupted = await runWorker(seeded, 'partial-claim-before-resume', {
+    DSS_O08_EFFECT_LOG: effectLog
+  });
+  assert.equal(interrupted.code, 0, interrupted.stderr);
+  assert.equal(interrupted.result.status, 'reconciliation-required');
+  const claimPath = join(seeded.root, 'resume-claims', `${Buffer.from(seeded.jobId).toString('base64url')}.json`);
+  assert.equal(readFileSync(claimPath).byteLength, 0);
+  assert.equal(effectCount(effectLog), 0);
+  assert.equal(seeded.store.readEvents(seeded.jobId).filter(event => event.type === 'dispatch-started').length, 1);
+
+  const restarted = await runWorker(seeded, 'normal', { DSS_O08_EFFECT_LOG: effectLog });
+  assert.equal(restarted.code, 0, restarted.stderr);
+  assert.equal(restarted.result.status, 'reconciliation-required');
+  assert.equal(effectCount(effectLog), 0);
+  assert.equal(seeded.store.readEvents(seeded.jobId).filter(event => event.type === 'dispatch-started').length, 1);
 });
 
 test('process death after claim leaves a permanent claim and no takeover', async t => {

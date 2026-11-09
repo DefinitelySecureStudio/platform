@@ -250,12 +250,17 @@ separate and unaccepted.
 private temporary local store, then exercises the runner from fresh Node child
 processes. It verifies: a new process completes attempt two with the original
 attempt linkage; two processes are released together at a barrier immediately
-before the real atomic claim and yield one claim/second dispatch; a separate
-staggered contention case pauses a claim winner in preflight; process exit
+before the real atomic claim and yield one claim/second dispatch. The contender
+may observe either the complete held record or a partial record and fail closed
+as `reconciliation-required`. A separate staggered contention case pauses a
+claim winner in preflight; process exit
 immediately after claim leaves a held claim with no takeover; exit after the
 durable dispatch marker leaves no mock effect and no replay; and exit after one
-mock effect plus a durable but
-unlinked provider-outcome blob is quarantined without a second mock effect.
+mock effect plus a durable but unlinked provider-outcome blob is quarantined
+without a second mock effect. A deterministic worker fixture creates an empty
+claim record before resume; the runner returns `reconciliation-required`,
+performs no second dispatch, and a later process does not take over the partial
+record.
 The test-only worker records every adapter `execute()` entry in a shared
 temporary per-execution effect log, including normal restarts and both crash
 points; all call counts are checked against the durable event history.
@@ -289,7 +294,7 @@ and zero unauthorized effects.
 | `retry_not_before >= original_deadline` | No eligible time interval exists; do not resume | 0 | Both original bounds retained |
 | Time authority epoch is unknown/different, unavailable, or rolled back | Unverifiable; do not resume | 0 | No use of persisted monotonic observation to infer elapsed reboot time |
 | Authority is denied, expired, revoked, missing, or unverifiable | Deny resume | 0 | No protected evidence read after denial; no dispatch |
-| Two runners race to resume the same eligible job | One confirmed claim at most; loser denied/conflict | At most 1 total | Atomic transaction; no automatic takeover; no duplicate dispatch |
+| Two runners race to resume the same eligible job | One confirmed claim at most; loser reports held or reconciliation-required if the claim record is not yet complete | At most 1 total | Exclusive claim creation; malformed/partial claims fail closed; no automatic takeover or duplicate dispatch |
 | Attempt limit already consumed | Exhausted; do not resume | 0 | Existing attempts preserved |
 | Required event/blob is missing, malformed, corrupt, mismatched, or ambiguous | Quarantine/reconciliation required | 0 | No success-implying write and no provider call |
 | Persisted bytes and plain hashes are both edited to a self-consistent forgery | Outcome follows selected threat model; hashes alone cannot authenticate it | 0 | Test demonstrates limitation; require a protected chain/root or trusted-storage assumption |
@@ -360,8 +365,8 @@ runner.
 | --- | --- | --- |
 | Candidate boundaries and corrupt state | `resume-candidate.test.js` covers candidate classification; `local-file-store.test.js` covers persistence and corruption. | The proposal harness models additional time/async combinations; those cases do not prove runner behavior. |
 | Current authority, protected evidence and retry lineage | `resume-candidate.test.js` and runner retry/resume tests cover denial, evidence validation, attempt linkage and no dispatch on failed gates. | Context-enabled resume and arbitrary providers are excluded. |
-| One-shot claims and process contention | Resume/candidate runner tests and `local-file-store.test.js` cover claim behavior. `resume-subprocess.test.js` releases two processes together immediately before `claimResume`, asserting one claim, one second attempt, two total dispatch markers and one mock effect. | A separate test covers staggered preflight contention. Filesystem/OS trust assumptions apply. |
-| Restart and crash points | `resume-subprocess.test.js` verifies restart linkage, permanent claim/no takeover, no replay after marker, and quarantine after an unlinked outcome blob; the shared effect log counts actual mock calls. | Process-crash tests do not simulate power loss or prove behavior on other filesystems. |
+| One-shot claims and process contention | Resume/candidate runner tests and `local-file-store.test.js` cover claim behavior. `resume-subprocess.test.js` releases two processes together immediately before `claimResume`, asserting one claim, one second attempt, two total dispatch markers and one mock effect. | In the file-creation/write window, a contender may see an incomplete record and return `reconciliation-required`; deterministic coverage confirms fail-closed behavior and no takeover. A separate test covers staggered preflight contention. Filesystem/OS trust assumptions apply. |
+| Restart and crash points | `resume-subprocess.test.js` verifies restart linkage, permanent and partial claim/no takeover, no replay after marker, and quarantine after an unlinked outcome blob; the shared effect log counts actual mock calls. | Process-crash tests do not simulate power loss or prove behavior on other filesystems. |
 | Original bounds and attempt ceiling | Candidate boundary and runner resume tests cover the original deadline, inclusive retry bound and two-attempt cap; subprocess events assert second-attempt linkage. | Provider idempotency and generic exactly-once behavior are not established. |
 | Async fresh-time/authority matrix | Runner resume tests cover implemented boundaries; `resume-proposal-harness.test.js` enumerates the broader claim/evidence/preflight/marker scenario matrix. | Harness-only cases are reference logic, not runner conformance. |
 | Storage bootstrap and integrity | `local-file-store.test.js` covers initialization ordering, immutable writes and corruption handling. | Digests cannot authenticate a record against an actor who can modify both record and digest. |

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { appendFileSync, existsSync, watch, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createSyntheticExecutionAuthorityVerifier, SYNTHETIC_EXECUTION_PURPOSE } from '../../src/offline-orchestration-prototype/execution-authority.js';
 import { createOfflineOrchestrationPrototypeForTest, LocalFilePrototypeStore } from '../../src/offline-orchestration-prototype/testing.js';
 import { MockTextAdapter } from '../../src/prompt-sdk/index.js';
@@ -42,6 +43,11 @@ if (mode === 'crash-after-claim') {
     if (result.status === 'acquired') process.exit(73);
     return result;
   };
+}
+
+if (mode === 'partial-claim-before-resume') {
+  const partialClaim = join(root, 'resume-claims', `${Buffer.from(jobId).toString('base64url')}.json`);
+  writeFileSync(partialClaim, Buffer.alloc(0), { flag: 'wx', mode: 0o600 });
 }
 
 if (mode === 'barrier-before-claim') {
