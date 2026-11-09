@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { appendFileSync, existsSync, watch, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createSyntheticExecutionAuthorityVerifier, SYNTHETIC_EXECUTION_PURPOSE } from '../../src/offline-orchestration-prototype/execution-authority.js';
 import { createOfflineOrchestrationPrototypeForTest, LocalFilePrototypeStore } from '../../src/offline-orchestration-prototype/testing.js';
 import { MockTextAdapter } from '../../src/prompt-sdk/index.js';
@@ -41,6 +42,27 @@ if (mode === 'crash-after-claim') {
     const result = claimResume(value);
     if (result.status === 'acquired') process.exit(73);
     return result;
+  };
+}
+
+if (mode === 'partial-claim-before-resume') {
+  const partialClaim = join(root, 'resume-claims', `${Buffer.from(jobId).toString('base64url')}.json`);
+  writeFileSync(partialClaim, Buffer.alloc(0), { flag: 'wx', mode: 0o600 });
+}
+
+if (mode === 'barrier-before-claim') {
+  const claimResume = store.claimResume.bind(store);
+  store.claimResume = value => {
+    const ready = `${process.env.DSS_O08_CLAIM_READY_DIR}/${process.pid}.ready`;
+    const release = process.env.DSS_O08_CLAIM_RELEASE_MARKER;
+    writeFileSync(ready, 'ready\n', { flag: 'wx', mode: 0o600 });
+    const deadline = Date.now() + 10_000;
+    const poll = new Int32Array(new SharedArrayBuffer(4));
+    while (!existsSync(release)) {
+      if (Date.now() >= deadline) process.exit(76);
+      Atomics.wait(poll, 0, 0, 5);
+    }
+    return claimResume(value);
   };
 }
 

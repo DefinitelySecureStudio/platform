@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, watch, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, watch, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -182,6 +182,92 @@ test('two Node processes contend for one durable claim and only the winner dispa
   assert.equal(result.kind, 'terminal');
   assert.equal(effectCount(join(seeded.root, 'synthetic-effects.log')), 1);
   assert.equal(seeded.store.readEvents(seeded.jobId).filter(event => event.type === 'dispatch-started').length, 2);
+});
+
+test('two Node processes released together immediately before atomic claim produce one claim and at most one second dispatch', async t => {
+  const seeded = await seedCandidate(t);
+  const originalEvents = seeded.store.readEvents(seeded.jobId);
+  const originalDeadline = originalEvents.find(event => event.type === 'admitted').resume_time.deadline_at_ms;
+  const originalRetryBound = seeded.window.retry_not_before_at_ms;
+  const barrier = join(seeded.root, 'claim-barrier');
+  const readyDirectory = join(barrier, 'ready');
+  mkdirSync(readyDirectory, { recursive: true, mode: 0o700 });
+  const release = join(barrier, 'release');
+  const effectLog = join(seeded.root, 'synthetic-effects.log');
+  const extraEnv = {
+    DSS_O08_CLAIM_READY_DIR: readyDirectory,
+    DSS_O08_CLAIM_RELEASE_MARKER: release,
+    DSS_O08_EFFECT_LOG: effectLog
+  };
+  const first = startWorker(seeded, 'barrier-before-claim', extraEnv);
+  const second = startWorker(seeded, 'barrier-before-claim', extraEnv);
+  const readyMarkers = [
+    join(readyDirectory, `${first.child.pid}.ready`),
+    join(readyDirectory, `${second.child.pid}.ready`)
+  ];
+  try {
+    await waitForFile(readyMarkers[0], readyDirectory, first.child);
+    await waitForFile(readyMarkers[1], readyDirectory, second.child);
+    assert.deepEqual(readdirSync(join(seeded.root, 'resume-claims')), []);
+
+    // Both processes are synchronously paused in the claim wrapper. One shared
+    // release lets them enter the real exclusive claim operation together.
+    writeFileSync(release, 'release\n', { flag: 'wx', mode: 0o600 });
+    const [firstExit, secondExit] = await Promise.all([first.closed, second.closed]);
+    assert.equal(firstExit.code, 0, firstExit.stderr);
+    assert.equal(secondExit.code, 0, secondExit.stderr);
+    const results = [firstExit, secondExit].map(exit =>
+      JSON.parse(exit.stdout.trim().split('\n').at(-1)).result
+    );
+    assert.equal(results.filter(result => result.kind === 'terminal').length, 1);
+    const contender = results.find(result => result.kind !== 'terminal');
+    assert.ok(contender);
+    assert.ok(['resume-claim-held', 'reconciliation-required'].includes(contender.status));
+
+    const events = seeded.store.readEvents(seeded.jobId);
+    const prepared = events.filter(event => event.type === 'prepared');
+    assert.equal(prepared.length, 2);
+    assert.equal(prepared[1].retry_of_attempt_id, prepared[0].attempt_id);
+    assert.equal(events.filter(event => event.type === 'dispatch-started').length, 2);
+    assert.equal(readdirSync(join(seeded.root, 'resume-claims')).length, 1);
+    assert.equal(effectCount(effectLog), 1);
+    assert.equal(seeded.window.retry_not_before_at_ms, originalRetryBound);
+    assert.equal(events.find(event => event.type === 'admitted').resume_time.deadline_at_ms, originalDeadline);
+    assert.equal(events.filter(event => event.type === 'prepared').length, 2);
+
+    const restarted = await runWorker(seeded, 'normal', { DSS_O08_EFFECT_LOG: effectLog });
+    assert.equal(restarted.code, 0, restarted.stderr);
+    assert.notEqual(restarted.result.kind, 'terminal');
+    assert.equal(effectCount(effectLog), 1);
+    const afterRestart = seeded.store.readEvents(seeded.jobId);
+    assert.equal(afterRestart.filter(event => event.type === 'dispatch-started').length, 2);
+    assert.equal(afterRestart.find(event => event.type === 'admitted').resume_time.deadline_at_ms, originalDeadline);
+    assert.equal(afterRestart.find(event => event.type === 'resume-window').retry_not_before_at_ms, originalRetryBound);
+  } finally {
+    if (!existsSync(release)) writeFileSync(release, 'release\n', { flag: 'wx', mode: 0o600 });
+    first.child.kill('SIGKILL');
+    second.child.kill('SIGKILL');
+  }
+});
+
+test('a partially published claim fails closed and is not taken over after restart', async t => {
+  const seeded = await seedCandidate(t);
+  const effectLog = join(seeded.root, 'synthetic-effects.log');
+  const interrupted = await runWorker(seeded, 'partial-claim-before-resume', {
+    DSS_O08_EFFECT_LOG: effectLog
+  });
+  assert.equal(interrupted.code, 0, interrupted.stderr);
+  assert.equal(interrupted.result.status, 'reconciliation-required');
+  const claimPath = join(seeded.root, 'resume-claims', `${Buffer.from(seeded.jobId).toString('base64url')}.json`);
+  assert.equal(readFileSync(claimPath).byteLength, 0);
+  assert.equal(effectCount(effectLog), 0);
+  assert.equal(seeded.store.readEvents(seeded.jobId).filter(event => event.type === 'dispatch-started').length, 1);
+
+  const restarted = await runWorker(seeded, 'normal', { DSS_O08_EFFECT_LOG: effectLog });
+  assert.equal(restarted.code, 0, restarted.stderr);
+  assert.equal(restarted.result.status, 'reconciliation-required');
+  assert.equal(effectCount(effectLog), 0);
+  assert.equal(seeded.store.readEvents(seeded.jobId).filter(event => event.type === 'dispatch-started').length, 1);
 });
 
 test('process death after claim leaves a permanent claim and no takeover', async t => {
