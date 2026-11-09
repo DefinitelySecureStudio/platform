@@ -66,10 +66,14 @@ async function seedCandidate(t) {
 }
 
 function startWorker(seed, mode = 'normal', extraEnv = {}) {
+  const childEnvironment = {};
+  for (const key of ['PATH', 'TMPDIR', 'TEMP', 'SystemRoot', 'WINDIR', 'LANG', 'LC_ALL']) {
+    if (process.env[key] !== undefined) childEnvironment[key] = process.env[key];
+  }
   const child = spawn(process.execPath, [workerPath], {
     cwd: process.cwd(),
     env: {
-      ...process.env,
+      ...childEnvironment,
       DSS_O08_STORE_ROOT: seed.root,
       DSS_O08_JOB_ID: seed.jobId,
       DSS_O08_STABLE_NOW: String(seed.window.retry_not_before_at_ms),
