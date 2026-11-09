@@ -44,6 +44,22 @@ if (mode === 'crash-after-claim') {
   };
 }
 
+if (mode === 'barrier-before-claim') {
+  const claimResume = store.claimResume.bind(store);
+  store.claimResume = value => {
+    const ready = `${process.env.DSS_O08_CLAIM_READY_DIR}/${process.pid}.ready`;
+    const release = process.env.DSS_O08_CLAIM_RELEASE_MARKER;
+    writeFileSync(ready, 'ready\n', { flag: 'wx', mode: 0o600 });
+    const deadline = Date.now() + 10_000;
+    const poll = new Int32Array(new SharedArrayBuffer(4));
+    while (!existsSync(release)) {
+      if (Date.now() >= deadline) process.exit(76);
+      Atomics.wait(poll, 0, 0, 5);
+    }
+    return claimResume(value);
+  };
+}
+
 if (mode === 'crash-after-dispatch-marker') {
   const append = store.append.bind(store);
   store.append = event => {

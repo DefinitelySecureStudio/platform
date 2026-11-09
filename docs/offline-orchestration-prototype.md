@@ -8,9 +8,11 @@ Provider Execution and Comic Manifest implementations. Its default path uses
 one exact public synthetic Comic Manifest fixture, the existing Prompt SDK, and
 one `MockTextAdapter` instance. An explicitly installed, opt-in path also reads
 the exact public Context Builder fixture through six bounded synthetic readers
-under separate current execution and package-use authority. It does not contact
-a provider, use credentials, write to a filesystem, or persist state across
-processes. The store is in-memory only.
+under separate current execution and package-use authority. Neither path
+contacts a provider or uses credentials. The default path uses an in-memory
+store; a separate experimental opt-in no-context resume path uses the local
+file store described in the O08 packet and persists synthetic state across
+processes. Neither path is a production execution service.
 
 This implementation was informed by [RFC 0010 at Codex commit
 `3f5549f29faf1ca3e0912e6b8407dbe19310a7e2`](https://github.com/DefinitelySecureStudio/codex/blob/3f5549f29faf1ca3e0912e6b8407dbe19310a7e2/rfcs/0010-build-attempt-lifecycle.md)
@@ -32,11 +34,13 @@ the Comic Manifest schema.
 - At most two attempts per job and at most one provider call per attempt.
 - A fixed 300,000 ms monotonic job budget. It is not reset between attempts.
 - One synthetic mock adapter only. No real providers, network, production
-  storage, filesystem, scheduler, daemon, credential handling, or automatic
-  restart continuation.
-- Read-only recovery inspection. State uncertainty, integrity mismatch, an
-  unknown clock epoch, or an expired nonterminal deadline cannot authorize a
-  write or another provider call.
+  storage, scheduler, daemon, or credential handling. Only the explicit
+  experimental no-context resume uses the local filesystem; it is bounded to
+  the pinned eligible first-attempt rate-limit case.
+- `inspectRecovery()` is read-only. The separate opt-in `resume()` path may
+  continue only that narrow candidate after current checks and a durable
+  one-shot claim. Uncertainty, integrity mismatch, an unknown clock epoch, or
+  an expired nonterminal deadline cannot authorize another provider call.
 - Each prototype instance requires an explicitly installed synthetic execution
   authority verifier. It rechecks finite preexisting decisions for the exact
   synthetic production identity, purpose, and action before input use, again
@@ -270,19 +274,22 @@ preflight. IDs are fresh; the prepared event links `retry_of_attempt_id`.
 A confirmed second result or retained unmappable outcome closes the host job;
 uncertain outcomes or writes remain unresolved. There is no third attempt or
 hidden retry. Delay is measured conservatively from terminal completion. A caller may
-use `closeJob()` instead. A restart can only inspect; it cannot resume retry.
+use `closeJob()` instead. With the default in-memory store, a process restart
+cannot continue this job. The separate opt-in local-file-store `resume()` path
+supports only the narrow no-context candidate documented in the O08 packet.
 
 The only retry admission proof in this prototype is the exact normalized mock
 rate-limit outcome that states the request was rate-limited before acceptance.
 Each attempt makes at most one provider call and uses a distinct
 `idempotency_key` derived from its fresh execution ID. The mock does not
 deduplicate across keys, and the prototype
-does not claim cross-attempt or restart deduplication, durable resume, or
-exactly-once effects. A retry is an explicit, same-process continuation after
-the no-acceptance proof, under the original job deadline and two-attempt cap;
-recovery after restart remains read-only. Tests cover denied retry (no second
-call), authorized retry (one new call/key on the successful fixture path),
-immutable prior result, the second-attempt limit, and read-only recovery.
+does not claim cross-attempt or provider-level deduplication, or exactly-once
+effects. A retry is an explicit continuation after the no-acceptance proof,
+under the original job deadline and two-attempt cap. The experimental
+no-context resume path and its limits are documented in the O08 packet. Tests
+cover denied retry (no second call), authorized retry (one new call/key on the
+successful fixture path), immutable prior result, the second-attempt limit,
+and read-only `inspectRecovery()`.
 
 The experimental validator lives in `src/comic-manifest/result-candidate.js`;
 the stable `validateComicManifest` entry point continues to reject 1.1.0.
@@ -340,6 +347,8 @@ resource cleanup, and preservation of verified results and immutable evidence;
 uncertain in-flight outcomes remain unresolved and are never converted into
 success or absence. New Comic Manifest results for cancellation, timeout, or
 uncertain external effects require a separate contract decision. This evidence
-does not establish O05 or O07 completion or broader production readiness. O08
-and O09 are outside this work; their prerequisites and acceptance criteria are
-not assessed here.
+does not establish O05 or O07 completion or broader production readiness. O05
+and O07 acceptance remain separate. O08 evidence and remaining acceptance
+gates are tracked in the
+[durable-resume decision packet](o08-durable-resume-decision-packet.md). O08
+remains open pending independent acceptance; O09 remains separately gated.

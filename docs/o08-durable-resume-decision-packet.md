@@ -7,13 +7,16 @@ creative material.
 
 ## Current evidence and gap
 
-Platform `main` at `e0d31cf9505858aea81f94615dc18eb546197c60` has a bounded
-same-process retry and an experimental local file store with atomic claims and
-durable writes. The first attempt is retry-eligible only when its verified
-provider outcome is the exact rate-limit-before-acceptance case. Explicit retry
+At the start of this slice, Platform `main` at `31fd4d0` had bounded
+same-process retry and an experimental opt-in local-file resume path with
+atomic claims and durable writes. The default prototype remains in-memory.
+The first attempt is retry-eligible only when its verified provider outcome is
+the exact rate-limit-before-acceptance case. Explicit retry
 then rechecks current authority and immutable evidence, honors the original
 deadline and two-attempt limit, and creates one new attempt with a new execution
-ID and idempotency key. Recovery after a new runner/process is read-only.
+ID and idempotency key. The opt-in synthetic no-context path can resume only
+the narrowly eligible first attempt after restart; inspection remains
+read-only, and other recovery states are not replayed.
 
 The ordinary prototype defaults to in-memory state and monotonic retry timing.
 The opt-in local-file store supplies the durable primitives used by the
@@ -26,10 +29,10 @@ Platform mock currently derives a distinct key for each attempt. No existing
 contract here states that an arbitrary adapter/provider will honor that key or
 retain a deduplication record.
 
-Therefore the current safe retry proof does not generalize to replaying an
+The original same-process retry proof did not generalize to replaying an
 uncertain dispatch. A dispatch marker without a verified provider outcome must
-remain unresolved. A restart-resume implementation also needs a way to verify
-that both the original job deadline and `retry_not_before` remain valid without
+remain unresolved. The later bounded resume implementation described below
+adds an injected stable time authority to verify both original bounds without
 resetting the budget or shortening the retry delay.
 
 ## Recommended first bounded resume contract
@@ -150,10 +153,10 @@ and metadata. No signing key or separate integrity service is introduced.
 
 The initial storage slice supplies local persistent store and claim primitives
 plus restart/corruption tests, but does not reconstruct jobs or dispatch resumed
-attempts. The bounded follow-up below adds only read-only candidate
-rehydration/classification; it does not consume a claim or dispatch. A later
-slice must integrate writable resume and effect authorization. O09 remains open
-and is not satisfied by these primitives.
+attempts. The bounded follow-up below adds read-only candidate
+rehydration/classification; it does not consume a claim or dispatch. The
+subsequent writable-resume slice below adds only the approved synthetic
+no-context path. O09 remains open and is not satisfied by these primitives.
 
 ## Bounded read-only candidate rehydration slice — 2026-11-08
 
@@ -246,10 +249,12 @@ separate and unaccepted.
 `resume-subprocess.test.js` seeds only the pinned Comic Manifest fixture in a
 private temporary local store, then exercises the runner from fresh Node child
 processes. It verifies: a new process completes attempt two with the original
-attempt linkage; two concurrent processes contend while one is paused in
-preflight and only one dispatches; process exit immediately after claim leaves
-a held claim with no takeover; exit after the durable dispatch marker leaves no
-mock effect and no replay; and exit after one mock effect plus a durable but
+attempt linkage; two processes are released together at a barrier immediately
+before the real atomic claim and yield one claim/second dispatch; a separate
+staggered contention case pauses a claim winner in preflight; process exit
+immediately after claim leaves a held claim with no takeover; exit after the
+durable dispatch marker leaves no mock effect and no replay; and exit after one
+mock effect plus a durable but
 unlinked provider-outcome blob is quarantined without a second mock effect.
 The test-only worker records every adapter `execute()` entry in a shared
 temporary per-execution effect log, including normal restarts and both crash
@@ -344,6 +349,28 @@ held/ambiguous claims, invalid evidence, and uncertain-dispatch quarantine.
 This validates the proposal's scenario logic only. It is not wired to the
 orchestration runner and does not establish runtime conformance, implement a
 durable store/time authority, prove storage authenticity, or satisfy O08.
+
+## O08 acceptance evidence map — 2026-11-09
+
+This map distinguishes executable prototype evidence from the separate
+reference-only proposal model. The proposal harness is not wired into the
+runner.
+
+| Acceptance area | Runner/store evidence | Reference-only or remaining limit |
+| --- | --- | --- |
+| Candidate boundaries and corrupt state | `resume-candidate.test.js` covers candidate classification; `local-file-store.test.js` covers persistence and corruption. | The proposal harness models additional time/async combinations; those cases do not prove runner behavior. |
+| Current authority, protected evidence and retry lineage | `resume-candidate.test.js` and runner retry/resume tests cover denial, evidence validation, attempt linkage and no dispatch on failed gates. | Context-enabled resume and arbitrary providers are excluded. |
+| One-shot claims and process contention | Resume/candidate runner tests and `local-file-store.test.js` cover claim behavior. `resume-subprocess.test.js` releases two processes together immediately before `claimResume`, asserting one claim, one second attempt, two total dispatch markers and one mock effect. | A separate test covers staggered preflight contention. Filesystem/OS trust assumptions apply. |
+| Restart and crash points | `resume-subprocess.test.js` verifies restart linkage, permanent claim/no takeover, no replay after marker, and quarantine after an unlinked outcome blob; the shared effect log counts actual mock calls. | Process-crash tests do not simulate power loss or prove behavior on other filesystems. |
+| Original bounds and attempt ceiling | Candidate boundary and runner resume tests cover the original deadline, inclusive retry bound and two-attempt cap; subprocess events assert second-attempt linkage. | Provider idempotency and generic exactly-once behavior are not established. |
+| Async fresh-time/authority matrix | Runner resume tests cover implemented boundaries; `resume-proposal-harness.test.js` enumerates the broader claim/evidence/preflight/marker scenario matrix. | Harness-only cases are reference logic, not runner conformance. |
+| Storage bootstrap and integrity | `local-file-store.test.js` covers initialization ordering, immutable writes and corruption handling. | Digests cannot authenticate a record against an actor who can modify both record and digest. |
+| Full O08 acceptance | Independent acceptance verdict is pending. | This finite synthetic evidence does not close O08; broader criteria remain open. |
+
+The simultaneous-process barrier demonstrates one successful claim and at most
+one mock effect for this pinned local synthetic fixture. It does not generalize
+to other filesystems, production deployment, live providers, or arbitrary
+durable-resume implementations.
 
 ## Scope estimate and exclusions
 
