@@ -347,9 +347,10 @@ The accepted O06 boundary is limited to deterministic synthetic safe stopping,
 resource cleanup, and preservation of verified results and immutable evidence;
 uncertain in-flight outcomes remain unresolved and are never converted into
 success or absence. New Comic Manifest results for cancellation, timeout, or
-uncertain external effects require a separate contract decision. This evidence
-does not establish O05 or O07 completion or broader production readiness. O05
-and O07 acceptance remain separate. O08 evidence and remaining acceptance
-gates are tracked in the
-[durable-resume decision packet](o08-durable-resume-decision-packet.md). O08
-remains open pending independent acceptance; O09 remains separately gated.
+uncertain external effects require a separate contract decision. O05, O06 and
+O07 receive bounded prerequisite passes only for the synthetic path described
+in the [durable-resume decision packet](o08-durable-resume-decision-packet.md);
+their Studio issues remain open and no broader production readiness is implied.
+O08 receives a scoped pass for its accepted synthetic, no-context,
+local-filesystem behavior, while issue #109 remains open and O09 remains
+separately gated.
