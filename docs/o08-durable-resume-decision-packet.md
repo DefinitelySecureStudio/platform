@@ -35,7 +35,12 @@ remain unresolved. The later bounded resume implementation described below
 adds an injected stable time authority to verify both original bounds without
 resetting the budget or shortening the retry delay.
 
-## Recommended first bounded resume contract
+## Initial proposed resume contract (historical; accepted implementation below)
+
+This was the design proposal before owner approval. The accepted synthetic
+contract, selected local trust boundary, and implemented behavior are recorded
+in the following sections; do not treat this proposal snapshot as the current
+implementation status.
 
 If the owner wants durable resume, start with only a persisted, terminal,
 first-attempt `retry-eligible` state whose immutable evidence proves the exact
@@ -93,22 +98,22 @@ local wall time or create a new deadline on restart.
 
 ### 2. Storage and single-runner claim
 
-Choose whether O08 authorizes a persistent job store, its atomic transactional
-append/write and compare-and-claim guarantees, integrity protections, and
-behavior when a claim or commit acknowledgement is ambiguous. Require immutable
-evidence and durable dispatch-intent markers before adapter invocation. The
-proposal prohibits automatic lease takeover; an abandoned/ambiguous claim is
-quarantined pending explicit reconciliation. The current store is in-memory
-and has no crash-safe transaction or inter-process claim contract.
+The accepted synthetic slice selects an owner-controlled local directory and
+implements fsync-backed immutable writes and an exclusive per-job claim, with
+no lease takeover. It is not a general database or production transaction
+contract. Production use would still require a separate decision about storage,
+atomic transaction guarantees, authenticated integrity, and ambiguous commit
+handling. An ambiguous local claim/commit remains quarantined for explicit
+reconciliation.
 
 Digests detect byte mismatch only when the expected digest and event history
 are themselves trusted. If an actor can rewrite persisted bytes and matching
 digest/event metadata, plain hashes do not prove authenticity or prevent a
-fabricated before-acceptance outcome. The threat model must either trust
-storage access controls/append-only guarantees or define a separately protected
-authenticated chain/root (for example, a signing key unavailable to the store
-writer). The current prototype supplies neither durable integrity anchor nor a
-production threat model.
+fabricated before-acceptance outcome. The local synthetic store relies on
+owner-controlled filesystem/OS access controls and append-only assumptions;
+same-account hostile edits and administrators are outside its trust boundary.
+No separately authenticated integrity anchor or production threat model is
+provided.
 
 ### 3. Uncertain dispatch and idempotency
 
@@ -376,6 +381,31 @@ The simultaneous-process barrier demonstrates one successful claim and at most
 one mock effect for this pinned local synthetic fixture. It does not generalize
 to other filesystems, production deployment, live providers, or arbitrary
 durable-resume implementations.
+
+## Reconciliation to Studio issue #109 — 2026-11-09
+
+This reconciliation uses Platform `main` at `c9ef54836a9f3537d66aff5154159d3ae6619629` and the open [Studio issue #109](https://github.com/DefinitelySecureStudio/studio/issues/109). Platform [PR #72](https://github.com/DefinitelySecureStudio/platform/pull/72) is merged at this main commit; exact-head PR CI run [#181](https://github.com/DefinitelySecureStudio/platform/actions/runs/42666625421) passed on Node 22 and 24, and post-merge CI passed. The issue's original acceptance remains the controlling checklist; merged Platform work is evidence for bounded synthetic paths, not an automatic issue verdict.
+
+### O05–O07 prerequisite evidence
+
+| Prerequisite | Issue acceptance and current evidence | Status boundary |
+| --- | --- | --- |
+| [O05 #106](https://github.com/DefinitelySecureStudio/studio/issues/106): current execution/package-use authority; denial means zero protected reads and provider calls; expiry/revocation tested; no implicit fetch or renewal | `runner.test.js` covers execution/package-use checks before fixture reads and dispatch and rechecks across awaits. `retry-package-use-authority.test.js` directly covers revoked/expired package-use evidence on cached retry. `resume-candidate.test.js` covers authority before claim/protected reads, revocation during claim, and same-process retry versus resume sharing one claim. Merged PRs [#56](https://github.com/DefinitelySecureStudio/platform/pull/56), [#57](https://github.com/DefinitelySecureStudio/platform/pull/57), and [#63](https://github.com/DefinitelySecureStudio/platform/pull/63) provide implementation/test evidence. | Bounded evidence only for installed synthetic readers, mock and local resume path. No arbitrary reader, real package fetch/renewal, production data or production verifier. Issue remains open; tests are not an independent passing verdict. |
+| [O06 #107](https://github.com/DefinitelySecureStudio/studio/issues/107): deterministic deadline/cancel stops; cleanup; preserve valid results/evidence; ignore late settlement; uncertain in-flight result remains unresolved | `runner.test.js` covers pre-admission, pre-dispatch, protected-reader, in-flight and late-settlement boundaries, cleanup, and immutable result preservation. `context-reader-lifecycle.test.js` covers all six pending readers for cancellation/timeout, late fulfillment/rejection, propagated signals and cleanup. Merged PRs [#58](https://github.com/DefinitelySecureStudio/platform/pull/58) and [#60](https://github.com/DefinitelySecureStudio/platform/pull/60), with the accepted boundary documented in Platform, provide evidence. | Andy accepted safe stopping, preservation, and unresolved uncertainty as the bounded O06 boundary. New Comic Manifest mappings for timeout/cancellation remain separate. Issue remains open; this evidence is not an issue-close action. |
+| [O07 #108](https://github.com/DefinitelySecureStudio/studio/issues/108): missing/corrupt input fails safely; partial output distinguished from success with traceable inputs/transforms | `runner.test.js` covers missing, empty, corrupt and rejected values in all six installed synthetic reader slots, malformed/unsupported production, and partial/mismatched output with retained actual input and provider-outcome evidence, sanitized diagnostics, no false Comic success and no unauthorized retry. Merged PR [#59](https://github.com/DefinitelySecureStudio/platform/pull/59) adds the bounded failure coverage. Andy accepted attempt-level input/outcome linkage for unmappable partial results; no formal Comic transformation/result is fabricated, and behavior remains `contract-mapping-blocked`. | Formal transform records for unmappable output remain separate work. Evidence is limited to the pinned fixtures and mock. Issue remains open pending its required passing verdict; the accepted linkage boundary does not authorize issue closure. |
+
+### O08 acceptance rows against current implementation
+
+| Studio #109 criterion | Evidence and disposition |
+| --- | --- |
+| Mock transient failures obey attempt limits | Met within the accepted synthetic no-context boundary: retry/resume tests cover one verified rate-limit-before-acceptance outcome, current authority, a maximum of two attempts, and no third attempt after another rate limit. `resume-candidate.test.js` and `resume-subprocess.test.js` verify the second attempt's lineage and preserved original bounds. |
+| Resume rechecks authority and has no duplicate effects | Met within the local synthetic boundary: every resume requires current retry authority; the durable exclusive one-shot claim is shared with ordinary retry/resume; tests cover simultaneous processes, partial claims, held claims, crash points and at most one mock effect. A prior verified before-acceptance outcome proves the prior request was rejected; it does not prove anything about an uncertain dispatch. |
+| Supported idempotency/deduplication mechanism is identified | The supported suppression mechanism is the durable one-shot local claim plus verified pre-acceptance proof for this single mock boundary. Attempts use distinct `idempotency_key` values, but `MockTextAdapter` does not deduplicate and Provider Execution v1 does not by itself promise provider-side deduplication. No provider dedupe mechanism has been implemented or tested. |
+| Unrecoverable cases terminate | **Not established for ambiguous outcomes.** After a confirmed unmappable second-attempt outcome, the host job can close as `contract-mapping-blocked` while preserving the prior immutable Comic result; this does not create a new Comic terminal result. Recovery status depends on the phase: uncertain claim, write, or close state can report `reconciliation-required`; a durable dispatch marker without an eligible linked outcome reports `resume-not-eligible`. Both block replay and leave the external outcome unasserted; neither proves terminal success or terminal failure. This is the deliberate fail-closed behavior accepted for bounded O08 safety, but it does not satisfy a literal requirement that every unrecoverable case reach a terminal state. A passing O08 verdict therefore requires the contract owner/independent reviewer to reconcile this row with the accepted unresolved-outcome boundary. |
+| Finite transient, exhausted-attempt, authorized-resume and denied-resume fixtures; one adapter/effect boundary | Covered for the pinned Comic Manifest fixture, synthetic authorities, local filesystem and `MockTextAdapter`. No context-enabled resume, live provider, production storage or other effect boundary is covered. |
+| No generic exactly-once claim | Preserved. The local atomic claim limits concurrent/repeated local resume attempts and uncertain dispatch is never automatically replayed; this is not provider-level deduplication or a general exactly-once guarantee. |
+
+**O08 remains open.** Current evidence demonstrates bounded synthetic behavior, but the ambiguous-outcome terminalization row is not met as written, and no independent passing acceptance verdict is recorded here. O09 has not been started or unblocked by these changes. The merged harness, runner and test matrices do not authorize issue closure.
 
 ## Scope estimate and exclusions
 
