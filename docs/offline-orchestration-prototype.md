@@ -148,8 +148,11 @@ later, but the SDK/host processing race ignores that late fulfillment or
 rejection. The host timer and caller-abort listener are removed after execution
 settles; invoking a captured late callback after a committed terminal result
 does not change stored evidence. On a stopped second attempt, a confirmed SDK
-outcome may close the host job while leaving the earlier immutable Comic result
-unchanged. These are distinct host/SDK states, not a new result mapping.
+outcome may close the host job only after the `contract-mapping-blocked` and
+`job-closed` writes are confirmed, while leaving the earlier immutable Comic
+result unchanged. Provider timeouts and uncertain outcome or closure writes
+remain unresolved for reconciliation. These are distinct host/SDK states, not
+a new result mapping.
 
 ### Timeout and cancellation mapping analysis
 

@@ -242,8 +242,10 @@ during claim/preflight, retry and deadline boundaries, concurrent callers,
 unknown claims, final evidence uncertainty, marker uncertainty, uncertain
 provider-outcome persistence, successful attempt-two linkage, and repeated
 resume. Context-enabled recovery, live providers, production data, automatic
-claim takeover, and O09 remain out of scope. O08 stays open pending remaining
-criteria and independent review.
+claim takeover, and O09 remain out of scope. At this implementation checkpoint,
+remaining O08 criteria and independent review were still pending. The scoped
+acceptance review recorded below subsequently passed the bounded local path;
+broader criteria remain outside that pass.
 
 The implementation and subprocess acceptance evidence above cover the bounded
 no-context runtime path. Broader O08 criteria, different storage backends,
@@ -274,8 +276,10 @@ points; all call counts are checked against the durable event history.
 These are process-crash and local-filesystem integration tests around the
 existing fsync-backed prototype store. They do not simulate power loss, prove
 behavior on other filesystems, add a production backend, or provide a generic
-exactly-once guarantee. O08 remains open pending its remaining criteria and
-review; O09 remains gated separately.
+exactly-once guarantee. At the time this subsection was written, O08 review and
+remaining criteria were pending. The scoped review recorded later in this
+packet passed the bounded local path; broader criteria remain outside that
+pass, and O09 remains gated separately.
 
 ## Finite synthetic restart and crash-point fixtures
 
@@ -402,7 +406,7 @@ This reconciliation uses Platform `main` at `0b6dbfb3f2334626ec251a634ee677ecae2
 | Mock transient failures obey attempt limits | Met within the accepted synthetic no-context boundary: retry/resume tests cover one verified rate-limit-before-acceptance outcome, current authority, a maximum of two attempts, and no third attempt after another rate limit. `resume-candidate.test.js` and `resume-subprocess.test.js` verify the second attempt's lineage and preserved original bounds. |
 | Resume rechecks authority and has no duplicate effects | Met within the local synthetic boundary: every resume requires current retry authority; the durable exclusive one-shot claim is shared with ordinary retry/resume; tests cover simultaneous processes, partial claims, held claims, crash points and at most one mock effect. A prior verified before-acceptance outcome proves the prior request was rejected; it does not prove anything about an uncertain dispatch. |
 | Supported idempotency/deduplication mechanism is identified | The supported suppression mechanism is the durable one-shot local claim plus verified pre-acceptance proof for this single mock boundary. Attempts use distinct `idempotency_key` values, but `MockTextAdapter` does not deduplicate and Provider Execution v1 does not by itself promise provider-side deduplication. No provider dedupe mechanism has been implemented or tested. |
-| Unrecoverable cases terminate | **Met within the accepted scope when “terminate” means stop automatic execution and prevent further dispatch.** A confirmed unmappable second-attempt outcome closes the host job as `contract-mapping-blocked`, preserving the prior immutable Comic result without fabricating a new Comic result. For ambiguous outcomes, persisted state is preserved for reconciliation: uncertain claim/write/close states may report `reconciliation-required`; a durable dispatch marker without an eligible linked outcome reports `resume-not-eligible`. Both block replay; neither asserts terminal success or failure or that the external effect did not occur. This matches the accepted O06 uncertainty boundary and the independent O08 scoped acceptance review. |
+| Unrecoverable cases terminate | **Met within the accepted scope when “terminate” means stop automatic execution and prevent further dispatch.** After a confirmed, retained unmappable second-attempt outcome, the runner returns `contract-mapping-blocked` with `job_closed: true` only once both the `contract-mapping-blocked` event and `job-closed` append are confirmed. It preserves the prior immutable Comic result and fabricates no new Comic result. Provider timeouts and uncertain outcome/readback/index/close writes remain unresolved for reconciliation and do not claim confirmed closure. For other ambiguous recovery states, persisted state is preserved: uncertain claim/write/close states may report `reconciliation-required`; a durable dispatch marker without an eligible linked outcome reports `resume-not-eligible`. These statuses block replay; neither asserts terminal success or failure or that the external effect did not occur. This matches the accepted O06 uncertainty boundary and the independent O08 scoped acceptance review. |
 | Finite transient, exhausted-attempt, authorized-resume and denied-resume fixtures; one adapter/effect boundary | Covered for the pinned Comic Manifest fixture, synthetic authorities, local filesystem and `MockTextAdapter`. No context-enabled resume, live provider, production storage or other effect boundary is covered. |
 | No generic exactly-once claim | Preserved. The local atomic claim limits concurrent/repeated local resume attempts and uncertain dispatch is never automatically replayed; this is not provider-level deduplication or a general exactly-once guarantee. |
 
