@@ -236,13 +236,30 @@ resume. Context-enabled recovery, live providers, production data, automatic
 claim takeover, and O09 remain out of scope. O08 stays open pending remaining
 criteria and independent review.
 
-The slice is bounded to roughly one focused day: persist/link the stable retry
-window, validate and classify read-only restart evidence, and add a finite
-boundary/corruption matrix. Actual resume integration remains a separate slice
-because it must reconstruct job and ledger state and compose current execution
-authority, atomic one-shot claim, fresh stable-time checks, durable dispatch
-marker, and uncertain-outcome quarantine at every asynchronous boundary. O09
-remains a separate dependency gate.
+The implementation and subprocess acceptance evidence above cover the bounded
+no-context runtime path. Broader O08 criteria, different storage backends,
+context-enabled recovery, production durability guarantees, and O09 remain
+separate and unaccepted.
+
+## Synthetic subprocess restart and crash acceptance — 2026-11-09
+
+`resume-subprocess.test.js` seeds only the pinned Comic Manifest fixture in a
+private temporary local store, then exercises the runner from fresh Node child
+processes. It verifies: a new process completes attempt two with the original
+attempt linkage; two concurrent processes contend while one is paused in
+preflight and only one dispatches; process exit immediately after claim leaves
+a held claim with no takeover; exit after the durable dispatch marker leaves no
+mock effect and no replay; and exit after one mock effect plus a durable but
+unlinked provider-outcome blob is quarantined without a second mock effect.
+The test-only worker records every adapter `execute()` entry in a shared
+temporary per-execution effect log, including normal restarts and both crash
+points; all call counts are checked against the durable event history.
+
+These are process-crash and local-filesystem integration tests around the
+existing fsync-backed prototype store. They do not simulate power loss, prove
+behavior on other filesystems, add a production backend, or provide a generic
+exactly-once guarantee. O08 remains open pending its remaining criteria and
+review; O09 remains gated separately.
 
 ## Finite synthetic restart and crash-point fixtures
 
