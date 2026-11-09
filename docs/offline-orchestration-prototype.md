@@ -148,8 +148,11 @@ later, but the SDK/host processing race ignores that late fulfillment or
 rejection. The host timer and caller-abort listener are removed after execution
 settles; invoking a captured late callback after a committed terminal result
 does not change stored evidence. On a stopped second attempt, a confirmed SDK
-outcome may close the host job while leaving the earlier immutable Comic result
-unchanged. These are distinct host/SDK states, not a new result mapping.
+outcome may close the host job only after the `contract-mapping-blocked` and
+`job-closed` writes are confirmed, while leaving the earlier immutable Comic
+result unchanged. Provider timeouts and uncertain outcome or closure writes
+remain unresolved for reconciliation. These are distinct host/SDK states, not
+a new result mapping.
 
 ### Timeout and cancellation mapping analysis
 
@@ -347,9 +350,10 @@ The accepted O06 boundary is limited to deterministic synthetic safe stopping,
 resource cleanup, and preservation of verified results and immutable evidence;
 uncertain in-flight outcomes remain unresolved and are never converted into
 success or absence. New Comic Manifest results for cancellation, timeout, or
-uncertain external effects require a separate contract decision. This evidence
-does not establish O05 or O07 completion or broader production readiness. O05
-and O07 acceptance remain separate. O08 evidence and remaining acceptance
-gates are tracked in the
-[durable-resume decision packet](o08-durable-resume-decision-packet.md). O08
-remains open pending independent acceptance; O09 remains separately gated.
+uncertain external effects require a separate contract decision. O05, O06 and
+O07 receive bounded prerequisite passes only for the synthetic path described
+in the [durable-resume decision packet](o08-durable-resume-decision-packet.md);
+their Studio issues remain open and no broader production readiness is implied.
+O08 receives a scoped pass for its accepted synthetic, no-context,
+local-filesystem behavior, while issue #109 remains open and O09 remains
+separately gated.
