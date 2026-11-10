@@ -2365,6 +2365,15 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
           || entries.indexOf(orphanPrepared[0]) <= (priorChain.resumeWindowIndex ?? priorChain.terminalIndex)) {
           return reconciliationRequired();
         }
+        const orphanProduction = orphanPrepared[0].production;
+        if (!orphanProduction || typeof orphanProduction !== 'object' || Array.isArray(orphanProduction)) {
+          return reconciliationRequired();
+        }
+        try {
+          if (canonicalJson(orphanProduction) !== canonicalJson(admitted.production)) return reconciliationRequired();
+        } catch {
+          return reconciliationRequired();
+        }
         const orphanExecutionId = orphanPrepared[0].execution_id;
         const orphanDispatch = orphanDispatches[0];
         const orphanOutcome = orphanOutcomes[0];
