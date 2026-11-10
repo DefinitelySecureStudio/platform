@@ -2156,28 +2156,34 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
         const [terminal] = terminalMatches;
         if (priorChain) {
           const priorWindows = matching('resume-window', priorChain.attemptId);
-          if (priorWindows.length !== 1) return reconciliationRequired();
-          const priorWindow = priorWindows[0];
-          const timeRecord = admitted.resume_time;
-          const windowKeys = ['authority_id', 'context_enabled', 'deadline_at_ms', 'domain_id', 'epoch_id', 'started_at_ms'];
-          const validTimeRecord = timeRecord && typeof timeRecord === 'object' && !Array.isArray(timeRecord)
-            && Object.keys(timeRecord).sort().join('|') === windowKeys.join('|')
-            && timeRecord.authority_id === SYNTHETIC_RESUME_TIME_AUTHORITY_ID && typeof timeRecord.domain_id === 'string'
-            && typeof timeRecord.epoch_id === 'string' && timeRecord.context_enabled === false
-            && Number.isSafeInteger(timeRecord.started_at_ms) && Number.isSafeInteger(timeRecord.deadline_at_ms)
-            && timeRecord.deadline_at_ms === checkedAdd(timeRecord.started_at_ms, OFFLINE_ORCHESTRATION_LIMITS.jobBudgetMs);
-          const priorWindowIndex = entries.indexOf(priorWindow);
-          if (!validTimeRecord || priorWindow.attempt_id !== priorChain.attemptId
-            || priorWindow.execution_id !== priorChain.executionId
-            || priorWindow.terminal_result_id !== priorChain.resultId
-            || !Number.isSafeInteger(priorWindow.checked_at_ms)
-            || priorWindow.checked_at_ms < timeRecord.started_at_ms
-            || priorWindow.checked_at_ms >= timeRecord.deadline_at_ms
-            || priorWindow.retry_not_before_at_ms !== checkedAdd(priorWindow.checked_at_ms,
-              priorChain.providerResult.error.retry_after_ms)
-            || priorWindow.deadline_at_ms !== timeRecord.deadline_at_ms
-            || priorWindowIndex <= priorChain.terminalIndex
-            || entries.indexOf(prepared) <= priorWindowIndex) return reconciliationRequired();
+          if (priorWindows.length > 1) return reconciliationRequired();
+          if (admitted.resume_time !== undefined) {
+            if (priorWindows.length !== 1) return reconciliationRequired();
+            const priorWindow = priorWindows[0];
+            const timeRecord = admitted.resume_time;
+            const windowKeys = ['authority_id', 'context_enabled', 'deadline_at_ms', 'domain_id', 'epoch_id', 'started_at_ms'];
+            const validTimeRecord = timeRecord && typeof timeRecord === 'object' && !Array.isArray(timeRecord)
+              && Object.keys(timeRecord).sort().join('|') === windowKeys.join('|')
+              && timeRecord.authority_id === SYNTHETIC_RESUME_TIME_AUTHORITY_ID
+              && typeof timeRecord.domain_id === 'string' && typeof timeRecord.epoch_id === 'string'
+              && timeRecord.context_enabled === false
+              && Number.isSafeInteger(timeRecord.started_at_ms) && Number.isSafeInteger(timeRecord.deadline_at_ms)
+              && timeRecord.deadline_at_ms === checkedAdd(timeRecord.started_at_ms, OFFLINE_ORCHESTRATION_LIMITS.jobBudgetMs);
+            const priorWindowIndex = entries.indexOf(priorWindow);
+            if (!validTimeRecord || priorWindow.attempt_id !== priorChain.attemptId
+              || priorWindow.execution_id !== priorChain.executionId
+              || priorWindow.terminal_result_id !== priorChain.resultId
+              || !Number.isSafeInteger(priorWindow.checked_at_ms)
+              || priorWindow.checked_at_ms < timeRecord.started_at_ms
+              || priorWindow.checked_at_ms >= timeRecord.deadline_at_ms
+              || priorWindow.retry_not_before_at_ms !== checkedAdd(priorWindow.checked_at_ms,
+                priorChain.providerResult.error.retry_after_ms)
+              || priorWindow.deadline_at_ms !== timeRecord.deadline_at_ms
+              || priorWindowIndex <= priorChain.terminalIndex
+              || entries.indexOf(prepared) <= priorWindowIndex) return reconciliationRequired();
+          } else if (priorWindows.length !== 0 || entries.indexOf(prepared) <= priorChain.terminalIndex) {
+            return reconciliationRequired();
+          }
         } else if (prepared.retry_of_attempt_id !== null) return reconciliationRequired();
         const ordered = [prepared, dispatch, outcome, preparedResult, persistingRecord, terminal]
           .map(item => entries.indexOf(item));
@@ -2314,7 +2320,8 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       if (orphanAttemptRecords.some(item => !resultAttemptEventTypes.has(item.type))) return reconciliationRequired();
       const orphanIds = new Set(orphanAttemptRecords.map(item => item.attempt_id));
       if (orphanIds.size > 0) {
-        if (orphanIds.size !== 1 || !priorChain || priorChain.resumeWindowIndex === undefined) {
+        if (orphanIds.size !== 1 || !priorChain
+          || (admitted.resume_time !== undefined && priorChain.resumeWindowIndex === undefined)) {
           return reconciliationRequired();
         }
         const [orphanId] = orphanIds;
@@ -2334,7 +2341,7 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
           || orphanStops.length < 1 || [...stopCounts.values()].some(count => count > 1) || orphanResults.length !== 0
           || orphanPrepared[0].retry_of_attempt_id !== priorChain.attemptId
           || !isResourceId(orphanId) || !isExecutionId(orphanPrepared[0].execution_id)
-          || entries.indexOf(orphanPrepared[0]) <= priorChain.resumeWindowIndex) {
+          || entries.indexOf(orphanPrepared[0]) <= (priorChain.resumeWindowIndex ?? priorChain.terminalIndex)) {
           return reconciliationRequired();
         }
         const orphanExecutionId = orphanPrepared[0].execution_id;
@@ -2373,10 +2380,11 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       const closedWithoutRetry = entries.filter(item => item.type === 'closed-without-retry');
       const jobClosedForRetry = entries.find(item => item.type === 'job-closed');
       if (closedWithoutRetry.length > 1 || (closedWithoutRetry.length === 1
-        && (!priorChain || priorChain.resumeWindowIndex === undefined || !jobClosedForRetry
+        && (!priorChain || (admitted.resume_time !== undefined && priorChain.resumeWindowIndex === undefined)
+          || !jobClosedForRetry
           || closedWithoutRetry[0].attempt_id !== priorChain.attemptId
           || closedWithoutRetry[0].result_id !== priorChain.resultId
-          || entries.indexOf(closedWithoutRetry[0]) <= priorChain.resumeWindowIndex
+          || entries.indexOf(closedWithoutRetry[0]) <= (priorChain.resumeWindowIndex ?? priorChain.terminalIndex)
           || (jobClosedForRetry && entries.indexOf(closedWithoutRetry[0]) >= entries.indexOf(jobClosedForRetry))))) {
         return reconciliationRequired();
       }
