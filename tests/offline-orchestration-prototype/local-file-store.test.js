@@ -999,8 +999,11 @@ test('reopened inspection rejects missing or replaced production links on a trai
       } else {
         prepared.production = {
           ...prepared.production,
-          identity_sha256: 'sha256:' + '0'.repeat(64),
-          private_content: privateSentinel
+          identity: {
+            ...prepared.production.identity,
+            sha256: 'sha256:' + '0'.repeat(64),
+            private_content: privateSentinel
+          }
         };
       }
       writeLocalEventLog(root, first.job_id, events);
