@@ -86,12 +86,13 @@ function runtime() {
   };
 }
 
-function prototype(store, onMockCall = () => {}, runtimeOverride = runtime()) {
+function prototype(store, onMockCall = () => {}, runtimeOverride = runtime(), mockAdapterFactoryOverride) {
   return createOfflineOrchestrationPrototypeForTest({
     store,
     runtime: runtimeOverride,
     idFactory: randomUUID,
     executionAuthorityProvider: authority(),
+    ...(mockAdapterFactoryOverride ? { mockAdapterFactory: mockAdapterFactoryOverride } : {}),
     onMockCall
   });
 }
@@ -625,6 +626,39 @@ test('reopened retry expiry validates a job-scoped budget stop against its last 
   assert.equal(reopened.blobCount, beforeBlobs);
   assert.equal(restartedCalls, 0);
   assert.equal(calls, 1);
+
+  for (const corruption of ['deadline', 'reason', 'close', 'missing-result-chain']) {
+    const corrupted = structuredClone(events);
+    const stop = corrupted.find(item => item.type === 'budget-exhausted' && item.attempt_id === undefined);
+    const close = corrupted.find(item => item.type === 'job-closed');
+    assert.ok(stop);
+    assert.ok(close);
+    if (corruption === 'deadline') stop.deadline_monotonic_ms++;
+    if (corruption === 'reason') stop.reason = 'attempts';
+    if (corruption === 'close') close.reason = 'budget-time';
+    if (corruption === 'missing-result-chain') {
+      for (let index = corrupted.length - 1; index >= 0; index--) {
+        if (['result-prepared', 'persisting', 'terminal'].includes(corrupted[index].type)) {
+          corrupted.splice(index, 1);
+        }
+      }
+    }
+    writeLocalEventLog(root, first.job_id, corrupted);
+
+    const corruptedStore = new LocalFilePrototypeStore(root);
+    let corruptedCalls = 0;
+    const corruptedRunner = prototype(corruptedStore, () => { corruptedCalls++; }, controlledRuntime);
+    const unchangedEvents = structuredClone(corruptedStore.readEvents(first.job_id));
+    const unchangedBlobs = corruptedStore.blobCount;
+    assertSafeReconciliation(corruptedRunner.inspectRecovery(first.job_id), [
+      root, first.job_id, first.attempt_id, first.execution_id,
+      first.result.result_id, 'RETRY-BUDGET-PRIVATE-SENTINEL'
+    ]);
+    assert.deepEqual(corruptedStore.readEvents(first.job_id), unchangedEvents);
+    assert.equal(corruptedStore.blobCount, unchangedBlobs);
+    assert.equal(corruptedCalls, 0);
+    writeLocalEventLog(root, first.job_id, events);
+  }
 });
 
 test('reopened result chain rejects cancelled-before-dispatch naming a completed attempt', async t => {
@@ -675,4 +709,54 @@ test('reopened result chain rejects cancelled-before-dispatch naming a completed
   assert.equal(reopened.blobCount, beforeBlobs);
   assert.equal(restartedCalls, 0);
   assert.equal(calls, 2);
+});
+
+
+test('reopened inspection accepts a result after the linked attempt observes its deadline', async t => {
+  const root = temporaryDirectory();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const store = new LocalFilePrototypeStore(root);
+  const clockState = { now: 10_000 };
+  const controlledRuntime = { ...runtime(), now: () => clockState.now };
+  let calls = 0;
+  const mockAdapterFactory = configuration => new (class extends MockTextAdapter {
+    async execute(...args) {
+      const admitted = store.readEvents(store.readJobIds()[0]).find(item => item.type === 'admitted');
+      clockState.now = admitted.deadline_monotonic_ms;
+      return super.execute(...args);
+    }
+  })(configuration);
+  const value = prototype(store,
+    ({ phase }) => { if (phase === 'dispatch-confirmed') calls++; },
+    controlledRuntime, mockAdapterFactory);
+  const completed = await value.submit({ productionSource });
+  assert.equal(completed.result.status, 'complete');
+  assert.equal(calls, 1);
+  const entries = store.readEvents(completed.job_id);
+  const dispatch = entries.find(item => item.type === 'dispatch-started');
+  const budgetStop = entries.find(item => item.type === 'budget-exhausted');
+  const outcome = entries.find(item => item.type === 'provider-outcome');
+  const preparedResult = entries.find(item => item.type === 'result-prepared');
+  assert.deepEqual(budgetStop, {
+    job_id: completed.job_id,
+    type: 'budget-exhausted',
+    reason: 'time',
+    attempt_id: completed.attempt_id,
+    execution_id: completed.execution_id,
+    deadline_monotonic_ms: entries.find(item => item.type === 'admitted').deadline_monotonic_ms
+  });
+  assert.ok(entries.indexOf(dispatch) < entries.indexOf(budgetStop));
+  assert.ok(entries.indexOf(budgetStop) < entries.indexOf(outcome));
+  assert.ok(entries.indexOf(outcome) < entries.indexOf(preparedResult));
+
+  const reopened = new LocalFilePrototypeStore(root);
+  let restartedCalls = 0;
+  const restarted = prototype(reopened, () => { restartedCalls++; }, controlledRuntime);
+  const beforeEvents = structuredClone(reopened.readEvents(completed.job_id));
+  const beforeBlobs = reopened.blobCount;
+  assert.equal(restarted.inspectRecovery(completed.job_id).status, 'terminal');
+  assert.deepEqual(reopened.readEvents(completed.job_id), beforeEvents);
+  assert.equal(reopened.blobCount, beforeBlobs);
+  assert.equal(restartedCalls, 0);
+  assert.equal(calls, 1);
 });
