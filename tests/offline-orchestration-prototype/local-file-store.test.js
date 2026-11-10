@@ -340,7 +340,7 @@ function localBlobPath(root, key) {
 }
 
 function writeLocalEventLog(root, jobId, entries) {
-  writeFileSync(localEventPath(root, jobId), `${entries.map(item => canonicalJson(item)).join('\\n')}\\n`);
+  writeFileSync(localEventPath(root, jobId), `${entries.map(item => canonicalJson(item)).join('\n')}\n`);
 }
 
 function writeLocalBlob(root, key, bytes) {
