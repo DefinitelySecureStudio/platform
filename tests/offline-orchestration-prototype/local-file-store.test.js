@@ -645,6 +645,8 @@ test('reopened result chain rejects cancelled-before-dispatch naming a completed
   assert.equal(completed.kind, 'terminal');
   assert.equal(completed.result.status, 'complete');
   assert.equal(calls, 2);
+  const validReopened = new LocalFilePrototypeStore(root);
+  assert.equal(prototype(validReopened, () => {}, controlledRuntime).inspectRecovery(first.job_id).status, 'terminal');
 
   const entries = structuredClone(store.readEvents(first.job_id));
   assert.ok(entries.some(item => item.type === 'dispatch-started' && item.attempt_id === completed.attempt_id));
