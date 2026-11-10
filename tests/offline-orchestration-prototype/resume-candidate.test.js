@@ -928,7 +928,7 @@ test('completed retry inspection rejects a second prepared/dispatch before the f
     if (phase === 'dispatch-confirmed') resumedCalls++;
   });
   assert.equal(completed.runner.inspectRecovery(seeded.jobId).status, 'terminal');
-  const entries = completed.reopened.readEvents(seeded.jobId);
+  const entries = structuredClone(completed.reopened.readEvents(seeded.jobId));
   const prepared = entries.filter(item => item.type === 'prepared');
   const dispatches = entries.filter(item => item.type === 'dispatch-started');
   const firstTerminal = entries.find(item => item.type === 'terminal' && item.attempt_id === prepared[0].attempt_id);
@@ -968,7 +968,7 @@ test('completed retry inspection rejects mismatched and duplicate resume-window 
       const completed = await completeSeededRetry(seeded, ({ phase }) => {
         if (phase === 'dispatch-confirmed') resumedCalls++;
       });
-      const entries = completed.reopened.readEvents(seeded.jobId);
+      const entries = structuredClone(completed.reopened.readEvents(seeded.jobId));
       const firstPrepared = entries.find(item => item.type === 'prepared');
       const firstWindow = entries.find(item => item.type === 'resume-window');
       const secondPrepared = entries.find(item => item.type === 'prepared'
