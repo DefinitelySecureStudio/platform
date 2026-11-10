@@ -2101,6 +2101,7 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     if (resultPrepared.length !== persisting.length || resultPrepared.length !== terminals.length) {
       return reconciliationRequired();
     }
+    let trailingNoResultAttempt = false;
     if (resultPrepared.length > 0) {
       const productionBytes = verifiedBlobs.get(admitted.input_key);
       let production;
@@ -2241,6 +2242,13 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
             && (admitted.no_output_result_version !== '1.1.0' || result.status !== 'failed'
               || providerResult.status !== 'failed' || !eligibleRateLimit(providerResult)
               || result.outputs.length !== 0)) return reconciliationRequired();
+          if (result.spec_version === '1.0.0' && result.status === 'failed') {
+            const supportedFailure = providerResult.status === 'cancelled'
+              || (providerResult.status === 'failed'
+                && ['output-validation', 'rate-limit'].includes(providerResult.error?.category))
+              || (providerResult.status === 'succeeded' && typeof providerResult.output?.content === 'string');
+            if (!supportedFailure) return reconciliationRequired();
+          }
           if (result.status === 'complete') {
             if (result.spec_version !== '1.0.0' || providerResult.status !== 'succeeded'
               || typeof providerResult.output?.content !== 'string' || result.outputs.length !== 1) {
@@ -2292,9 +2300,13 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       const resultAttemptEventTypes = new Set(['prepared', 'dispatch-started', 'provider-outcome',
         'result-prepared', 'persisting', 'terminal', 'resume-window',
         'contract-mapping-blocked', 'budget-exhausted', 'cancelled-before-dispatch']);
-      const orphanIds = new Set(entries.filter(item => resultAttemptEventTypes.has(item.type)
-        && item.attempt_id !== undefined && !seenAttempts.has(item.attempt_id))
-        .map(item => item.attempt_id));
+      if (entries.some(item => resultAttemptEventTypes.has(item.type) && item.attempt_id === undefined)) {
+        return reconciliationRequired();
+      }
+      const orphanAttemptRecords = entries.filter(item => item.attempt_id !== undefined
+        && !seenAttempts.has(item.attempt_id));
+      if (orphanAttemptRecords.some(item => !resultAttemptEventTypes.has(item.type))) return reconciliationRequired();
+      const orphanIds = new Set(orphanAttemptRecords.map(item => item.attempt_id));
       if (orphanIds.size > 0) {
         if (orphanIds.size !== 1 || !priorChain || priorChain.resumeWindowIndex === undefined) {
           return reconciliationRequired();
@@ -2352,6 +2364,83 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
           || (closedEvents.length === 0 && (orphanStops.length !== 1
             || orphanStops[0].type !== 'contract-mapping-blocked'))) return reconciliationRequired();
       }
+      trailingNoResultAttempt = orphanIds.size > 0;
+    } else {
+      // A job with no verified result chain can expose only a consistent,
+      // single-attempt early-stop or unresolved path. A close marker alone is
+      // never evidence that a result was persisted.
+      const noResultLifecycleTypes = new Set(['result-prepared', 'persisting', 'terminal', 'resume-window']);
+      if (entries.some(item => noResultLifecycleTypes.has(item.type))) return reconciliationRequired();
+      const noResultAttemptTypes = new Set(['prepared', 'dispatch-started', 'provider-outcome',
+        'contract-mapping-blocked', 'budget-exhausted', 'cancelled-before-dispatch']);
+      const noResultAttemptRecords = entries.filter(item => item.attempt_id !== undefined);
+      if (noResultAttemptRecords.some(item => !noResultAttemptTypes.has(item.type))) return reconciliationRequired();
+      const attemptIds = new Set(noResultAttemptRecords.map(item => item.attempt_id));
+      if (attemptIds.size > 1) return reconciliationRequired();
+      const noResultStops = entries.filter(item => ['contract-mapping-blocked',
+        'budget-exhausted', 'cancelled-before-dispatch'].includes(item.type));
+      if (attemptIds.size === 1) {
+        const [attemptId] = attemptIds;
+        const attemptRecords = noResultAttemptRecords.filter(item => item.attempt_id === attemptId);
+        const preparedAttempts = attemptRecords.filter(item => item.type === 'prepared');
+        const dispatches = attemptRecords.filter(item => item.type === 'dispatch-started');
+        const outcomes = attemptRecords.filter(item => item.type === 'provider-outcome');
+        const stops = attemptRecords.filter(item => ['contract-mapping-blocked',
+          'budget-exhausted', 'cancelled-before-dispatch'].includes(item.type));
+        const prepared = preparedAttempts[0];
+        const resourceId = value => typeof value === 'string' && value.startsWith('urn:uuid:')
+          && UUID.test(value.slice('urn:uuid:'.length));
+        const executionIdValid = value => typeof value === 'string' && value.startsWith('exec-offline-')
+          && UUID.test(value.slice('exec-offline-'.length));
+        if (!resourceId(attemptId) || preparedAttempts.length !== 1 || dispatches.length > 1
+          || outcomes.length > 1 || stops.length > 2
+          || new Set(stops.map(item => item.type)).size !== stops.length
+          || !executionIdValid(prepared.execution_id) || prepared.retry_of_attempt_id !== null
+          || attemptRecords.some(item => item.execution_id !== undefined
+            && item.execution_id !== prepared.execution_id)) return reconciliationRequired();
+        const dispatch = dispatches[0];
+        const outcome = outcomes[0];
+        if ((dispatch && (dispatch.call_number !== 1
+            || entries.indexOf(dispatch) <= entries.indexOf(prepared)))
+          || (outcome && (!dispatch || outcome.payload_key !== `provider-outcome:${prepared.execution_id}`
+            || !Number.isSafeInteger(outcome.byte_size) || outcome.byte_size < 0
+            || typeof outcome.sha256 !== 'string' || !/^sha256:[0-9a-f]{64}$/.test(outcome.sha256)
+            || entries.indexOf(outcome) <= entries.indexOf(dispatch)))) return reconciliationRequired();
+        if (outcome) {
+          const outcomeBytes = verifiedBlobs.get(outcome.payload_key);
+          let providerResult;
+          try { providerResult = JSON.parse(outcomeBytes.toString('utf8')); } catch {
+            return reconciliationRequired();
+          }
+          if (!providerResult || !validateExecutionDocument(providerResult).valid
+            || providerResult.execution_id !== prepared.execution_id
+            || providerResult.status !== outcome.status) return reconciliationRequired();
+        }
+        const closedEventsForAttempt = entries.filter(item => item.type === 'job-closed');
+        const lastAttemptIndex = entries.indexOf(outcome ?? dispatch ?? prepared);
+        const stopIndices = stops.map(item => entries.indexOf(item));
+        if (stopIndices.some(index => index <= lastAttemptIndex)
+          || (closedEventsForAttempt.length === 1 && (entries.at(-1) !== closedEventsForAttempt[0]
+            || stopIndices.length === 0 || entries.indexOf(closedEventsForAttempt[0]) <= Math.max(...stopIndices)))
+          || (stops.some(item => item.type === 'cancelled-before-dispatch') && (dispatch || outcome))
+          || (closedEventsForAttempt.length === 1 && !stops.some(item =>
+            item.type === 'budget-exhausted' || item.type === 'cancelled-before-dispatch'))
+          || (closedEventsForAttempt.length === 0 && stops.some(item => item.type !== 'contract-mapping-blocked'))) {
+          return reconciliationRequired();
+        }
+      }
+      if (entries.some(item => ['prepared', 'dispatch-started', 'provider-outcome',
+          'contract-mapping-blocked'].includes(item.type) && item.attempt_id === undefined)) {
+        return reconciliationRequired();
+      }
+      const closedEventsForJob = entries.filter(item => item.type === 'job-closed');
+      const closingStops = noResultStops.filter(item =>
+        item.type === 'budget-exhausted' || item.type === 'cancelled-before-dispatch');
+      if (closedEventsForJob.length === 1 && (entries.at(-1) !== closedEventsForJob[0]
+          || closingStops.length === 0
+          || entries.indexOf(closedEventsForJob[0]) <= Math.max(...closingStops.map(item => entries.indexOf(item))))) {
+        return reconciliationRequired();
+      }
     }
 
     const closedEvents = entries.filter(item => item.type === 'job-closed');
@@ -2363,9 +2452,12 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     const dispatched = entries.some(item => item.type === 'dispatch-started');
     const outcomeRecorded = entries.some(item => item.type === 'provider-outcome');
     const budgetExhausted = entries.some(item => item.type === 'budget-exhausted');
-    if (terminal) return recoveryDiagnostic(resultPrepared.length > 0 ? 'terminal'
-      : blocked ? 'contract-mapping-blocked'
-        : budgetExhausted ? 'budget-exhausted' : 'closed-without-result');
+    if (terminal) return recoveryDiagnostic(trailingNoResultAttempt
+      ? blocked ? 'contract-mapping-blocked'
+        : budgetExhausted ? 'budget-exhausted' : 'closed-without-result'
+      : resultPrepared.length > 0 ? 'terminal'
+        : blocked ? 'contract-mapping-blocked'
+          : budgetExhausted ? 'budget-exhausted' : 'closed-without-result');
 
     const resumeClassification = classifyResumeCandidate(jobId, entries, admitted, verifiedBlobs);
     if (resumeClassification) {
