@@ -2278,6 +2278,8 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
             || timeRecord.context_enabled !== false
             || !Number.isSafeInteger(timeRecord.started_at_ms)
             || !Number.isSafeInteger(timeRecord.deadline_at_ms)
+            || timeRecord.deadline_at_ms !== checkedAdd(timeRecord.started_at_ms,
+              OFFLINE_ORCHESTRATION_LIMITS.jobBudgetMs)
             || resumeWindow.attempt_id !== attemptId || resumeWindow.execution_id !== executionId
             || resumeWindow.terminal_result_id !== resultId
             || result.status !== 'failed' || result.outputs.length !== 0
@@ -2301,6 +2303,10 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
         'result-prepared', 'persisting', 'terminal', 'resume-window',
         'contract-mapping-blocked', 'budget-exhausted', 'cancelled-before-dispatch']);
       if (entries.some(item => resultAttemptEventTypes.has(item.type) && item.attempt_id === undefined)) {
+        return reconciliationRequired();
+      }
+      const allowedAttemptIdTypes = new Set([...resultAttemptEventTypes, 'closed-without-retry']);
+      if (entries.some(item => item.attempt_id !== undefined && !allowedAttemptIdTypes.has(item.type))) {
         return reconciliationRequired();
       }
       const orphanAttemptRecords = entries.filter(item => item.attempt_id !== undefined
@@ -2364,6 +2370,16 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
           || (closedEvents.length === 0 && (orphanStops.length !== 1
             || orphanStops[0].type !== 'contract-mapping-blocked'))) return reconciliationRequired();
       }
+      const closedWithoutRetry = entries.filter(item => item.type === 'closed-without-retry');
+      const jobClosedForRetry = entries.find(item => item.type === 'job-closed');
+      if (closedWithoutRetry.length > 1 || (closedWithoutRetry.length === 1
+        && (!priorChain || priorChain.resumeWindowIndex === undefined || !jobClosedForRetry
+          || closedWithoutRetry[0].attempt_id !== priorChain.attemptId
+          || closedWithoutRetry[0].result_id !== priorChain.resultId
+          || entries.indexOf(closedWithoutRetry[0]) <= priorChain.resumeWindowIndex
+          || (jobClosedForRetry && entries.indexOf(closedWithoutRetry[0]) >= entries.indexOf(jobClosedForRetry))))) {
+        return reconciliationRequired();
+      }
       trailingNoResultAttempt = orphanIds.size > 0;
     } else {
       // A job with no verified result chain can expose only a consistent,
@@ -2379,6 +2395,9 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       if (attemptIds.size > 1) return reconciliationRequired();
       const noResultStops = entries.filter(item => ['contract-mapping-blocked',
         'budget-exhausted', 'cancelled-before-dispatch'].includes(item.type));
+      const noResultStopCounts = new Map();
+      for (const item of noResultStops) noResultStopCounts.set(item.type, (noResultStopCounts.get(item.type) ?? 0) + 1);
+      if ([...noResultStopCounts.values()].some(count => count > 1)) return reconciliationRequired();
       if (attemptIds.size === 1) {
         const [attemptId] = attemptIds;
         const attemptRecords = noResultAttemptRecords.filter(item => item.attempt_id === attemptId);
@@ -2397,7 +2416,20 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
           || new Set(stops.map(item => item.type)).size !== stops.length
           || !executionIdValid(prepared.execution_id) || prepared.retry_of_attempt_id !== null
           || attemptRecords.some(item => item.execution_id !== undefined
-            && item.execution_id !== prepared.execution_id)) return reconciliationRequired();
+            && item.execution_id !== prepared.execution_id)
+          || !admitted.production || typeof admitted.production !== 'object' || Array.isArray(admitted.production)
+          || !prepared.production || typeof prepared.production !== 'object' || Array.isArray(prepared.production)) {
+          return reconciliationRequired();
+        }
+        const productionBytes = verifiedBlobs.get(admitted.input_key);
+        try {
+          const production = readProduction(productionBytes.toString('utf8'));
+          if (!productionBytes.equals(Buffer.from(production.canonical, 'utf8'))
+            || canonicalJson(admitted.production) !== canonicalJson(production.reference)
+            || canonicalJson(prepared.production) !== canonicalJson(admitted.production)) {
+            return reconciliationRequired();
+          }
+        } catch { return reconciliationRequired(); }
         const dispatch = dispatches[0];
         const outcome = outcomes[0];
         if ((dispatch && (dispatch.call_number !== 1
