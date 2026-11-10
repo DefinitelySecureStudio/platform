@@ -2404,7 +2404,8 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
         const [stop] = jobScopedBudgetStops;
         const stopKeys = ['deadline_monotonic_ms', 'job_id', 'reason', 'type'];
         const afterResultIndex = priorChain?.resumeWindowIndex ?? priorChain?.terminalIndex;
-        if (!priorChain || priorChain.result.status !== 'failed' || priorChain.result.outputs.length !== 0
+        if (!priorChain || orphanIds.size !== 0 || closedWithoutRetry.length !== 0
+          || priorChain.result.status !== 'failed' || priorChain.result.outputs.length !== 0
           || !eligibleRateLimit(priorChain.providerResult)
           || Object.keys(stop).sort().join('|') !== stopKeys.join('|')
           || stop.job_id !== jobId || stop.type !== 'budget-exhausted'
