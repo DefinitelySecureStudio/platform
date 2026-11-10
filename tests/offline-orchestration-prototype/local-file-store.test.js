@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict';
 import {
-  appendFileSync, closeSync, fsyncSync, lstatSync, mkdirSync, mkdtempSync,
+  appendFileSync, closeSync, fsyncSync, lstatSync, mkdirSync, mkdtempSync, readFileSync,
   openSync, rmSync, statSync, symlinkSync, writeFileSync
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
-import { randomUUID } from 'node:crypto';
-import { MockTextAdapter } from '../../src/prompt-sdk/index.js';
+import { createHash, randomUUID } from 'node:crypto';
+import { canonicalJson, MockTextAdapter } from '../../src/prompt-sdk/index.js';
 import {
   createSyntheticExecutionAuthorityVerifier,
   SYNTHETIC_EXECUTION_PURPOSE
@@ -21,6 +21,7 @@ import {
 
 const fixture = JSON.parse(await readFile(new URL('../fixtures/comic-manifest-v1.json', import.meta.url), 'utf8'));
 const productionSource = JSON.stringify(fixture.production);
+const sha256 = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 
 function temporaryDirectory() {
   return mkdtempSync(join(tmpdir(), 'dss-o08-local-store-'));
@@ -229,12 +230,102 @@ test('runner can inspect a committed synthetic result from a reopened local stor
   const beforeEvents = reopened.eventCount;
   const beforeBlobs = reopened.blobCount;
   const inspection = restarted.inspectRecovery(completed.job_id);
-  assert.equal(inspection.status, 'terminal');
-  assert.equal(inspection.read_only, true);
-  assert.equal(inspection.writes_performed, 0);
-  assert.equal(inspection.provider_calls_performed, 0);
+  assert.deepEqual(inspection, {
+    status: 'terminal',
+    stage: 'terminal',
+    code: 'TERMINAL_RESULT_VERIFIED',
+    read_only: true,
+    no_writes: true,
+    no_provider_calls: true,
+    authority_check_required: false
+  });
+  const events = reopened.readEvents(completed.job_id);
+  const resultPrepared = events.filter(item => item.type === 'result-prepared');
+  const persisting = events.filter(item => item.type === 'persisting');
+  const terminal = events.filter(item => item.type === 'terminal');
+  assert.equal(resultPrepared.length, 1);
+  assert.equal(persisting.length, 1);
+  assert.equal(terminal.length, 1);
+  const expected = completed.result;
+  const resultBytes = reopened.readImmutable(`result:${expected.result_id}`);
+  assert.ok(Buffer.isBuffer(resultBytes));
+  assert.equal(resultBytes.toString('utf8'), canonicalJson(expected));
+  for (const link of [resultPrepared[0], persisting[0], terminal[0]]) {
+    assert.equal(link.attempt_id, completed.attempt_id);
+    assert.equal(link.execution_id, completed.execution_id);
+    assert.equal(link.result_id, expected.result_id);
+    assert.equal(link.result_byte_size, resultBytes.byteLength);
+    assert.equal(link.result_sha256, sha256(resultBytes));
+  }
+  assert.equal(resultPrepared[0].status, expected.status);
+  const outcome = events.find(item => item.type === 'provider-outcome');
+  assert.equal(outcome.attempt_id, completed.attempt_id);
+  assert.equal(outcome.execution_id, completed.execution_id);
+  assert.equal(outcome.status, 'succeeded');
+  assert.equal(outcome.payload_key, `provider-outcome:${completed.execution_id}`);
+  const outcomeBytes = reopened.readImmutable(outcome.payload_key);
+  assert.ok(Buffer.isBuffer(outcomeBytes));
+  assert.equal(outcomeBytes.byteLength, outcome.byte_size);
+  assert.equal(sha256(outcomeBytes), outcome.sha256);
+  for (const output of expected.outputs) {
+    const artifact = output.artifact;
+    const artifactBytes = reopened.readImmutable(`artifact:${artifact.artifact_uri}`);
+    assert.ok(Buffer.isBuffer(artifactBytes));
+    assert.equal(artifactBytes.byteLength, artifact.byte_size);
+    assert.equal(sha256(artifactBytes), artifact.sha256);
+  }
   assert.equal(reopened.eventCount, beforeEvents);
   assert.equal(reopened.blobCount, beforeBlobs);
   assert.equal(restartedCalls, 0);
   await assert.rejects(() => restarted.submit({ productionSource }), error => error.code === 'JOB_STORE_LIFETIME_LIMIT');
+});
+
+test('read-only recovery rejects duplicate result links after reopening and keeps diagnostics value-free', async t => {
+  const root = temporaryDirectory();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const store = new LocalFilePrototypeStore(root);
+  let calls = 0;
+  const first = prototype(store, ({ phase }) => {
+    if (phase === 'dispatch-confirmed') calls++;
+  });
+  const completed = await first.submit({ productionSource });
+  const eventPath = join(root, 'events', `${Buffer.from(completed.job_id).toString('base64url')}.jsonl`);
+  const entries = readFileSync(eventPath, 'utf8').trimEnd().split('\n').map(line => JSON.parse(line));
+  const terminalIndex = entries.findIndex(item => item.type === 'terminal');
+  assert.ok(terminalIndex >= 0);
+  const duplicate = structuredClone(entries[terminalIndex]);
+  duplicate.private_content = 'PRIVATE-CONTENT-SENTINEL';
+  duplicate.exception_text = 'EXCEPTION-TEXT-SENTINEL';
+  duplicate.path = root;
+  duplicate.fingerprint = 'FINGERPRINT-SENTINEL';
+  duplicate.secret_digest = 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  entries.splice(terminalIndex + 1, 0, duplicate);
+  writeFileSync(eventPath, `${entries.map(item => canonicalJson(item)).join('\n')}\n`);
+
+  let restartedCalls = 0;
+  const reopened = new LocalFilePrototypeStore(root);
+  const restarted = prototype(reopened, () => { restartedCalls++; });
+  const beforeEvents = structuredClone(reopened.readEvents(completed.job_id));
+  const beforeBlobs = reopened.blobCount;
+  const inspection = restarted.inspectRecovery(completed.job_id);
+  assert.deepEqual(inspection, {
+    status: 'reconciliation-required',
+    stage: 'integrity',
+    code: 'RECONCILIATION_REQUIRED',
+    read_only: true,
+    no_writes: true,
+    no_provider_calls: true,
+    authority_check_required: false
+  });
+  const diagnostic = JSON.stringify(inspection);
+  for (const value of [completed.job_id, completed.attempt_id, completed.execution_id,
+    completed.result.result_id, root, completed.result.outputs[0].artifact.artifact_uri,
+    completed.result.outputs[0].artifact.sha256, 'PRIVATE-CONTENT-SENTINEL',
+    'EXCEPTION-TEXT-SENTINEL', 'FINGERPRINT-SENTINEL', 'secret_digest']) {
+    assert.equal(diagnostic.includes(value), false);
+  }
+  assert.deepEqual(reopened.readEvents(completed.job_id), beforeEvents);
+  assert.equal(reopened.blobCount, beforeBlobs);
+  assert.equal(restartedCalls, 0);
+  assert.equal(calls, 1);
 });
