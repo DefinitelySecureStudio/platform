@@ -2102,6 +2102,8 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       return reconciliationRequired();
     }
     let trailingNoResultAttempt = false;
+    const jobScopedBudgetStops = entries.filter(item => item.type === 'budget-exhausted'
+      && item.attempt_id === undefined);
     if (resultPrepared.length > 0) {
       const productionBytes = verifiedBlobs.get(admitted.input_key);
       let production;
@@ -2324,8 +2326,6 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       const resultAttemptEventTypes = new Set(['prepared', 'dispatch-started', 'provider-outcome',
         'result-prepared', 'persisting', 'terminal', 'resume-window',
         'contract-mapping-blocked', 'budget-exhausted', 'cancelled-before-dispatch']);
-      const jobScopedBudgetStops = entries.filter(item => item.type === 'budget-exhausted'
-        && item.attempt_id === undefined);
       if (jobScopedBudgetStops.length > 1
         || entries.some(item => resultAttemptEventTypes.has(item.type) && item.attempt_id === undefined
           && item.type !== 'budget-exhausted')) {
