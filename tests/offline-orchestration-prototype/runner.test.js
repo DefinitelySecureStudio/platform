@@ -1645,8 +1645,8 @@ test('deadline expiry does not hide a committed terminal result during read-only
   const inspection = value.inspectRecovery(result.job_id);
   assert.equal(inspection.status, 'terminal');
   assert.equal(inspection.read_only, true);
-  assert.equal(inspection.writes_performed, 0);
-  assert.equal(inspection.provider_calls_performed, 0);
+  assert.equal(inspection.no_writes, true);
+  assert.equal(inspection.no_provider_calls, true);
 });
 
 test('read-only recovery requires every terminal artifact to be readable and match its result', async () => {
@@ -1763,6 +1763,7 @@ test('explicit candidate enables one delayed caller-authorized retry with immuta
   assert.equal(events.filter(e => e.type === 'dispatch-started').length, 2);
   assert.equal(events.filter(e => e.type === 'prepared')[1].retry_of_attempt_id, first.attempt_id);
   assert.equal(events.at(-1).type, 'job-closed');
+  assert.equal(h.value.inspectRecovery(first.job_id).status, 'terminal');
   await assert.rejects(() => h.value.retry({ authorizeRetry: true }), e => e.code === 'RETRY_NOT_AVAILABLE');
 });
 
