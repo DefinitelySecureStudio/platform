@@ -361,27 +361,40 @@ does not close Studio issue #110 or claim broader acceptance.
 
 ## O09 result-link inspection slice (2026-11-10)
 
-The opt-in local-file-store inspection now validates the canonical result
-lifecycle links for each result-bearing attempt before classifying recovery.
-For each attempt, the unique `prepared`, `dispatch-started`, `provider-outcome`,
-`result-prepared`, `persisting`, and `terminal` events must agree on job,
-attempt, execution, result ID, result status, byte size, and digest where
-recorded, and occur in order. The provider outcome payload and canonical result
-bytes must match their lifecycle references; the result must link to the
-admitted synthetic production, and every output artifact URI, byte size, and
-digest must resolve to matching local bytes. Missing, duplicate, malformed, or
-contradictory links fail closed as `reconciliation-required`. Inspection
+The opt-in local-file-store inspection validates the canonical result lifecycle
+links for every result-bearing attempt before classifying recovery. Each chain
+must contain one matching `prepared`, `dispatch-started`, `provider-outcome`,
+`result-prepared`, `persisting`, and `terminal` event. Their job, attempt,
+execution, result ID, status, byte size, and digest references must agree, and
+the events must occur in order. A retry's prepared event must follow the prior
+attempt's terminal and its unique resume-window; the window must refer to the
+prior terminal result and match its recorded retry delay and deadline. Unmatched
+or interleaved attempt records, missing or duplicate windows, and contradictory
+links fail closed.
+
+The result and provider-outcome bytes are canonical and match their lifecycle
+references. The result must link to the admitted synthetic production. Version
+1.0.0 results also pass output compatibility checks against that production;
+version 1.1.0 is accepted only for the pinned no-output eligible rate-limit
+mapping. Every output artifact URI, byte size, and digest must resolve to the
+matching local bytes. When no result chain exists, inspection validates the
+single attempt's lifecycle and explicit stop markers before reporting a
+closed-without-result state. A final resultless retry can follow a verified
+chain only when its stop is explicit and consistently linked. Inspection
 performs no writes or provider calls.
 
-The public `inspectRecovery()` projection contains only fixed status, stage,
-and code values with boolean fields. It never returns job, attempt, execution,
-result, or artifact identifiers; lifecycle event names; local paths; hashes;
-protected content; exception text; or fingerprints. Result, outcome, and
-artifact bytes remain in the caller-owned private local store.
+The public `inspectRecovery()` projection contains only fixed allowlisted
+status, stage, and code values with boolean fields. It never returns job,
+attempt, execution, result, or artifact identifiers; lifecycle event names;
+local paths; hashes; protected content; exception text; or fingerprints.
+Result, outcome, and artifact bytes remain in the caller-owned private local
+store.
 
 Coverage is limited to the pinned synthetic no-context local path, including
-successful and no-output rate-limit results, reopened-store inspection, and a
-canonical event-log duplicate-link corruption case. This does not authenticate
+successful and no-output rate-limit results, reopened inspection, retry and
+reopen, and corruption cases for orphan/interleaved attempts, malformed
+production links, inconsistent result outcomes, resume-window links, and
+schema-valid output compatibility tampering. This does not authenticate
 same-account edits to the local store, establish power-loss durability or
 support for other filesystems, add providers or infrastructure, use production
 data, or close Studio issue #110.
