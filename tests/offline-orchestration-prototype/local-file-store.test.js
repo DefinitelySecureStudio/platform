@@ -519,3 +519,52 @@ test('reopened v1.0 result inspection checks production-output compatibility aft
   assert.equal(restartedCalls, 0);
   assert.equal(calls, 1);
 });
+
+
+test('reopened no-result close requires its linked stop and rejects orphan dispatch records', async t => {
+  const root = temporaryDirectory();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const store = new LocalFilePrototypeStore(root);
+  let calls = 0;
+  const controller = new AbortController();
+  controller.abort();
+  const stopped = await prototype(store, () => { calls++; }).submit({
+    productionSource,
+    signal: controller.signal
+  });
+  assert.equal(stopped.status, 'cancelled-before-dispatch');
+  assert.equal(store.readEvents(stopped.job_id).some(item => item.type === 'terminal'), false);
+  const validInspection = prototype(store).inspectRecovery(stopped.job_id);
+  assert.equal(validInspection.status, 'closed-without-result');
+  assert.equal(validInspection.code, 'JOB_CLOSED_WITHOUT_RESULT');
+  const entries = store.readEvents(stopped.job_id);
+  const prepared = entries.find(item => item.type === 'prepared');
+  assert.ok(prepared);
+  const orphanDispatch = {
+    ...structuredClone(prepared),
+    type: 'dispatch-started',
+    attempt_id: 'urn:uuid:30000000-0000-4000-8000-000000000003',
+    execution_id: 'exec-offline-30000000-0000-4000-8000-000000000003',
+    call_number: 1,
+    private_content: 'LOCAL-NO-RESULT-PRIVATE-SENTINEL',
+    exception_text: 'LOCAL-NO-RESULT-EXCEPTION-SENTINEL'
+  };
+  const closeIndex = entries.findIndex(item => item.type === 'job-closed');
+  assert.ok(closeIndex >= 0);
+  entries.splice(closeIndex, 0, orphanDispatch);
+  writeLocalEventLog(root, stopped.job_id, entries);
+
+  const reopened = new LocalFilePrototypeStore(root);
+  let restartedCalls = 0;
+  const restarted = prototype(reopened, () => { restartedCalls++; });
+  const beforeEvents = structuredClone(reopened.readEvents(stopped.job_id));
+  const beforeBlobs = reopened.blobCount;
+  assertSafeReconciliation(restarted.inspectRecovery(stopped.job_id), [
+    root, stopped.job_id, stopped.attempt_id, stopped.execution_id,
+    'LOCAL-NO-RESULT-PRIVATE-SENTINEL', 'LOCAL-NO-RESULT-EXCEPTION-SENTINEL'
+  ]);
+  assert.deepEqual(reopened.readEvents(stopped.job_id), beforeEvents);
+  assert.equal(reopened.blobCount, beforeBlobs);
+  assert.equal(restartedCalls, 0);
+  assert.equal(calls, 0);
+});
