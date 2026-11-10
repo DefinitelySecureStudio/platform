@@ -2261,8 +2261,9 @@ for (const fault of ['outcome-readback', 'mapping-append', 'close-append', 'ambi
   assert.equal(second.job_closed, undefined);
   const inspection = h.value.inspectRecovery(first.job_id);
   assert.equal(inspection.read_only, true);
-  assert.equal(inspection.status, fault === 'close-append'
-    ? 'contract-mapping-blocked' : 'reconciliation-required');
+  // A rejected close append and a removed close marker have identical persisted
+  // logs, so both must remain unresolved during read-only inspection.
+  assert.equal(inspection.status, 'reconciliation-required');
   if (!unknownEvents) assert.equal(store.readEvents(first.job_id).some(e => e.type === 'job-closed'), false);
   await assert.rejects(() => h.value.retry({ authorizeRetry: true }), e => e.code === 'RETRY_NOT_AVAILABLE');
 });
