@@ -2154,6 +2154,22 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
         const [outcome] = outcomes;
         const [persistingRecord] = persistingMatches;
         const [terminal] = terminalMatches;
+        const attemptCancellationStops = matching('cancelled-before-dispatch', attemptId);
+        const attemptMappingStops = matching('contract-mapping-blocked', attemptId);
+        const attemptBudgetStops = matching('budget-exhausted', attemptId);
+        if (attemptCancellationStops.length !== 0 || attemptMappingStops.length !== 0
+          || attemptBudgetStops.length > 1) return reconciliationRequired();
+        if (attemptBudgetStops.length === 1) {
+          const [stop] = attemptBudgetStops;
+          const stopKeys = ['attempt_id', 'deadline_monotonic_ms', 'execution_id', 'job_id', 'reason', 'type'];
+          if (Object.keys(stop).sort().join('|') !== stopKeys.join('|')
+            || stop.job_id !== jobId || stop.reason !== 'time'
+            || stop.execution_id !== executionId
+            || !Number.isSafeInteger(admitted.deadline_monotonic_ms)
+            || stop.deadline_monotonic_ms !== admitted.deadline_monotonic_ms
+            || entries.indexOf(stop) <= entries.indexOf(outcome)
+            || entries.indexOf(stop) >= entries.indexOf(preparedResult)) return reconciliationRequired();
+        }
         if (priorChain) {
           const priorWindows = matching('resume-window', priorChain.attemptId);
           if (priorWindows.length > 1) return reconciliationRequired();
@@ -2308,7 +2324,11 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       const resultAttemptEventTypes = new Set(['prepared', 'dispatch-started', 'provider-outcome',
         'result-prepared', 'persisting', 'terminal', 'resume-window',
         'contract-mapping-blocked', 'budget-exhausted', 'cancelled-before-dispatch']);
-      if (entries.some(item => resultAttemptEventTypes.has(item.type) && item.attempt_id === undefined)) {
+      const jobScopedBudgetStops = entries.filter(item => item.type === 'budget-exhausted'
+        && item.attempt_id === undefined);
+      if (jobScopedBudgetStops.length > 1
+        || entries.some(item => resultAttemptEventTypes.has(item.type) && item.attempt_id === undefined
+          && item.type !== 'budget-exhausted')) {
         return reconciliationRequired();
       }
       const allowedAttemptIdTypes = new Set([...resultAttemptEventTypes, 'closed-without-retry']);
@@ -2379,6 +2399,25 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       }
       const closedWithoutRetry = entries.filter(item => item.type === 'closed-without-retry');
       const jobClosedForRetry = entries.find(item => item.type === 'job-closed');
+      if (jobScopedBudgetStops.length === 1) {
+        const [stop] = jobScopedBudgetStops;
+        const stopKeys = ['deadline_monotonic_ms', 'job_id', 'reason', 'type'];
+        const afterResultIndex = priorChain?.resumeWindowIndex ?? priorChain?.terminalIndex;
+        if (!priorChain || priorChain.result.status !== 'failed' || priorChain.result.outputs.length !== 0
+          || !eligibleRateLimit(priorChain.providerResult)
+          || Object.keys(stop).sort().join('|') !== stopKeys.join('|')
+          || stop.job_id !== jobId || stop.type !== 'budget-exhausted'
+          || !['time', 'attempts'].includes(stop.reason)
+          || !Number.isSafeInteger(admitted.deadline_monotonic_ms)
+          || stop.deadline_monotonic_ms !== admitted.deadline_monotonic_ms
+          || (stop.reason === 'attempts'
+            && resultPrepared.length < OFFLINE_ORCHESTRATION_LIMITS.maxAttemptsPerJob)
+          || entries.indexOf(stop) <= afterResultIndex
+          || !jobClosedForRetry || jobClosedForRetry.reason !== 'retry-budget-exhausted'
+          || entries.indexOf(stop) >= entries.indexOf(jobClosedForRetry)) {
+          return reconciliationRequired();
+        }
+      }
       if (closedWithoutRetry.length > 1 || (closedWithoutRetry.length === 1
         && (!priorChain || (admitted.resume_time !== undefined && priorChain.resumeWindowIndex === undefined)
           || !jobClosedForRetry
@@ -2495,8 +2534,9 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     if (terminal) return recoveryDiagnostic(trailingNoResultAttempt
       ? blocked ? 'contract-mapping-blocked'
         : budgetExhausted ? 'budget-exhausted' : 'closed-without-result'
-      : resultPrepared.length > 0 ? 'terminal'
-        : blocked ? 'contract-mapping-blocked'
+      : jobScopedBudgetStops?.length > 0 ? 'budget-exhausted'
+        : resultPrepared.length > 0 ? 'terminal'
+          : blocked ? 'contract-mapping-blocked'
           : budgetExhausted ? 'budget-exhausted' : 'closed-without-result');
 
     const resumeClassification = classifyResumeCandidate(jobId, entries, admitted, verifiedBlobs);
