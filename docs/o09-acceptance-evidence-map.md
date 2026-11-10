@@ -1,0 +1,52 @@
+# O09 acceptance evidence map
+
+This map relates the acceptance language in [Studio issue #110](https://github.com/DefinitelySecureStudio/studio/issues/110) to the implementation and tests on Platform main at commit [79ab34c](https://github.com/DefinitelySecureStudio/platform/commit/79ab34c8893f5b63f0cabcd5228604b37dda836b), checked on 2026-11-10. It is an evidence index for review, not an acceptance or issue-closure verdict. Issue #110 remains open.
+
+The original O09 result-link inspection merged in [Platform PR #75](https://github.com/DefinitelySecureStudio/platform/pull/75). The trailing resultless-retry production-link check merged in [PR #76](https://github.com/DefinitelySecureStudio/platform/pull/76).
+
+## Criterion map
+
+### Immutable result/output linkage
+
+Evidence on current main:
+
+- The inspection reads back provider-outcome, result, and output-artifact bytes and verifies recorded byte sizes and digests: [runner.js, blob verification](https://github.com/DefinitelySecureStudio/platform/blob/79ab34c8893f5b63f0cabcd5228604b37dda836b/src/offline-orchestration-prototype/runner.js#L2055-L2092).
+- For each result-bearing attempt, inspection reconciles the prepared, dispatch, provider-outcome, result-prepared, persisting, and terminal links, including identity, status, size, digest, and order: [runner.js, result-chain checks](https://github.com/DefinitelySecureStudio/platform/blob/79ab34c8893f5b63f0cabcd5228604b37dda836b/src/offline-orchestration-prototype/runner.js#L2098-L2304).
+- A trailing resultless retry must carry a production reference that is an object and canonically matches the admitted reference: [runner.js, trailing-retry check](https://github.com/DefinitelySecureStudio/platform/blob/79ab34c8893f5b63f0cabcd5228604b37dda836b/src/offline-orchestration-prototype/runner.js#L2368-L2377).
+- The local store rejects replacing an existing immutable blob and verifies written bytes on readback: [local-file-store.js](https://github.com/DefinitelySecureStudio/platform/blob/79ab34c8893f5b63f0cabcd5228604b37dda836b/src/offline-orchestration-prototype/local-file-store.js#L356-L390).
+- Reopened-store tests verify a successful result’s lifecycle IDs, result bytes, provider outcome, output-artifact bytes, and read-only inspection: [local-file-store.test.js](https://github.com/DefinitelySecureStudio/platform/blob/79ab34c8893f5b63f0cabcd5228604b37dda836b/tests/offline-orchestration-prototype/local-file-store.test.js#L237-L305). A separate reopened failure candidate checks its result chain, empty outputs, and resume-window link: [resume-candidate.test.js](https://github.com/DefinitelySecureStudio/platform/blob/79ab34c8893f5b63f0cabcd5228604b37dda836b/tests/offline-orchestration-prototype/resume-candidate.test.js#L105-L194). Missing and replaced production links on a trailing retry fail closed after reopening: [local-file-store.test.js](https://github.com/DefinitelySecureStudio/platform/blob/79ab34c8893f5b63f0cabcd5228604b37dda836b/tests/offline-orchestration-prototype/local-file-store.test.js#L970-L1028).
+
+**Scoped disposition:** Linkage is demonstrated for the pinned synthetic production and existing LocalFilePrototypeStore. This does not provide a cryptographic authenticity root for stored digests or authenticate same-account edits.
+
+### Protected storage and sentinel-free diagnostics on success and failure fixtures
+
+- LocalFilePrototypeStore uses 0700 directories and 0600 files, rejects unsafe directory ownership/modes and symlinks, and documents its caller-owned private-directory trust boundary: [local-file-store.js](https://github.com/DefinitelySecureStudio/platform/blob/79ab34c8893f5b63f0cabcd5228604b37dda836b/src/offline-orchestration-prototype/local-file-store.js#L11-L12), [directory checks](https://github.com/DefinitelySecureStudio/platform/blob/79ab34c8893f5b63f0cabcd5228604b37dda836b/src/offline-orchestration-prototype/local-file-store.js#L47-L60), [store boundary](https://github.com/DefinitelySecureStudio/platform/blob/79ab34c8893f5b63f0cabcd5228604b37dda836b/src/offline-orchestration-prototype/local-file-store.js#L151-L179).
+- The public recovery projection is built from a finite status-to-stage/code allowlist and fixed boolean fields: [runner.js](https://github.com/DefinitelySecureStudio/platform/blob/79ab34c8893f5b63f0cabcd5228604b37dda836b/src/offline-orchestration-prototype/runner.js#L54-L105).
+- Success and failure tests assert the exact projection and confirm inspection adds no events/blobs or provider calls: [reopened success](https://github.com/DefinitelySecureStudio/platform/blob/79ab34c8893f5b63f0cabcd5228604b37dda836b/tests/offline-orchestration-prototype/local-file-store.test.js#L237-L305), [rate-limit failure candidate](https://github.com/DefinitelySecureStudio/platform/blob/79ab34c8893f5b63f0cabcd5228604b37dda836b/tests/offline-orchestration-prototype/resume-candidate.test.js#L133-L194).
+- Corruption tests inject private-content, path, exception, and fingerprint sentinels and assert the public diagnostic does not contain them: [local-file-store.test.js](https://github.com/DefinitelySecureStudio/platform/blob/79ab34c8893f5b63f0cabcd5228604b37dda836b/tests/offline-orchestration-prototype/local-file-store.test.js#L306-L385).
+
+**Scoped disposition:** Storage is protected only within the caller-owned local-directory and OS-permission assumption. This is not encryption, a remote vault, or general tamper-proof storage; same-account hostile edits are outside the trust boundary.
+
+### No private fingerprints in public output
+
+The inspectRecovery projection contains only the allowlisted status, stage, code, and booleans. Tests explicitly check that job, attempt, execution, result, artifact URI, hashes, local root, private content, exception text, and fingerprint sentinels do not appear in the projection: [diagnostic implementation](https://github.com/DefinitelySecureStudio/platform/blob/79ab34c8893f5b63f0cabcd5228604b37dda836b/src/offline-orchestration-prototype/runner.js#L93-L105), [corruption/leak regression](https://github.com/DefinitelySecureStudio/platform/blob/79ab34c8893f5b63f0cabcd5228604b37dda836b/tests/offline-orchestration-prototype/local-file-store.test.js#L306-L385), [candidate regression](https://github.com/DefinitelySecureStudio/platform/blob/79ab34c8893f5b63f0cabcd5228604b37dda836b/tests/offline-orchestration-prototype/resume-candidate.test.js#L133-L194).
+
+This finding applies to the public inspectRecovery projection, not to every possible application log or interface. Result, outcome, and artifact bytes remain in the caller-owned local store.
+
+**Scoped disposition:** No private identifiers, hashes, paths, protected content, exception text, or fingerprints are emitted by the tested recovery projection.
+
+### One existing backend, one linkage format, and a finite fixture set
+
+- The O08 packet selected an owner-controlled local directory, one canonical newline-delimited lifecycle event log per job, and immutable result/output blobs: [accepted storage boundary and format](https://github.com/DefinitelySecureStudio/platform/blob/79ab34c8893f5b63f0cabcd5228604b37dda836b/docs/o08-durable-resume-decision-packet.md#L102-L146). The existing LocalFilePrototypeStore implements the event-log append/read format: [store implementation](https://github.com/DefinitelySecureStudio/platform/blob/79ab34c8893f5b63f0cabcd5228604b/src/offline-orchestration-prototype/local-file-store.js#L250-L332). Its trust-boundary descriptor labels it synthetic-local-only and says digest authenticity is not provided: [trust boundary](https://github.com/DefinitelySecureStudio/platform/blob/79ab34c8893f5b63f0cabcd5228604b/src/offline-orchestration-prototype/local-file-store.js#L434-L440).
+- The finite matrix covers reopened success; the pinned no-output rate-limit failure and candidate diagnostic; retry/reopen; and bounded corruption cases for duplicate/orphan links, malformed production references, mismatched outcomes, compatibility tampering, and trailing resultless retries: [local-file-store tests](https://github.com/DefinitelySecureStudio/platform/blob/79ab34c8893f5b63f0cabcd5228604b37dda836b/tests/offline-orchestration-prototype/local-file-store.test.js#L237-L305), [corruption cases](https://github.com/DefinitelySecureStudio/platform/blob/79ab34c8893f5b63f0cabcd5228604b37dda836b/tests/offline-orchestration-prototype/local-file-store.test.js#L306-L548), [trailing retry cases](https://github.com/DefinitelySecureStudio/platform/blob/79ab34c8893f5b63f0cabcd5228604b37dda836b/tests/offline-orchestration-prototype/local-file-store.test.js#L921-L1078).
+- The existing O09 scope and exclusions are also recorded in the [prototype documentation](https://github.com/DefinitelySecureStudio/platform/blob/79ab34c8893f5b63f0cabcd5228604b37dda836b/docs/offline-orchestration-prototype.md#L367-L406).
+
+**Scoped disposition:** The implementation uses one existing backend and linkage format, with a finite synthetic success/failure/corruption fixture set. No storage infrastructure or signing service was added.
+
+The PR #75 exact-head run [#204](https://github.com/DefinitelySecureStudio/platform/actions/runs/42860695441), PR #76 exact-head run [#207](https://github.com/DefinitelySecureStudio/platform/actions/runs/42864091774), and post-merge run [42864399249](https://github.com/DefinitelySecureStudio/platform/actions/runs/42864399249) passed Node 22 and 24, including npm test, Comic Manifest conformance/security, and Context Builder conformance/reference flows.
+
+## Explicit exclusions and status
+
+This evidence does not cover live providers, production data, a production database or production-grade durability, power-loss behavior, other filesystems, same-account tamper authentication, digest signing/authenticity, or provider-level deduplication or generic exactly-once behavior. New storage infrastructure or a signing service remains separate scope. These limits match the [current O09 scope notes](https://github.com/DefinitelySecureStudio/platform/blob/79ab34c8893f5b63f0cabcd5228604b37dda836b/docs/offline-orchestration-prototype.md#L400-L406).
+
+Studio issue #110 remains open. This map does not claim broader acceptance, authorize additional implementation, or close the issue.
