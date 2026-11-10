@@ -86,6 +86,28 @@ function runtime() {
   };
 }
 
+function controlledDeadlineRuntime(clockState) {
+  const timers = new Map();
+  let nextTimerId = 0;
+  return {
+    runtime: {
+      ...runtime(),
+      now: () => clockState.now,
+      setTimer(callback) {
+        const timerId = ++nextTimerId;
+        timers.set(timerId, callback);
+        return timerId;
+      },
+      clearTimer(timerId) { timers.delete(timerId); }
+    },
+    fireTimers() {
+      const callbacks = [...timers.values()];
+      timers.clear();
+      for (const callback of callbacks) callback();
+    }
+  };
+}
+
 function prototype(store, onMockCall = () => {}, runtimeOverride = runtime(), mockAdapterFactoryOverride) {
   return createOfflineOrchestrationPrototypeForTest({
     store,
@@ -759,4 +781,138 @@ test('reopened inspection accepts a result after the linked attempt observes its
   assert.equal(reopened.blobCount, beforeBlobs);
   assert.equal(restartedCalls, 0);
   assert.equal(calls, 1);
+});
+
+
+test('reopened initial deadline cancellation preserves budget then mapping order', async t => {
+  const root = temporaryDirectory();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const store = new LocalFilePrototypeStore(root);
+  const clockState = { now: 10_000 };
+  const deadlineRuntime = controlledDeadlineRuntime(clockState);
+  const mockAdapterFactory = configuration => new (class extends MockTextAdapter {
+    async execute(...args) {
+      const admitted = store.readEvents(store.readJobIds()[0]).find(item => item.type === 'admitted');
+      clockState.now = admitted.deadline_monotonic_ms;
+      deadlineRuntime.fireTimers();
+      return super.execute(...args);
+    }
+  })(configuration);
+  let calls = 0;
+  const value = prototype(store,
+    ({ phase }) => { if (phase === 'dispatch-confirmed') calls++; },
+    deadlineRuntime.runtime, mockAdapterFactory);
+  const result = await value.submit({
+    productionSource,
+    mockOutcome: { kind: 'success', delay_ms: 5_000 }
+  });
+  assert.equal(result.status, 'contract-mapping-blocked');
+  assert.equal(calls, 1);
+  const entries = store.readEvents(result.job_id);
+  const dispatch = entries.find(item => item.type === 'dispatch-started');
+  const budgetStop = entries.find(item => item.type === 'budget-exhausted');
+  const outcome = entries.find(item => item.type === 'provider-outcome');
+  const mapping = entries.find(item => item.type === 'contract-mapping-blocked');
+  assert.ok(dispatch && budgetStop && outcome && mapping);
+  assert.ok(entries.indexOf(dispatch) < entries.indexOf(budgetStop));
+  assert.ok(entries.indexOf(budgetStop) < entries.indexOf(outcome));
+  assert.ok(entries.indexOf(outcome) < entries.indexOf(mapping));
+  assert.equal(entries.some(item => item.type === 'job-closed' || item.type === 'terminal'), false);
+
+  const reopened = new LocalFilePrototypeStore(root);
+  let restartedCalls = 0;
+  const restarted = prototype(reopened, () => { restartedCalls++; }, deadlineRuntime.runtime);
+  const beforeEvents = structuredClone(reopened.readEvents(result.job_id));
+  const beforeBlobs = reopened.blobCount;
+  const inspection = restarted.inspectRecovery(result.job_id);
+  assert.deepEqual(inspection, {
+    status: 'contract-mapping-blocked',
+    stage: 'mapping',
+    code: 'CONTRACT_MAPPING_BLOCKED',
+    read_only: true,
+    no_writes: true,
+    no_provider_calls: true,
+    authority_check_required: false
+  });
+  for (const value of [root, result.job_id, result.attempt_id, result.execution_id,
+    'PRIVATE-DEADLINE-MAPPING-SENTINEL', 'exception_text']) {
+    assert.equal(JSON.stringify(inspection).includes(value), false);
+  }
+  assert.deepEqual(reopened.readEvents(result.job_id), beforeEvents);
+  assert.equal(reopened.blobCount, beforeBlobs);
+  assert.equal(restartedCalls, 0);
+  assert.equal(calls, 1);
+});
+
+test('reopened retry deadline cancellation links budget, outcome, mapping, and close', async t => {
+  const root = temporaryDirectory();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const store = new LocalFilePrototypeStore(root);
+  const clockState = { now: 10_000 };
+  const deadlineRuntime = controlledDeadlineRuntime(clockState);
+  let mockInstances = 0;
+  const mockAdapterFactory = configuration => {
+    const instanceNumber = ++mockInstances;
+    return new (class extends MockTextAdapter {
+      async execute(...args) {
+        if (instanceNumber === 2) {
+          const admitted = store.readEvents(store.readJobIds()[0]).find(item => item.type === 'admitted');
+          clockState.now = admitted.deadline_monotonic_ms;
+          deadlineRuntime.fireTimers();
+        }
+        return super.execute(...args);
+      }
+    })(configuration);
+  };
+  let calls = 0;
+  const value = prototype(store,
+    ({ phase }) => { if (phase === 'dispatch-confirmed') calls++; },
+    deadlineRuntime.runtime, mockAdapterFactory);
+  const first = await value.submit({
+    productionSource,
+    noOutputResultVersion: '1.1.0',
+    mockOutcome: { kind: 'rate-limit', retry_after_ms: 10 }
+  });
+  assert.equal(first.retry_eligible, true);
+  clockState.now += 10;
+  const stopped = await value.retry({ authorizeRetry: true, mockOutcome: { kind: 'success', delay_ms: 5_000 } });
+  assert.equal(stopped.status, 'contract-mapping-blocked');
+  assert.equal(stopped.job_closed, true);
+  assert.equal(calls, 2);
+  const entries = store.readEvents(first.job_id);
+  const secondAttempt = entries.find(item => item.type === 'prepared' && item.attempt_id !== first.attempt_id);
+  const dispatch = entries.find(item => item.type === 'dispatch-started' && item.attempt_id === secondAttempt.attempt_id);
+  const budgetStop = entries.find(item => item.type === 'budget-exhausted' && item.attempt_id === secondAttempt.attempt_id);
+  const outcome = entries.find(item => item.type === 'provider-outcome' && item.attempt_id === secondAttempt.attempt_id);
+  const mapping = entries.find(item => item.type === 'contract-mapping-blocked' && item.attempt_id === secondAttempt.attempt_id);
+  assert.ok(secondAttempt && dispatch && budgetStop && outcome && mapping);
+  assert.ok(entries.indexOf(dispatch) < entries.indexOf(budgetStop));
+  assert.ok(entries.indexOf(budgetStop) < entries.indexOf(outcome));
+  assert.ok(entries.indexOf(outcome) < entries.indexOf(mapping));
+  assert.equal(entries.at(-1).type, 'job-closed');
+  assert.equal(entries.at(-1).reason, 'retry-contract-mapping-blocked');
+
+  const reopened = new LocalFilePrototypeStore(root);
+  let restartedCalls = 0;
+  const restarted = prototype(reopened, () => { restartedCalls++; }, deadlineRuntime.runtime);
+  const beforeEvents = structuredClone(reopened.readEvents(first.job_id));
+  const beforeBlobs = reopened.blobCount;
+  const inspection = restarted.inspectRecovery(first.job_id);
+  assert.deepEqual(inspection, {
+    status: 'contract-mapping-blocked',
+    stage: 'mapping',
+    code: 'CONTRACT_MAPPING_BLOCKED',
+    read_only: true,
+    no_writes: true,
+    no_provider_calls: true,
+    authority_check_required: false
+  });
+  for (const value of [root, first.job_id, first.attempt_id, first.execution_id,
+    secondAttempt.attempt_id, secondAttempt.execution_id, 'PRIVATE-DEADLINE-MAPPING-SENTINEL']) {
+    assert.equal(JSON.stringify(inspection).includes(value), false);
+  }
+  assert.deepEqual(reopened.readEvents(first.job_id), beforeEvents);
+  assert.equal(reopened.blobCount, beforeBlobs);
+  assert.equal(restartedCalls, 0);
+  assert.equal(calls, 2);
 });
