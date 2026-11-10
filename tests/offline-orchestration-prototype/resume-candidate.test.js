@@ -891,7 +891,7 @@ test('uncertain new provider-outcome write is not replayed after restart', async
 
 function writeResumeEventLog(root, jobId, entries) {
   const eventPath = join(root, 'events', `${Buffer.from(jobId).toString('base64url')}.jsonl`);
-  writeFileSync(eventPath, `${entries.map(item => canonicalJson(item)).join('\\n')}\\n`);
+  writeFileSync(eventPath, `${entries.map(item => canonicalJson(item)).join('\n')}\n`);
 }
 
 function assertResumeReconciliation(inspection, values) {
