@@ -46,6 +46,26 @@ const EXPECTED_EXECUTION_SCOPE = Object.freeze({
   revision: 1,
   identity_sha256: EXPECTED_PRODUCTION_SHA256
 });
+const RECOVERY_EVENT_TYPES = new Set([
+  'admitted', 'authorization-blocked', 'budget-exhausted', 'cancelled-before-dispatch',
+  'closed-without-retry', 'contract-mapping-blocked', 'dispatch-started', 'job-closed',
+  'persisting', 'prepared', 'provider-outcome', 'result-prepared', 'resume-window', 'terminal'
+]);
+const RECOVERY_DIAGNOSTIC_STATES = Object.freeze({
+  'not-found': Object.freeze({ stage: 'lookup', code: 'RECORD_NOT_FOUND' }),
+  'reconciliation-required': Object.freeze({ stage: 'integrity', code: 'RECONCILIATION_REQUIRED' }),
+  terminal: Object.freeze({ stage: 'terminal', code: 'TERMINAL_RESULT_VERIFIED' }),
+  'resume-candidate': Object.freeze({ stage: 'resume', code: 'RESUME_CANDIDATE' }),
+  'resume-window-empty': Object.freeze({ stage: 'resume', code: 'RESUME_WINDOW_EMPTY' }),
+  'retry-delay-not-elapsed': Object.freeze({ stage: 'resume', code: 'RETRY_DELAY_NOT_ELAPSED' }),
+  'resume-not-eligible': Object.freeze({ stage: 'resume', code: 'RESUME_NOT_ELIGIBLE' }),
+  'deadline-unverifiable': Object.freeze({ stage: 'time', code: 'DEADLINE_UNVERIFIABLE' }),
+  'budget-exhausted': Object.freeze({ stage: 'limits', code: 'BUDGET_EXHAUSTED' }),
+  'contract-mapping-blocked': Object.freeze({ stage: 'mapping', code: 'CONTRACT_MAPPING_BLOCKED' }),
+  'execution-unresolved': Object.freeze({ stage: 'execution', code: 'EXECUTION_UNRESOLVED' }),
+  'read-only-inspection-required': Object.freeze({ stage: 'inspection', code: 'INSPECTION_REQUIRED' }),
+  'closed-without-result': Object.freeze({ stage: 'terminal', code: 'JOB_CLOSED_WITHOUT_RESULT' })
+});
 
 const defaultRuntime = Object.freeze({
   now: () => Math.floor(performance.now()),
@@ -68,6 +88,21 @@ function freezeDeep(value, seen = new WeakSet()) {
   seen.add(value);
   for (const child of Object.values(value)) freezeDeep(child, seen);
   return Object.freeze(value);
+}
+
+function recoveryDiagnostic(status) {
+  const safeStatus = Object.prototype.hasOwnProperty.call(RECOVERY_DIAGNOSTIC_STATES, status)
+    ? status : 'reconciliation-required';
+  const { stage, code } = RECOVERY_DIAGNOSTIC_STATES[safeStatus];
+  return freezeDeep({
+    status: safeStatus,
+    stage,
+    code,
+    read_only: true,
+    no_writes: true,
+    no_provider_calls: true,
+    authority_check_required: safeStatus === 'resume-candidate'
+  });
 }
 
 function digest(bytes) {
@@ -2000,17 +2035,21 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
 
   function inspectRecoveryCore(jobId, { beforeProtectedRead, onCandidate } = {}) {
     if (typeof jobId !== 'string' || !jobId) throw new OfflineOrchestrationError('INVALID_JOB_ID');
+    const reconciliationRequired = () => recoveryDiagnostic('reconciliation-required');
     let entries;
     try { entries = store.readEvents(jobId); } catch {
-      return freezeDeep({ kind: 'recovery-inspection', status: 'reconciliation-required', job_id: jobId, read_only: true });
+      return reconciliationRequired();
     }
     if (entries === UNKNOWN_STORE_STATE || !Array.isArray(entries)) {
-      return freezeDeep({ kind: 'recovery-inspection', status: 'reconciliation-required', job_id: jobId, read_only: true });
+      return reconciliationRequired();
     }
-    if (entries.length === 0) return freezeDeep({ kind: 'recovery-inspection', status: 'not-found', job_id: jobId, read_only: true });
-    const admitted = entries.find(item => item.type === 'admitted');
-    if (!admitted || entries.filter(item => item.type === 'admitted').length !== 1) {
-      return freezeDeep({ kind: 'recovery-inspection', status: 'reconciliation-required', job_id: jobId, read_only: true });
+    if (entries.length === 0) return recoveryDiagnostic('not-found');
+    const admittedEvents = entries.filter(item => item?.type === 'admitted');
+    const admitted = admittedEvents[0];
+    if (!admitted || admittedEvents.length !== 1
+      || entries.some(item => !item || typeof item !== 'object' || Array.isArray(item)
+        || item.job_id !== jobId || typeof item.type !== 'string' || !RECOVERY_EVENT_TYPES.has(item.type))) {
+      return reconciliationRequired();
     }
     const verifiedBlobs = new Map();
     const readVerifiedBlob = (key, expectedSize, expectedSha) => {
@@ -2028,65 +2067,605 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     const verifyBlob = (key, expectedSize, expectedSha) => readVerifiedBlob(key, expectedSize, expectedSha) !== false;
     if (!verifyBlob(admitted.input_key, admitted.input_byte_size, admitted.input_sha256)
       || !verifyBlob(admitted.prompt_key, admitted.prompt_byte_size, admitted.prompt_sha256)) {
-      return freezeDeep({ kind: 'recovery-inspection', status: 'reconciliation-required', job_id: jobId, read_only: true });
+      return reconciliationRequired();
     }
     for (const item of entries) {
       if (item.type === 'provider-outcome'
         && !verifyBlob(item.payload_key, item.byte_size, item.sha256)) {
-        return freezeDeep({ kind: 'recovery-inspection', status: 'reconciliation-required', job_id: jobId, read_only: true });
+        return reconciliationRequired();
       }
       if (item.type === 'persisting' || item.type === 'terminal') {
         const resultBytes = readVerifiedBlob(`result:${item.result_id}`, item.result_byte_size, item.result_sha256);
-        if (resultBytes === false) {
-          return freezeDeep({ kind: 'recovery-inspection', status: 'reconciliation-required', job_id: jobId, read_only: true });
-        }
+        if (resultBytes === false) return reconciliationRequired();
         let result;
         try { result = JSON.parse(resultBytes.toString('utf8')); } catch {
-          return freezeDeep({ kind: 'recovery-inspection', status: 'reconciliation-required', job_id: jobId, read_only: true });
+          return reconciliationRequired();
         }
-        for (const output of result.outputs ?? []) {
+        if (!result || typeof result !== 'object' || Array.isArray(result) || !Array.isArray(result.outputs)) {
+          return reconciliationRequired();
+        }
+        for (const output of result.outputs) {
+          if (!output || typeof output !== 'object' || Array.isArray(output)) return reconciliationRequired();
           const artifact = output.artifact;
-          if (!artifact || !verifyBlob(`artifact:${artifact.artifact_uri}`, artifact.byte_size, artifact.sha256)) {
-            return freezeDeep({ kind: 'recovery-inspection', status: 'reconciliation-required', job_id: jobId, read_only: true });
+          if (!artifact || typeof artifact !== 'object' || Array.isArray(artifact)
+            || !verifyBlob(`artifact:${artifact.artifact_uri}`, artifact.byte_size, artifact.sha256)) {
+            return reconciliationRequired();
           }
         }
       }
     }
-    const last = entries.at(-1);
-    const terminal = entries.some(item => item.type === 'job-closed');
+
+    const resultPrepared = entries.filter(item => item.type === 'result-prepared');
+    const persisting = entries.filter(item => item.type === 'persisting');
+    const terminals = entries.filter(item => item.type === 'terminal');
+    if (resultPrepared.length !== persisting.length || resultPrepared.length !== terminals.length) {
+      return reconciliationRequired();
+    }
+    let trailingNoResultAttempt = false;
+    const jobScopedBudgetStops = entries.filter(item => item.type === 'budget-exhausted'
+      && item.attempt_id === undefined);
+    if (resultPrepared.length > 0) {
+      const productionBytes = verifiedBlobs.get(admitted.input_key);
+      let production;
+      if (!admitted.production || typeof admitted.production !== 'object' || Array.isArray(admitted.production)) {
+        return reconciliationRequired();
+      }
+      try {
+        production = readProduction(productionBytes.toString('utf8'));
+        if (!productionBytes.equals(Buffer.from(production.canonical, 'utf8'))
+          || canonicalJson(admitted.production) !== canonicalJson(production.reference)) {
+          return reconciliationRequired();
+        }
+      } catch {
+        return reconciliationRequired();
+      }
+
+      const seenAttempts = new Set();
+      const seenExecutions = new Set();
+      const seenResults = new Set();
+      let priorChain;
+      const matching = (type, attemptId) => entries.filter(item => item.type === type && item.attempt_id === attemptId);
+      const isResourceId = value => typeof value === 'string' && value.startsWith('urn:uuid:')
+        && UUID.test(value.slice('urn:uuid:'.length));
+      const isExecutionId = value => typeof value === 'string' && value.startsWith('exec-offline-')
+        && UUID.test(value.slice('exec-offline-'.length));
+      const isDigest = value => typeof value === 'string' && /^sha256:[0-9a-f]{64}$/.test(value);
+      for (const preparedResult of resultPrepared) {
+        const { attempt_id: attemptId, execution_id: executionId, result_id: resultId,
+          result_byte_size: byteSize, result_sha256: sha256, status } = preparedResult;
+        if (!isResourceId(attemptId) || !isExecutionId(executionId) || !isResourceId(resultId)
+          || !Number.isSafeInteger(byteSize) || byteSize < 0 || !isDigest(sha256)
+          || !['complete', 'failed'].includes(status)
+          || seenAttempts.size >= OFFLINE_ORCHESTRATION_LIMITS.maxAttemptsPerJob
+          || seenAttempts.has(attemptId) || seenExecutions.has(executionId) || seenResults.has(resultId)) {
+          return reconciliationRequired();
+        }
+        seenAttempts.add(attemptId);
+        seenExecutions.add(executionId);
+        seenResults.add(resultId);
+
+        const preparedAttempts = matching('prepared', attemptId);
+        const dispatches = matching('dispatch-started', attemptId);
+        const outcomes = matching('provider-outcome', attemptId);
+        const persistingMatches = matching('persisting', attemptId);
+        const terminalMatches = matching('terminal', attemptId);
+        if (preparedAttempts.length !== 1 || dispatches.length !== 1 || outcomes.length !== 1
+          || persistingMatches.length !== 1 || terminalMatches.length !== 1) return reconciliationRequired();
+        const [prepared] = preparedAttempts;
+        const [dispatch] = dispatches;
+        const [outcome] = outcomes;
+        const [persistingRecord] = persistingMatches;
+        const [terminal] = terminalMatches;
+        const attemptCancellationStops = matching('cancelled-before-dispatch', attemptId);
+        const attemptMappingStops = matching('contract-mapping-blocked', attemptId);
+        const attemptBudgetStops = matching('budget-exhausted', attemptId);
+        if (attemptCancellationStops.length !== 0 || attemptMappingStops.length !== 0
+          || attemptBudgetStops.length > 1) return reconciliationRequired();
+        if (attemptBudgetStops.length === 1) {
+          const [stop] = attemptBudgetStops;
+          const stopKeys = ['attempt_id', 'deadline_monotonic_ms', 'execution_id', 'job_id', 'reason', 'type'];
+          if (Object.keys(stop).sort().join('|') !== stopKeys.join('|')
+            || stop.job_id !== jobId || stop.reason !== 'time'
+            || stop.execution_id !== executionId
+            || !Number.isSafeInteger(admitted.deadline_monotonic_ms)
+            || stop.deadline_monotonic_ms !== admitted.deadline_monotonic_ms
+            || entries.indexOf(stop) <= entries.indexOf(dispatch)
+            || entries.indexOf(stop) >= entries.indexOf(outcome)
+            || entries.indexOf(outcome) >= entries.indexOf(preparedResult)) return reconciliationRequired();
+        }
+        if (priorChain) {
+          const priorWindows = matching('resume-window', priorChain.attemptId);
+          if (priorWindows.length > 1) return reconciliationRequired();
+          if (admitted.resume_time !== undefined) {
+            if (priorWindows.length !== 1) return reconciliationRequired();
+            const priorWindow = priorWindows[0];
+            const timeRecord = admitted.resume_time;
+            const windowKeys = ['authority_id', 'context_enabled', 'deadline_at_ms', 'domain_id', 'epoch_id', 'started_at_ms'];
+            const validTimeRecord = timeRecord && typeof timeRecord === 'object' && !Array.isArray(timeRecord)
+              && Object.keys(timeRecord).sort().join('|') === windowKeys.join('|')
+              && timeRecord.authority_id === SYNTHETIC_RESUME_TIME_AUTHORITY_ID
+              && typeof timeRecord.domain_id === 'string' && typeof timeRecord.epoch_id === 'string'
+              && timeRecord.context_enabled === false
+              && Number.isSafeInteger(timeRecord.started_at_ms) && Number.isSafeInteger(timeRecord.deadline_at_ms)
+              && timeRecord.deadline_at_ms === checkedAdd(timeRecord.started_at_ms, OFFLINE_ORCHESTRATION_LIMITS.jobBudgetMs);
+            const priorWindowIndex = entries.indexOf(priorWindow);
+            if (!validTimeRecord || priorWindow.attempt_id !== priorChain.attemptId
+              || priorWindow.execution_id !== priorChain.executionId
+              || priorWindow.terminal_result_id !== priorChain.resultId
+              || !Number.isSafeInteger(priorWindow.checked_at_ms)
+              || priorWindow.checked_at_ms < timeRecord.started_at_ms
+              || priorWindow.checked_at_ms >= timeRecord.deadline_at_ms
+              || priorWindow.retry_not_before_at_ms !== checkedAdd(priorWindow.checked_at_ms,
+                priorChain.providerResult.error.retry_after_ms)
+              || priorWindow.deadline_at_ms !== timeRecord.deadline_at_ms
+              || priorWindowIndex <= priorChain.terminalIndex
+              || entries.indexOf(prepared) <= priorWindowIndex) return reconciliationRequired();
+          } else if (priorWindows.length !== 0 || entries.indexOf(prepared) <= priorChain.terminalIndex) {
+            return reconciliationRequired();
+          }
+        } else if (prepared.retry_of_attempt_id !== null) return reconciliationRequired();
+        const ordered = [prepared, dispatch, outcome, preparedResult, persistingRecord, terminal]
+          .map(item => entries.indexOf(item));
+        if (ordered.some((index, position) => index < 0
+          || (position > 0 && index <= ordered[position - 1]))) return reconciliationRequired();
+
+        if (prepared.execution_id !== executionId || dispatch.execution_id !== executionId
+          || outcome.execution_id !== executionId || persistingRecord.execution_id !== executionId
+          || terminal.execution_id !== executionId || persistingRecord.result_id !== resultId
+          || terminal.result_id !== resultId || persistingRecord.result_byte_size !== byteSize
+          || terminal.result_byte_size !== byteSize || persistingRecord.result_sha256 !== sha256
+          || terminal.result_sha256 !== sha256 || persistingRecord.attempt_id !== attemptId
+          || terminal.attempt_id !== attemptId || preparedResult.job_id !== jobId
+          || outcome.payload_key !== `provider-outcome:${executionId}` || !isDigest(outcome.sha256)
+          || !Number.isSafeInteger(outcome.byte_size) || outcome.byte_size < 0
+          || !Number.isSafeInteger(dispatch.call_number) || dispatch.call_number < 1
+          || !admitted.production || typeof admitted.production !== 'object' || Array.isArray(admitted.production)
+          || !prepared.production || typeof prepared.production !== 'object' || Array.isArray(prepared.production)
+          || canonicalJson(prepared.production) !== canonicalJson(admitted.production)) {
+          return reconciliationRequired();
+        }
+
+        const outcomeBytes = verifiedBlobs.get(outcome.payload_key);
+        const resultBytes = verifiedBlobs.get(`result:${resultId}`);
+        if (!Buffer.isBuffer(outcomeBytes) || !Buffer.isBuffer(resultBytes)) return reconciliationRequired();
+        let providerResult;
+        let result;
+        try {
+          const outcomeSource = outcomeBytes.toString('utf8');
+          const resultSource = resultBytes.toString('utf8');
+          providerResult = JSON.parse(outcomeSource);
+          result = JSON.parse(resultSource);
+          if (!outcomeBytes.equals(Buffer.from(canonicalJson(providerResult), 'utf8'))
+            || !resultBytes.equals(Buffer.from(canonicalJson(result), 'utf8'))) return reconciliationRequired();
+        } catch {
+          return reconciliationRequired();
+        }
+        if (!providerResult || typeof providerResult !== 'object' || Array.isArray(providerResult)
+          || !result || typeof result !== 'object' || Array.isArray(result)) {
+          return reconciliationRequired();
+        }
+        if ((!priorChain && prepared.retry_of_attempt_id !== null)
+          || (priorChain && (prepared.retry_of_attempt_id !== priorChain.attemptId
+            || priorChain.result.status !== 'failed' || priorChain.result.outputs.length !== 0
+            || !eligibleRateLimit(priorChain.providerResult)))) return reconciliationRequired();
+        let resultValidation;
+        try {
+          const resultSource = canonicalJson(result);
+          resultValidation = result.spec_version === '1.1.0'
+            ? validateComicBuildResultCandidate(resultSource, production.canonical)
+            : result.spec_version === '1.0.0' ? validateComicManifest(resultSource) : { valid: false };
+          const compatibility = result.spec_version === '1.1.0' ? resultValidation
+            : result.spec_version === '1.0.0'
+              ? validateComicOutputCompatibility(production.canonical, resultSource) : { valid: false };
+          if (!validateExecutionDocument(providerResult).valid
+            || providerResult.execution_id !== executionId || providerResult.status !== outcome.status
+            || result.result_id !== resultId || result.attempt_id !== attemptId || result.status !== status
+            || canonicalJson(prepared.production) !== canonicalJson(admitted.production)
+            || canonicalJson(result.production) !== canonicalJson(admitted.production)
+            || !resultValidation.valid || !compatibility.valid) return reconciliationRequired();
+          if (result.spec_version === '1.1.0'
+            && (admitted.no_output_result_version !== '1.1.0' || result.status !== 'failed'
+              || providerResult.status !== 'failed' || !eligibleRateLimit(providerResult)
+              || result.outputs.length !== 0)) return reconciliationRequired();
+          if (result.spec_version === '1.0.0' && result.status === 'failed') {
+            const supportedFailure = providerResult.status === 'cancelled'
+              || (providerResult.status === 'failed'
+                && ['output-validation', 'rate-limit'].includes(providerResult.error?.category))
+              || (providerResult.status === 'succeeded' && typeof providerResult.output?.content === 'string');
+            if (!supportedFailure) return reconciliationRequired();
+          }
+          if (result.status === 'complete') {
+            if (result.spec_version !== '1.0.0' || providerResult.status !== 'succeeded'
+              || typeof providerResult.output?.content !== 'string' || result.outputs.length !== 1) {
+              return reconciliationRequired();
+            }
+            const outputBytes = Buffer.from(providerResult.output.content, 'utf8');
+            const artifact = result.outputs[0].artifact;
+            const storedArtifact = verifiedBlobs.get(`artifact:${artifact.artifact_uri}`);
+            if (!Buffer.isBuffer(storedArtifact) || !storedArtifact.equals(outputBytes)
+              || artifact.byte_size !== outputBytes.byteLength || artifact.sha256 !== digest(outputBytes)) {
+              return reconciliationRequired();
+            }
+          } else if (result.outputs.length !== 0) return reconciliationRequired();
+        } catch {
+          return reconciliationRequired();
+        }
+        const ownWindows = matching('resume-window', attemptId);
+        if (ownWindows.length > 1) return reconciliationRequired();
+        let resumeWindowIndex;
+        if (ownWindows.length === 1) {
+          const resumeWindow = ownWindows[0];
+          const timeRecord = admitted.resume_time;
+          const timeKeys = 'authority_id|context_enabled|deadline_at_ms|domain_id|epoch_id|started_at_ms';
+          if (!timeRecord || Object.keys(timeRecord).sort().join('|') !== timeKeys
+            || timeRecord.authority_id !== SYNTHETIC_RESUME_TIME_AUTHORITY_ID
+            || typeof timeRecord.domain_id !== 'string' || typeof timeRecord.epoch_id !== 'string'
+            || timeRecord.context_enabled !== false
+            || !Number.isSafeInteger(timeRecord.started_at_ms)
+            || !Number.isSafeInteger(timeRecord.deadline_at_ms)
+            || timeRecord.deadline_at_ms !== checkedAdd(timeRecord.started_at_ms,
+              OFFLINE_ORCHESTRATION_LIMITS.jobBudgetMs)
+            || resumeWindow.attempt_id !== attemptId || resumeWindow.execution_id !== executionId
+            || resumeWindow.terminal_result_id !== resultId
+            || result.status !== 'failed' || result.outputs.length !== 0
+            || !eligibleRateLimit(providerResult)
+            || !Number.isSafeInteger(resumeWindow.checked_at_ms)
+            || resumeWindow.checked_at_ms < timeRecord.started_at_ms
+            || resumeWindow.checked_at_ms >= timeRecord.deadline_at_ms
+            || resumeWindow.retry_not_before_at_ms !== checkedAdd(resumeWindow.checked_at_ms,
+              providerResult.error.retry_after_ms)
+            || resumeWindow.deadline_at_ms !== timeRecord.deadline_at_ms
+            || entries.indexOf(resumeWindow) <= entries.indexOf(terminal)) return reconciliationRequired();
+          resumeWindowIndex = entries.indexOf(resumeWindow);
+        }
+        priorChain = { attemptId, executionId, resultId, terminalIndex: entries.indexOf(terminal),
+          resumeWindowIndex, providerResult, result };
+      }
+
+      // All result-bearing attempt records must belong to a verified chain. The
+      // only allowed trailing attempt is an explicitly stopped retry with no result.
+      const resultAttemptEventTypes = new Set(['prepared', 'dispatch-started', 'provider-outcome',
+        'result-prepared', 'persisting', 'terminal', 'resume-window',
+        'contract-mapping-blocked', 'budget-exhausted', 'cancelled-before-dispatch']);
+      if (jobScopedBudgetStops.length > 1
+        || entries.some(item => resultAttemptEventTypes.has(item.type) && item.attempt_id === undefined
+          && item.type !== 'budget-exhausted')) {
+        return reconciliationRequired();
+      }
+      const allowedAttemptIdTypes = new Set([...resultAttemptEventTypes, 'closed-without-retry']);
+      if (entries.some(item => item.attempt_id !== undefined && !allowedAttemptIdTypes.has(item.type))) {
+        return reconciliationRequired();
+      }
+      const orphanAttemptRecords = entries.filter(item => item.attempt_id !== undefined
+        && !seenAttempts.has(item.attempt_id));
+      if (orphanAttemptRecords.some(item => !resultAttemptEventTypes.has(item.type))) return reconciliationRequired();
+      const orphanIds = new Set(orphanAttemptRecords.map(item => item.attempt_id));
+      if (orphanIds.size > 0) {
+        if (orphanIds.size !== 1 || !priorChain
+          || (admitted.resume_time !== undefined && priorChain.resumeWindowIndex === undefined)) {
+          return reconciliationRequired();
+        }
+        const [orphanId] = orphanIds;
+        const orphanEvents = entries.filter(item => resultAttemptEventTypes.has(item.type)
+          && item.attempt_id === orphanId);
+        const ofType = type => orphanEvents.filter(item => item.type === type);
+        const orphanPrepared = ofType('prepared');
+        const orphanDispatches = ofType('dispatch-started');
+        const orphanOutcomes = ofType('provider-outcome');
+        const orphanStops = orphanEvents.filter(item => ['contract-mapping-blocked',
+          'budget-exhausted', 'cancelled-before-dispatch'].includes(item.type));
+        const orphanResults = orphanEvents.filter(item => ['result-prepared', 'persisting',
+          'terminal', 'resume-window'].includes(item.type));
+        const stopCounts = new Map();
+        for (const item of orphanStops) stopCounts.set(item.type, (stopCounts.get(item.type) ?? 0) + 1);
+        if (orphanPrepared.length !== 1 || orphanDispatches.length > 1 || orphanOutcomes.length > 1
+          || orphanStops.length < 1 || [...stopCounts.values()].some(count => count > 1) || orphanResults.length !== 0
+          || orphanPrepared[0].retry_of_attempt_id !== priorChain.attemptId
+          || !isResourceId(orphanId) || !isExecutionId(orphanPrepared[0].execution_id)
+          || entries.indexOf(orphanPrepared[0]) <= (priorChain.resumeWindowIndex ?? priorChain.terminalIndex)) {
+          return reconciliationRequired();
+        }
+        const orphanExecutionId = orphanPrepared[0].execution_id;
+        const orphanDispatch = orphanDispatches[0];
+        const orphanOutcome = orphanOutcomes[0];
+        if ((orphanDispatch && (orphanDispatch.execution_id !== orphanExecutionId
+            || orphanDispatch.call_number !== 1
+            || entries.indexOf(orphanDispatch) <= entries.indexOf(orphanPrepared[0])))
+          || (orphanOutcome && (!orphanDispatch || orphanOutcome.execution_id !== orphanExecutionId
+            || orphanOutcome.payload_key !== `provider-outcome:${orphanExecutionId}`
+            || !isDigest(orphanOutcome.sha256) || !Number.isSafeInteger(orphanOutcome.byte_size)
+            || entries.indexOf(orphanOutcome) <= entries.indexOf(orphanDispatch)))) {
+          return reconciliationRequired();
+        }
+        let orphanProviderResult;
+        if (orphanOutcome) {
+          const orphanOutcomeBytes = verifiedBlobs.get(orphanOutcome.payload_key);
+          try { orphanProviderResult = JSON.parse(orphanOutcomeBytes.toString('utf8')); } catch {
+            return reconciliationRequired();
+          }
+          if (!orphanProviderResult || !validateExecutionDocument(orphanProviderResult).valid
+            || orphanProviderResult.execution_id !== orphanExecutionId
+            || orphanProviderResult.status !== orphanOutcome.status) return reconciliationRequired();
+        }
+        const orphanBudgetStops = orphanStops.filter(item => item.type === 'budget-exhausted');
+        const orphanCancellationStops = orphanStops.filter(item => item.type === 'cancelled-before-dispatch');
+        const orphanMappingStops = orphanStops.filter(item => item.type === 'contract-mapping-blocked');
+        const stopIndices = orphanStops.map(item => entries.indexOf(item));
+        const closedEvents = entries.filter(item => item.type === 'job-closed');
+        if (orphanStops.some(item => item.execution_id !== undefined
+            && item.execution_id !== orphanExecutionId)) return reconciliationRequired();
+        if (orphanCancellationStops.length === 1) {
+          const [stop] = orphanCancellationStops;
+          const stopKeys = ['attempt_id', 'job_id', 'reason', 'type'];
+          if (orphanDispatch || orphanOutcome || orphanBudgetStops.length !== 0 || orphanMappingStops.length !== 0
+            || Object.keys(stop).sort().join('|') !== stopKeys.join('|')
+            || stop.job_id !== jobId || stop.attempt_id !== orphanId || stop.reason !== 'caller-cancelled'
+            || entries.indexOf(stop) <= entries.indexOf(orphanPrepared[0])) return reconciliationRequired();
+        }
+        if (orphanBudgetStops.length === 1) {
+          const [stop] = orphanBudgetStops;
+          const stopKeys = ['attempt_id', 'deadline_monotonic_ms', 'execution_id', 'job_id', 'reason', 'type'];
+          const previousAttemptEvent = orphanDispatch ?? orphanPrepared[0];
+          if (Object.keys(stop).sort().join('|') !== stopKeys.join('|')
+            || stop.job_id !== jobId || stop.attempt_id !== orphanId || stop.execution_id !== orphanExecutionId
+            || stop.reason !== 'time' || !Number.isSafeInteger(admitted.deadline_monotonic_ms)
+            || stop.deadline_monotonic_ms !== admitted.deadline_monotonic_ms
+            || entries.indexOf(stop) <= entries.indexOf(previousAttemptEvent)
+            || (orphanOutcome && entries.indexOf(stop) >= entries.indexOf(orphanOutcome))) {
+            return reconciliationRequired();
+          }
+        }
+        if (orphanMappingStops.length === 1) {
+          const [mapping] = orphanMappingStops;
+          const mappingKeys = ['attempt_id', 'execution_id', 'job_id', 'provider_outcome_sha256', 'reason', 'type'];
+          const allowedReasons = new Set(['comic-result-validation-rejected', 'deadline-unverifiable',
+            'no-output-result-not-representable-under-current-validator', 'provider-timeout-mapping-deferred',
+            'unsupported-normalized-result-mapping']);
+          if (!orphanOutcome || Object.keys(mapping).sort().join('|') !== mappingKeys.join('|')
+            || mapping.job_id !== jobId || mapping.attempt_id !== orphanId
+            || mapping.execution_id !== orphanExecutionId
+            || !allowedReasons.has(mapping.reason) || mapping.provider_outcome_sha256 !== orphanOutcome.sha256
+            || entries.indexOf(mapping) <= entries.indexOf(orphanOutcome)) return reconciliationRequired();
+        }
+        if (orphanCancellationStops.length > 1 || orphanBudgetStops.length > 1 || orphanMappingStops.length > 1
+          || (orphanOutcome && orphanMappingStops.length !== 1)
+          || (!orphanOutcome && orphanMappingStops.length !== 0)
+          || (closedEvents.length === 1 && (entries.at(-1) !== closedEvents[0]
+            || entries.indexOf(closedEvents[0]) <= Math.max(...stopIndices)))
+          || (closedEvents.length === 0 && (orphanCancellationStops.length !== 0
+            || orphanBudgetStops.length !== 0 || orphanMappingStops.length !== 1
+            || (orphanMappingStops[0].reason !== 'deadline-unverifiable'
+              && orphanProviderResult.status !== 'timed-out')))
+          || (closedEvents.length === 1 && orphanCancellationStops.length === 1
+            && closedEvents[0].reason !== 'cancelled-before-dispatch')
+          || (closedEvents.length === 1 && orphanBudgetStops.length === 1
+            && orphanMappingStops.length === 0 && closedEvents[0].reason !== 'budget-time')
+          || (closedEvents.length === 1 && orphanMappingStops.length === 1
+            && (!orphanOutcome || !['failed', 'cancelled', 'succeeded'].includes(orphanProviderResult.status)
+              || closedEvents[0].reason !== 'retry-contract-mapping-blocked'))
+          || (closedEvents.length === 1 && orphanCancellationStops.length === 0
+            && orphanBudgetStops.length === 0 && orphanMappingStops.length === 0)) {
+          return reconciliationRequired();
+        }
+      }
+      const closedWithoutRetry = entries.filter(item => item.type === 'closed-without-retry');
+      const jobClosedForRetry = entries.find(item => item.type === 'job-closed');
+      if (jobScopedBudgetStops.length === 1) {
+        const [stop] = jobScopedBudgetStops;
+        const stopKeys = ['deadline_monotonic_ms', 'job_id', 'reason', 'type'];
+        const afterResultIndex = priorChain?.resumeWindowIndex ?? priorChain?.terminalIndex;
+        if (!priorChain || orphanIds.size !== 0 || closedWithoutRetry.length !== 0
+          || priorChain.result.status !== 'failed' || priorChain.result.outputs.length !== 0
+          || !eligibleRateLimit(priorChain.providerResult)
+          || Object.keys(stop).sort().join('|') !== stopKeys.join('|')
+          || stop.job_id !== jobId || stop.type !== 'budget-exhausted'
+          || !['time', 'attempts'].includes(stop.reason)
+          || !Number.isSafeInteger(admitted.deadline_monotonic_ms)
+          || stop.deadline_monotonic_ms !== admitted.deadline_monotonic_ms
+          || (stop.reason === 'attempts'
+            && resultPrepared.length < OFFLINE_ORCHESTRATION_LIMITS.maxAttemptsPerJob)
+          || entries.indexOf(stop) <= afterResultIndex
+          || !jobClosedForRetry || jobClosedForRetry.reason !== 'retry-budget-exhausted'
+          || entries.indexOf(stop) >= entries.indexOf(jobClosedForRetry)) {
+          return reconciliationRequired();
+        }
+      }
+      if (closedWithoutRetry.length > 1 || (closedWithoutRetry.length === 1
+        && (!priorChain || (admitted.resume_time !== undefined && priorChain.resumeWindowIndex === undefined)
+          || !jobClosedForRetry
+          || closedWithoutRetry[0].attempt_id !== priorChain.attemptId
+          || closedWithoutRetry[0].result_id !== priorChain.resultId
+          || entries.indexOf(closedWithoutRetry[0]) <= (priorChain.resumeWindowIndex ?? priorChain.terminalIndex)
+          || (jobClosedForRetry && entries.indexOf(closedWithoutRetry[0]) >= entries.indexOf(jobClosedForRetry))))) {
+        return reconciliationRequired();
+      }
+      trailingNoResultAttempt = orphanIds.size > 0;
+    } else {
+      // A job with no verified result chain can expose only a consistent,
+      // single-attempt early-stop or unresolved path. A close marker alone is
+      // never evidence that a result was persisted.
+      const noResultLifecycleTypes = new Set(['result-prepared', 'persisting', 'terminal', 'resume-window']);
+      if (entries.some(item => noResultLifecycleTypes.has(item.type))) return reconciliationRequired();
+      const noResultAttemptTypes = new Set(['prepared', 'dispatch-started', 'provider-outcome',
+        'contract-mapping-blocked', 'budget-exhausted', 'cancelled-before-dispatch']);
+      const noResultAttemptRecords = entries.filter(item => item.attempt_id !== undefined);
+      if (noResultAttemptRecords.some(item => !noResultAttemptTypes.has(item.type))) return reconciliationRequired();
+      const attemptIds = new Set(noResultAttemptRecords.map(item => item.attempt_id));
+      if (attemptIds.size > 1) return reconciliationRequired();
+      const noResultStops = entries.filter(item => ['contract-mapping-blocked',
+        'budget-exhausted', 'cancelled-before-dispatch'].includes(item.type));
+      const noResultStopCounts = new Map();
+      for (const item of noResultStops) noResultStopCounts.set(item.type, (noResultStopCounts.get(item.type) ?? 0) + 1);
+      if ([...noResultStopCounts.values()].some(count => count > 1)) return reconciliationRequired();
+      const jobScopedBudgetStopsWithoutResult = noResultStops.filter(item =>
+        item.type === 'budget-exhausted' && item.attempt_id === undefined);
+      if (jobScopedBudgetStopsWithoutResult.length > 1) return reconciliationRequired();
+      if (jobScopedBudgetStopsWithoutResult.length === 1) {
+        const [stop] = jobScopedBudgetStopsWithoutResult;
+        const closed = entries.filter(item => item.type === 'job-closed');
+        const timeStopKeys = ['deadline_monotonic_ms', 'job_id', 'reason', 'type'];
+        const materialStopKeys = ['job_id', 'reason', 'type'];
+        const expectedKeys = stop.reason === 'time' ? timeStopKeys
+          : ['prompt', 'material'].includes(stop.reason) ? materialStopKeys : [];
+        if (attemptIds.size !== 0 || expectedKeys.length === 0
+          || Object.keys(stop).sort().join('|') !== [...expectedKeys].sort().join('|')
+          || stop.job_id !== jobId || stop.type !== 'budget-exhausted'
+          || (stop.reason === 'time' && (!Number.isSafeInteger(admitted.deadline_monotonic_ms)
+            || stop.deadline_monotonic_ms !== admitted.deadline_monotonic_ms))
+          || closed.length !== 1 || closed[0].reason !== `budget-${stop.reason}`
+          || entries.indexOf(stop) >= entries.indexOf(closed[0])
+          || entries.at(-1) !== closed[0]) return reconciliationRequired();
+      }
+      if (attemptIds.size === 1) {
+        const [attemptId] = attemptIds;
+        const attemptRecords = noResultAttemptRecords.filter(item => item.attempt_id === attemptId);
+        const preparedAttempts = attemptRecords.filter(item => item.type === 'prepared');
+        const dispatches = attemptRecords.filter(item => item.type === 'dispatch-started');
+        const outcomes = attemptRecords.filter(item => item.type === 'provider-outcome');
+        const stops = attemptRecords.filter(item => ['contract-mapping-blocked',
+          'budget-exhausted', 'cancelled-before-dispatch'].includes(item.type));
+        const prepared = preparedAttempts[0];
+        const resourceId = value => typeof value === 'string' && value.startsWith('urn:uuid:')
+          && UUID.test(value.slice('urn:uuid:'.length));
+        const executionIdValid = value => typeof value === 'string' && value.startsWith('exec-offline-')
+          && UUID.test(value.slice('exec-offline-'.length));
+        if (!resourceId(attemptId) || preparedAttempts.length !== 1 || dispatches.length > 1
+          || outcomes.length > 1 || stops.length > 2
+          || new Set(stops.map(item => item.type)).size !== stops.length
+          || !executionIdValid(prepared.execution_id) || prepared.retry_of_attempt_id !== null
+          || attemptRecords.some(item => item.execution_id !== undefined
+            && item.execution_id !== prepared.execution_id)
+          || !admitted.production || typeof admitted.production !== 'object' || Array.isArray(admitted.production)
+          || !prepared.production || typeof prepared.production !== 'object' || Array.isArray(prepared.production)) {
+          return reconciliationRequired();
+        }
+        const productionBytes = verifiedBlobs.get(admitted.input_key);
+        try {
+          const production = readProduction(productionBytes.toString('utf8'));
+          if (!productionBytes.equals(Buffer.from(production.canonical, 'utf8'))
+            || canonicalJson(admitted.production) !== canonicalJson(production.reference)
+            || canonicalJson(prepared.production) !== canonicalJson(admitted.production)) {
+            return reconciliationRequired();
+          }
+        } catch { return reconciliationRequired(); }
+        const dispatch = dispatches[0];
+        const outcome = outcomes[0];
+        if ((dispatch && (dispatch.call_number !== 1
+            || entries.indexOf(dispatch) <= entries.indexOf(prepared)))
+          || (outcome && (!dispatch || outcome.payload_key !== `provider-outcome:${prepared.execution_id}`
+            || !Number.isSafeInteger(outcome.byte_size) || outcome.byte_size < 0
+            || typeof outcome.sha256 !== 'string' || !/^sha256:[0-9a-f]{64}$/.test(outcome.sha256)
+            || entries.indexOf(outcome) <= entries.indexOf(dispatch)))) return reconciliationRequired();
+        let providerResult;
+        if (outcome) {
+          const outcomeBytes = verifiedBlobs.get(outcome.payload_key);
+          try { providerResult = JSON.parse(outcomeBytes.toString('utf8')); } catch {
+            return reconciliationRequired();
+          }
+          if (!providerResult || !validateExecutionDocument(providerResult).valid
+            || providerResult.execution_id !== prepared.execution_id
+            || providerResult.status !== outcome.status) return reconciliationRequired();
+        }
+        const budgetStops = stops.filter(item => item.type === 'budget-exhausted');
+        const cancellationStops = stops.filter(item => item.type === 'cancelled-before-dispatch');
+        const mappingStops = stops.filter(item => item.type === 'contract-mapping-blocked');
+        const preparedIndex = entries.indexOf(prepared);
+        const closedEventsForAttempt = entries.filter(item => item.type === 'job-closed');
+        if (cancellationStops.length === 1) {
+          const [stop] = cancellationStops;
+          const stopKeys = ['attempt_id', 'job_id', 'reason', 'type'];
+          if (dispatch || outcome || budgetStops.length !== 0 || mappingStops.length !== 0
+            || Object.keys(stop).sort().join('|') !== stopKeys.join('|')
+            || stop.job_id !== jobId || stop.attempt_id !== attemptId || stop.reason !== 'caller-cancelled'
+            || entries.indexOf(stop) <= preparedIndex) return reconciliationRequired();
+        }
+        if (budgetStops.length === 1) {
+          const [stop] = budgetStops;
+          const stopKeys = ['attempt_id', 'deadline_monotonic_ms', 'execution_id', 'job_id', 'reason', 'type'];
+          const previousAttemptEvent = dispatch ?? prepared;
+          if (Object.keys(stop).sort().join('|') !== stopKeys.join('|')
+            || stop.job_id !== jobId || stop.attempt_id !== attemptId
+            || stop.execution_id !== prepared.execution_id || stop.reason !== 'time'
+            || !Number.isSafeInteger(admitted.deadline_monotonic_ms)
+            || stop.deadline_monotonic_ms !== admitted.deadline_monotonic_ms
+            || entries.indexOf(stop) <= entries.indexOf(previousAttemptEvent)
+            || (outcome && entries.indexOf(stop) >= entries.indexOf(outcome))) return reconciliationRequired();
+        }
+        if (mappingStops.length === 1) {
+          const [mapping] = mappingStops;
+          const mappingKeys = ['attempt_id', 'execution_id', 'job_id', 'provider_outcome_sha256', 'reason', 'type'];
+          const allowedReasons = new Set(['comic-result-validation-rejected', 'deadline-unverifiable',
+            'no-output-result-not-representable-under-current-validator', 'provider-timeout-mapping-deferred',
+            'unsupported-normalized-result-mapping']);
+          if (!outcome || Object.keys(mapping).sort().join('|') !== mappingKeys.join('|')
+            || mapping.job_id !== jobId || mapping.attempt_id !== attemptId
+            || mapping.execution_id !== prepared.execution_id
+            || !allowedReasons.has(mapping.reason) || mapping.provider_outcome_sha256 !== outcome.sha256
+            || entries.indexOf(mapping) <= entries.indexOf(outcome)) return reconciliationRequired();
+        }
+        if (cancellationStops.length > 1 || budgetStops.length > 1 || mappingStops.length > 1
+          || (outcome && mappingStops.length !== 1)
+          || (!outcome && mappingStops.length !== 0)) return reconciliationRequired();
+        const stopIndices = stops.map(item => entries.indexOf(item));
+        if (closedEventsForAttempt.length > 1
+          || (closedEventsForAttempt.length === 1 && (entries.at(-1) !== closedEventsForAttempt[0]
+            || stopIndices.length === 0 || entries.indexOf(closedEventsForAttempt[0]) <= Math.max(...stopIndices)))
+          || (closedEventsForAttempt.length === 1 && cancellationStops.length === 1
+            && closedEventsForAttempt[0].reason !== 'cancelled-before-dispatch')
+          || (closedEventsForAttempt.length === 1 && budgetStops.length === 1
+            && mappingStops.length === 0 && closedEventsForAttempt[0].reason !== 'budget-time')
+          || (closedEventsForAttempt.length === 1 && mappingStops.length !== 0)
+          || (closedEventsForAttempt.length === 1 && cancellationStops.length === 0
+            && budgetStops.length === 0 && mappingStops.length === 0)
+          || (closedEventsForAttempt.length === 0
+            && (cancellationStops.length !== 0 || (budgetStops.length !== 0 && mappingStops.length === 0)
+              || mappingStops.length !== 1))) return reconciliationRequired();
+      }
+      if (entries.some(item => ['prepared', 'dispatch-started', 'provider-outcome',
+          'contract-mapping-blocked'].includes(item.type) && item.attempt_id === undefined)) {
+        return reconciliationRequired();
+      }
+      const closedEventsForJob = entries.filter(item => item.type === 'job-closed');
+      const closingStops = noResultStops.filter(item =>
+        item.type === 'budget-exhausted' || item.type === 'cancelled-before-dispatch');
+      if (closedEventsForJob.length === 1 && (entries.at(-1) !== closedEventsForJob[0]
+          || closingStops.length === 0
+          || entries.indexOf(closedEventsForJob[0]) <= Math.max(...closingStops.map(item => entries.indexOf(item))))) {
+        return reconciliationRequired();
+      }
+    }
+
+    const closedEvents = entries.filter(item => item.type === 'job-closed');
+    if (closedEvents.length > 1 || (closedEvents.length === 1 && entries.at(-1) !== closedEvents[0])) {
+      return reconciliationRequired();
+    }
+    const terminal = closedEvents.length === 1;
     const blocked = entries.some(item => item.type === 'contract-mapping-blocked');
     const dispatched = entries.some(item => item.type === 'dispatch-started');
     const outcomeRecorded = entries.some(item => item.type === 'provider-outcome');
     const budgetExhausted = entries.some(item => item.type === 'budget-exhausted');
-    if (terminal) {
-      return freezeDeep({ kind: 'recovery-inspection', status: 'terminal', last_lifecycle_event: last.type,
-        job_id: jobId, read_only: true, writes_performed: 0, provider_calls_performed: 0 });
-    }
+    if (terminal) return recoveryDiagnostic(trailingNoResultAttempt
+      ? blocked ? 'contract-mapping-blocked'
+        : budgetExhausted ? 'budget-exhausted' : 'closed-without-result'
+      : jobScopedBudgetStops?.length > 0 ? 'budget-exhausted'
+        : resultPrepared.length > 0 ? 'terminal'
+          : blocked ? 'contract-mapping-blocked'
+          : budgetExhausted ? 'budget-exhausted' : 'closed-without-result');
+
     const resumeClassification = classifyResumeCandidate(jobId, entries, admitted, verifiedBlobs);
     if (resumeClassification) {
       if (resumeClassification.candidate) onCandidate?.(resumeClassification.candidate);
-      return freezeDeep({ kind: 'recovery-inspection', status: resumeClassification.status,
-        ...(resumeClassification.status === 'resume-candidate' ? { authority_check_required: true } : {}),
-        last_lifecycle_event: last.type, job_id: jobId, read_only: true,
-        writes_performed: 0, provider_calls_performed: 0 });
+      return recoveryDiagnostic(resumeClassification.status);
     }
     const clock = safeClock(runtime);
     const deadlineUnverifiable = !clock || clock.epochId !== admitted.clock_epoch_id
       || !Number.isSafeInteger(admitted.deadline_monotonic_ms);
     const deadlineExpired = !deadlineUnverifiable && clock.now >= admitted.deadline_monotonic_ms;
-    return freezeDeep({ kind: 'recovery-inspection',
-      status: blocked ? 'contract-mapping-blocked'
-        : deadlineUnverifiable ? 'deadline-unverifiable'
-          : budgetExhausted || deadlineExpired ? 'budget-exhausted'
-            : dispatched && !outcomeRecorded ? 'execution-unresolved' : 'read-only-inspection-required',
-      last_lifecycle_event: last.type,
-      job_id: jobId,
-      read_only: true,
-      writes_performed: 0,
-      provider_calls_performed: 0
-    });
+    return recoveryDiagnostic(blocked ? 'contract-mapping-blocked'
+      : deadlineUnverifiable ? 'deadline-unverifiable'
+        : budgetExhausted || deadlineExpired ? 'budget-exhausted'
+          : dispatched && !outcomeRecorded ? 'execution-unresolved' : 'read-only-inspection-required');
   }
-
   function inspectRecovery(jobId) {
     return inspectRecoveryCore(jobId);
   }

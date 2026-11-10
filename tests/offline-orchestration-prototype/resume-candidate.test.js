@@ -144,11 +144,48 @@ test('reopened local store reports a read-only candidate at the inclusive retry 
   });
 
   const inspected = restarted.inspectRecovery(seeded.jobId);
-  assert.equal(inspected.status, 'resume-candidate');
-  assert.equal(inspected.authority_check_required, true);
-  assert.equal(inspected.read_only, true);
-  assert.equal(inspected.writes_performed, 0);
-  assert.equal(inspected.provider_calls_performed, 0);
+  assert.deepEqual(inspected, {
+    status: 'resume-candidate',
+    stage: 'resume',
+    code: 'RESUME_CANDIDATE',
+    read_only: true,
+    no_writes: true,
+    no_provider_calls: true,
+    authority_check_required: true
+  });
+
+  const result = seeded.result.result;
+  const events = reopened.readEvents(seeded.jobId);
+  const resultPrepared = events.filter(item => item.type === 'result-prepared');
+  const persisting = events.filter(item => item.type === 'persisting');
+  const terminal = events.filter(item => item.type === 'terminal');
+  assert.equal(resultPrepared.length, 1);
+  assert.equal(persisting.length, 1);
+  assert.equal(terminal.length, 1);
+  for (const link of [resultPrepared[0], persisting[0], terminal[0]]) {
+    assert.equal(link.attempt_id, seeded.result.attempt_id);
+    assert.equal(link.execution_id, seeded.result.execution_id);
+    assert.equal(link.result_id, result.result_id);
+    assert.equal(link.result_byte_size, Buffer.byteLength(canonicalJson(result)));
+    assert.equal(link.result_sha256, `sha256:${createHash('sha256').update(canonicalJson(result)).digest('hex')}`);
+  }
+  assert.equal(resultPrepared[0].status, 'failed');
+  const resultBytes = reopened.readImmutable(`result:${result.result_id}`);
+  assert.ok(Buffer.isBuffer(resultBytes));
+  assert.equal(resultBytes.toString('utf8'), canonicalJson(result));
+  assert.deepEqual(result.outputs, []);
+  const outcome = events.find(item => item.type === 'provider-outcome');
+  assert.equal(outcome.attempt_id, seeded.result.attempt_id);
+  assert.equal(outcome.execution_id, seeded.result.execution_id);
+  assert.equal(outcome.status, 'failed');
+  assert.equal(outcome.payload_key, `provider-outcome:${seeded.result.execution_id}`);
+  const resumeWindow = events.find(item => item.type === 'resume-window');
+  assert.equal(resumeWindow.terminal_result_id, result.result_id);
+  const diagnostic = JSON.stringify(inspected);
+  for (const value of [seeded.jobId, seeded.result.attempt_id, seeded.result.execution_id,
+    result.result_id, outcome.payload_key, resultPrepared[0].result_sha256]) {
+    assert.equal(diagnostic.includes(value), false);
+  }
   assert.equal(reopened.eventCount, beforeEvents);
   assert.equal(reopened.blobCount, beforeBlobs);
   assert.equal(resumeClaimCalls(), 0);
@@ -849,4 +886,126 @@ test('uncertain new provider-outcome write is not replayed after restart', async
   const repeat = await restarted.resume({ jobId: seeded.jobId, authorizeResume: true });
   assert.equal(repeat.status, 'resume-not-eligible');
   assert.equal(providerCalls, 1);
+});
+
+
+function writeResumeEventLog(root, jobId, entries) {
+  const eventPath = join(root, 'events', `${Buffer.from(jobId).toString('base64url')}.jsonl`);
+  writeFileSync(eventPath, `${entries.map(item => canonicalJson(item)).join('\n')}\n`);
+}
+
+function assertResumeReconciliation(inspection, values) {
+  assert.deepEqual(inspection, {
+    status: 'reconciliation-required',
+    stage: 'integrity',
+    code: 'RECONCILIATION_REQUIRED',
+    read_only: true,
+    no_writes: true,
+    no_provider_calls: true,
+    authority_check_required: false
+  });
+  const value = JSON.stringify(inspection);
+  for (const item of values) assert.equal(value.includes(item), false);
+}
+
+async function completeSeededRetry(seeded, onMockCall = () => {}) {
+  seeded.runtime.advance(10);
+  const reopened = new LocalFilePrototypeStore(seeded.root);
+  const runner = createRunner(reopened, {
+    timeAuthority: resumeAuthority({ now: () => seeded.window.retry_not_before_at_ms }),
+    onMockCall
+  });
+  const result = await runner.resume({ jobId: seeded.jobId, authorizeResume: true });
+  assert.equal(result.kind, 'terminal');
+  assert.equal(result.retry_eligible, false);
+  return { reopened, runner, result };
+}
+
+test('completed retry inspection rejects a second prepared/dispatch before the first terminal', async t => {
+  const seeded = await seedRetryEligible(t, 10);
+  let resumedCalls = 0;
+  const completed = await completeSeededRetry(seeded, ({ phase }) => {
+    if (phase === 'dispatch-confirmed') resumedCalls++;
+  });
+  assert.equal(completed.runner.inspectRecovery(seeded.jobId).status, 'terminal');
+  const entries = structuredClone(completed.reopened.readEvents(seeded.jobId));
+  const prepared = entries.filter(item => item.type === 'prepared');
+  const dispatches = entries.filter(item => item.type === 'dispatch-started');
+  const firstTerminal = entries.find(item => item.type === 'terminal' && item.attempt_id === prepared[0].attempt_id);
+  assert.equal(prepared.length, 2);
+  assert.equal(dispatches.length, 2);
+  assert.ok(firstTerminal);
+  const moved = new Set([prepared[1], dispatches[1]]);
+  const interleaved = entries.filter(item => !moved.has(item));
+  const terminalIndex = interleaved.indexOf(firstTerminal);
+  interleaved.splice(terminalIndex, 0, prepared[1], dispatches[1]);
+  writeResumeEventLog(seeded.root, seeded.jobId, interleaved);
+
+  const reopened = new LocalFilePrototypeStore(seeded.root);
+  let inspectionCalls = 0;
+  const probe = createRunner(reopened, { onMockCall: () => { inspectionCalls++; } });
+  const beforeEvents = structuredClone(reopened.readEvents(seeded.jobId));
+  const beforeBlobs = reopened.blobCount;
+  const finalTerminal = entries.find(item => item.type === 'terminal' && item.attempt_id === prepared[1].attempt_id);
+  assertResumeReconciliation(probe.inspectRecovery(seeded.jobId), [
+    seeded.root, seeded.jobId, prepared[0].attempt_id, prepared[1].attempt_id,
+    prepared[0].execution_id, prepared[1].execution_id,
+    firstTerminal.result_id, finalTerminal.result_id,
+    'PRIVATE-RESULT-SENTINEL'
+  ]);
+  assert.deepEqual(reopened.readEvents(seeded.jobId), beforeEvents);
+  assert.equal(reopened.blobCount, beforeBlobs);
+  assert.equal(inspectionCalls, 0);
+  assert.equal(seeded.providerCalls(), 1);
+  assert.equal(resumedCalls, 1);
+});
+
+test('completed retry inspection rejects mismatched and duplicate resume-window links', async t => {
+  for (const corruption of ['mismatched-result-link', 'duplicate-window']) {
+    await t.test(corruption, async t => {
+      const seeded = await seedRetryEligible(t, 10);
+      let resumedCalls = 0;
+      const completed = await completeSeededRetry(seeded, ({ phase }) => {
+        if (phase === 'dispatch-confirmed') resumedCalls++;
+      });
+      const entries = structuredClone(completed.reopened.readEvents(seeded.jobId));
+      const firstPrepared = entries.find(item => item.type === 'prepared');
+      const firstWindow = entries.find(item => item.type === 'resume-window');
+      const secondPrepared = entries.find(item => item.type === 'prepared'
+        && item.attempt_id !== firstPrepared.attempt_id);
+      const secondTerminal = entries.find(item => item.type === 'terminal'
+        && item.attempt_id === secondPrepared.attempt_id);
+      assert.ok(firstWindow);
+      assert.ok(secondTerminal);
+      if (corruption === 'mismatched-result-link') {
+        firstWindow.terminal_result_id = secondTerminal.result_id;
+        firstWindow.private_content = 'WINDOW-PRIVATE-CONTENT-SENTINEL';
+      } else {
+        const duplicate = structuredClone(firstWindow);
+        duplicate.private_content = 'WINDOW-PRIVATE-CONTENT-SENTINEL';
+        duplicate.exception_text = 'WINDOW-EXCEPTION-SENTINEL';
+        const nextIndex = entries.indexOf(secondPrepared);
+        entries.splice(nextIndex, 0, duplicate);
+      }
+      writeResumeEventLog(seeded.root, seeded.jobId, entries);
+
+      const reopened = new LocalFilePrototypeStore(seeded.root);
+      let inspectionCalls = 0;
+      const probe = createRunner(reopened, { onMockCall: () => { inspectionCalls++; } });
+      const beforeEvents = structuredClone(reopened.readEvents(seeded.jobId));
+      const beforeBlobs = reopened.blobCount;
+      assertResumeReconciliation(probe.inspectRecovery(seeded.jobId), [
+        seeded.root, seeded.jobId, firstPrepared.attempt_id, secondPrepared.attempt_id,
+        firstPrepared.execution_id, secondPrepared.execution_id,
+        firstWindow.terminal_result_id, secondTerminal.result_id,
+        seeded.result.result.result_id, 'WINDOW-PRIVATE-CONTENT-SENTINEL',
+        'WINDOW-EXCEPTION-SENTINEL'
+      ]);
+      assert.deepEqual(reopened.readEvents(seeded.jobId), beforeEvents);
+      assert.equal(reopened.blobCount, beforeBlobs);
+      assert.equal(inspectionCalls, 0);
+      assert.equal(seeded.providerCalls(), 1);
+      assert.equal(resumedCalls, 1);
+    });
+  }
 });

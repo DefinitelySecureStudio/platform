@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict';
 import {
-  appendFileSync, closeSync, fsyncSync, lstatSync, mkdirSync, mkdtempSync,
+  appendFileSync, closeSync, fsyncSync, lstatSync, mkdirSync, mkdtempSync, readFileSync,
   openSync, rmSync, statSync, symlinkSync, writeFileSync
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
-import { randomUUID } from 'node:crypto';
-import { MockTextAdapter } from '../../src/prompt-sdk/index.js';
+import { createHash, randomUUID } from 'node:crypto';
+import { canonicalJson, MockTextAdapter } from '../../src/prompt-sdk/index.js';
 import {
   createSyntheticExecutionAuthorityVerifier,
   SYNTHETIC_EXECUTION_PURPOSE
@@ -21,6 +21,7 @@ import {
 
 const fixture = JSON.parse(await readFile(new URL('../fixtures/comic-manifest-v1.json', import.meta.url), 'utf8'));
 const productionSource = JSON.stringify(fixture.production);
+const sha256 = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 
 function temporaryDirectory() {
   return mkdtempSync(join(tmpdir(), 'dss-o08-local-store-'));
@@ -85,12 +86,35 @@ function runtime() {
   };
 }
 
-function prototype(store, onMockCall = () => {}) {
+function controlledDeadlineRuntime(clockState) {
+  const timers = new Map();
+  let nextTimerId = 0;
+  return {
+    runtime: {
+      ...runtime(),
+      now: () => clockState.now,
+      setTimer(callback) {
+        const timerId = ++nextTimerId;
+        timers.set(timerId, callback);
+        return timerId;
+      },
+      clearTimer(timerId) { timers.delete(timerId); }
+    },
+    fireTimers() {
+      const callbacks = [...timers.values()];
+      timers.clear();
+      for (const callback of callbacks) callback();
+    }
+  };
+}
+
+function prototype(store, onMockCall = () => {}, runtimeOverride = runtime(), mockAdapterFactoryOverride) {
   return createOfflineOrchestrationPrototypeForTest({
     store,
-    runtime: runtime(),
+    runtime: runtimeOverride,
     idFactory: randomUUID,
     executionAuthorityProvider: authority(),
+    ...(mockAdapterFactoryOverride ? { mockAdapterFactory: mockAdapterFactoryOverride } : {}),
     onMockCall
   });
 }
@@ -229,12 +253,774 @@ test('runner can inspect a committed synthetic result from a reopened local stor
   const beforeEvents = reopened.eventCount;
   const beforeBlobs = reopened.blobCount;
   const inspection = restarted.inspectRecovery(completed.job_id);
-  assert.equal(inspection.status, 'terminal');
-  assert.equal(inspection.read_only, true);
-  assert.equal(inspection.writes_performed, 0);
-  assert.equal(inspection.provider_calls_performed, 0);
+  assert.deepEqual(inspection, {
+    status: 'terminal',
+    stage: 'terminal',
+    code: 'TERMINAL_RESULT_VERIFIED',
+    read_only: true,
+    no_writes: true,
+    no_provider_calls: true,
+    authority_check_required: false
+  });
+  const events = reopened.readEvents(completed.job_id);
+  const resultPrepared = events.filter(item => item.type === 'result-prepared');
+  const persisting = events.filter(item => item.type === 'persisting');
+  const terminal = events.filter(item => item.type === 'terminal');
+  assert.equal(resultPrepared.length, 1);
+  assert.equal(persisting.length, 1);
+  assert.equal(terminal.length, 1);
+  const expected = completed.result;
+  const resultBytes = reopened.readImmutable(`result:${expected.result_id}`);
+  assert.ok(Buffer.isBuffer(resultBytes));
+  assert.equal(resultBytes.toString('utf8'), canonicalJson(expected));
+  for (const link of [resultPrepared[0], persisting[0], terminal[0]]) {
+    assert.equal(link.attempt_id, completed.attempt_id);
+    assert.equal(link.execution_id, completed.execution_id);
+    assert.equal(link.result_id, expected.result_id);
+    assert.equal(link.result_byte_size, resultBytes.byteLength);
+    assert.equal(link.result_sha256, sha256(resultBytes));
+  }
+  assert.equal(resultPrepared[0].status, expected.status);
+  const outcome = events.find(item => item.type === 'provider-outcome');
+  assert.equal(outcome.attempt_id, completed.attempt_id);
+  assert.equal(outcome.execution_id, completed.execution_id);
+  assert.equal(outcome.status, 'succeeded');
+  assert.equal(outcome.payload_key, `provider-outcome:${completed.execution_id}`);
+  const outcomeBytes = reopened.readImmutable(outcome.payload_key);
+  assert.ok(Buffer.isBuffer(outcomeBytes));
+  assert.equal(outcomeBytes.byteLength, outcome.byte_size);
+  assert.equal(sha256(outcomeBytes), outcome.sha256);
+  for (const output of expected.outputs) {
+    const artifact = output.artifact;
+    const artifactBytes = reopened.readImmutable(`artifact:${artifact.artifact_uri}`);
+    assert.ok(Buffer.isBuffer(artifactBytes));
+    assert.equal(artifactBytes.byteLength, artifact.byte_size);
+    assert.equal(sha256(artifactBytes), artifact.sha256);
+  }
   assert.equal(reopened.eventCount, beforeEvents);
   assert.equal(reopened.blobCount, beforeBlobs);
   assert.equal(restartedCalls, 0);
   await assert.rejects(() => restarted.submit({ productionSource }), error => error.code === 'JOB_STORE_LIFETIME_LIMIT');
+});
+
+test('read-only recovery rejects duplicate result links after reopening and keeps diagnostics value-free', async t => {
+  const root = temporaryDirectory();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const store = new LocalFilePrototypeStore(root);
+  let calls = 0;
+  const first = prototype(store, ({ phase }) => {
+    if (phase === 'dispatch-confirmed') calls++;
+  });
+  const completed = await first.submit({ productionSource });
+  const eventPath = join(root, 'events', `${Buffer.from(completed.job_id).toString('base64url')}.jsonl`);
+  const entries = readFileSync(eventPath, 'utf8').trimEnd().split('\n').map(line => JSON.parse(line));
+  const terminalIndex = entries.findIndex(item => item.type === 'terminal');
+  assert.ok(terminalIndex >= 0);
+  const duplicate = structuredClone(entries[terminalIndex]);
+  duplicate.private_content = 'PRIVATE-CONTENT-SENTINEL';
+  duplicate.exception_text = 'EXCEPTION-TEXT-SENTINEL';
+  duplicate.path = root;
+  duplicate.fingerprint = 'FINGERPRINT-SENTINEL';
+  duplicate.secret_digest = 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  entries.splice(terminalIndex + 1, 0, duplicate);
+  writeFileSync(eventPath, `${entries.map(item => canonicalJson(item)).join('\n')}\n`);
+
+  let restartedCalls = 0;
+  const reopened = new LocalFilePrototypeStore(root);
+  const restarted = prototype(reopened, () => { restartedCalls++; });
+  const beforeEvents = structuredClone(reopened.readEvents(completed.job_id));
+  const beforeBlobs = reopened.blobCount;
+  const inspection = restarted.inspectRecovery(completed.job_id);
+  assert.deepEqual(inspection, {
+    status: 'reconciliation-required',
+    stage: 'integrity',
+    code: 'RECONCILIATION_REQUIRED',
+    read_only: true,
+    no_writes: true,
+    no_provider_calls: true,
+    authority_check_required: false
+  });
+  const diagnostic = JSON.stringify(inspection);
+  for (const value of [completed.job_id, completed.attempt_id, completed.execution_id,
+    completed.result.result_id, root, completed.result.outputs[0].artifact.artifact_uri,
+    completed.result.outputs[0].artifact.sha256, 'PRIVATE-CONTENT-SENTINEL',
+    'EXCEPTION-TEXT-SENTINEL', 'FINGERPRINT-SENTINEL', 'secret_digest']) {
+    assert.equal(diagnostic.includes(value), false);
+  }
+  assert.deepEqual(reopened.readEvents(completed.job_id), beforeEvents);
+  assert.equal(reopened.blobCount, beforeBlobs);
+  assert.equal(restartedCalls, 0);
+  assert.equal(calls, 1);
+});
+
+
+function localEventPath(root, jobId) {
+  return join(root, 'events', `${Buffer.from(jobId).toString('base64url')}.jsonl`);
+}
+
+function localBlobPath(root, key) {
+  return join(root, 'blobs', `${Buffer.from(key).toString('base64url')}.blob`);
+}
+
+function writeLocalEventLog(root, jobId, entries) {
+  writeFileSync(localEventPath(root, jobId), `${entries.map(item => canonicalJson(item)).join('\n')}\n`);
+}
+
+function writeLocalBlob(root, key, bytes) {
+  writeFileSync(localBlobPath(root, key), bytes);
+}
+
+function assertSafeReconciliation(inspection, values) {
+  assert.deepEqual(inspection, {
+    status: 'reconciliation-required',
+    stage: 'integrity',
+    code: 'RECONCILIATION_REQUIRED',
+    read_only: true,
+    no_writes: true,
+    no_provider_calls: true,
+    authority_check_required: false
+  });
+  const publicValue = JSON.stringify(inspection);
+  for (const value of values) assert.equal(publicValue.includes(value), false);
+}
+
+test('reopened inspection rejects orphan attempt lifecycle records without exposing their values', async t => {
+  for (const orphanType of ['prepared', 'dispatch-started', 'provider-outcome']) {
+    await t.test(orphanType, async t => {
+      const root = temporaryDirectory();
+      t.after(() => rmSync(root, { recursive: true, force: true }));
+      const store = new LocalFilePrototypeStore(root);
+      let calls = 0;
+      const completed = await prototype(store, ({ phase }) => { if (phase === 'dispatch-confirmed') calls++; }).submit({ productionSource });
+      const entries = structuredClone(store.readEvents(completed.job_id));
+      const source = entries.find(item => item.type === orphanType);
+      assert.ok(source);
+      const orphan = structuredClone(source);
+      orphan.attempt_id = 'urn:uuid:30000000-0000-4000-8000-000000000003';
+      orphan.private_content = 'ORPHAN-PRIVATE-CONTENT-SENTINEL';
+      orphan.exception_text = 'ORPHAN-EXCEPTION-SENTINEL';
+      orphan.fingerprint = 'ORPHAN-FINGERPRINT-SENTINEL';
+      const closeIndex = entries.findIndex(item => item.type === 'job-closed');
+      assert.ok(closeIndex >= 0);
+      entries.splice(closeIndex, 0, orphan);
+      writeLocalEventLog(root, completed.job_id, entries);
+
+      const reopened = new LocalFilePrototypeStore(root);
+      let restartedCalls = 0;
+      const restarted = prototype(reopened, () => { restartedCalls++; });
+      const beforeEvents = structuredClone(reopened.readEvents(completed.job_id));
+      const beforeBlobs = reopened.blobCount;
+      const inspection = restarted.inspectRecovery(completed.job_id);
+      assertSafeReconciliation(inspection, [
+        root, completed.job_id, completed.attempt_id, completed.execution_id,
+        completed.result.result_id, completed.result.outputs[0].artifact.artifact_uri,
+        completed.result.outputs[0].artifact.sha256, 'ORPHAN-PRIVATE-CONTENT-SENTINEL',
+        'ORPHAN-EXCEPTION-SENTINEL', 'ORPHAN-FINGERPRINT-SENTINEL'
+      ]);
+      assert.deepEqual(reopened.readEvents(completed.job_id), beforeEvents);
+      assert.equal(reopened.blobCount, beforeBlobs);
+      assert.equal(restartedCalls, 0);
+      assert.equal(calls, 1);
+    });
+  }
+});
+
+test('reopened inspection reconciles absent and non-object prepared production before canonicalization', async t => {
+  for (const corruption of ['absent', 'non-object']) {
+    await t.test(corruption, async t => {
+      const root = temporaryDirectory();
+      t.after(() => rmSync(root, { recursive: true, force: true }));
+      const store = new LocalFilePrototypeStore(root);
+      let calls = 0;
+      const completed = await prototype(store, ({ phase }) => { if (phase === 'dispatch-confirmed') calls++; }).submit({ productionSource });
+      const entries = structuredClone(store.readEvents(completed.job_id));
+      const prepared = entries.find(item => item.type === 'prepared');
+      assert.ok(prepared);
+      if (corruption === 'absent') delete prepared.production;
+      else prepared.production = 'MALFORMED-PRODUCTION-SENTINEL';
+      prepared.private_content = 'MALFORMED-PRIVATE-CONTENT-SENTINEL';
+      prepared.exception_text = 'MALFORMED-EXCEPTION-SENTINEL';
+      writeLocalEventLog(root, completed.job_id, entries);
+
+      const reopened = new LocalFilePrototypeStore(root);
+      let restartedCalls = 0;
+      const restarted = prototype(reopened, () => { restartedCalls++; });
+      const beforeEvents = structuredClone(reopened.readEvents(completed.job_id));
+      const beforeBlobs = reopened.blobCount;
+      assertSafeReconciliation(restarted.inspectRecovery(completed.job_id), [
+        root, completed.job_id, completed.attempt_id, completed.execution_id,
+        completed.result.result_id, 'MALFORMED-PRODUCTION-SENTINEL',
+        'MALFORMED-PRIVATE-CONTENT-SENTINEL', 'MALFORMED-EXCEPTION-SENTINEL'
+      ]);
+      assert.deepEqual(reopened.readEvents(completed.job_id), beforeEvents);
+      assert.equal(reopened.blobCount, beforeBlobs);
+      assert.equal(restartedCalls, 0);
+      assert.equal(calls, 1);
+    });
+  }
+});
+
+test('reopened inspection rejects a 1.1.0 no-output result paired with a success outcome', async t => {
+  const root = temporaryDirectory();
+  const successRoot = temporaryDirectory();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  t.after(() => rmSync(successRoot, { recursive: true, force: true }));
+  const failedStore = new LocalFilePrototypeStore(root);
+  let calls = 0;
+  const failed = await prototype(failedStore, ({ phase }) => { if (phase === 'dispatch-confirmed') calls++; }).submit({
+    productionSource,
+    noOutputResultVersion: '1.1.0',
+    mockOutcome: { kind: 'rate-limit', retry_after_ms: 10 }
+  });
+  assert.equal(failed.result.spec_version, '1.1.0');
+  const successStore = new LocalFilePrototypeStore(successRoot);
+  const successful = await prototype(successStore).submit({ productionSource });
+  const successOutcomeEvent = successStore.readEvents(successful.job_id).find(item => item.type === 'provider-outcome');
+  const successOutcome = JSON.parse(successStore.readImmutable(successOutcomeEvent.payload_key).toString('utf8'));
+  successOutcome.execution_id = failed.execution_id;
+  if (Object.hasOwn(successOutcome, 'idempotency_key')) successOutcome.idempotency_key = `idem-${failed.execution_id}`;
+  const bytes = Buffer.from(canonicalJson(successOutcome), 'utf8');
+  const entries = structuredClone(failedStore.readEvents(failed.job_id));
+  const outcome = entries.find(item => item.type === 'provider-outcome');
+  outcome.status = 'succeeded';
+  outcome.byte_size = bytes.byteLength;
+  outcome.sha256 = sha256(bytes);
+  outcome.private_content = 'OUTCOME-PRIVATE-CONTENT-SENTINEL';
+  writeLocalBlob(root, outcome.payload_key, bytes);
+  writeLocalEventLog(root, failed.job_id, entries);
+
+  const reopened = new LocalFilePrototypeStore(root);
+  let restartedCalls = 0;
+  const restarted = prototype(reopened, () => { restartedCalls++; });
+  const beforeEvents = structuredClone(reopened.readEvents(failed.job_id));
+  const beforeBlobs = reopened.blobCount;
+  assertSafeReconciliation(restarted.inspectRecovery(failed.job_id), [
+    root, failed.job_id, failed.attempt_id, failed.execution_id, failed.result.result_id,
+    failed.result.outputs.length === 0 ? 'NO-ARTIFACT' : failed.result.outputs[0].artifact.artifact_uri,
+    'OUTCOME-PRIVATE-CONTENT-SENTINEL'
+  ]);
+  assert.deepEqual(reopened.readEvents(failed.job_id), beforeEvents);
+  assert.equal(reopened.blobCount, beforeBlobs);
+  assert.equal(restartedCalls, 0);
+  assert.equal(calls, 1);
+});
+
+test('reopened v1.0 result inspection checks production-output compatibility after linked digest updates', async t => {
+  const root = temporaryDirectory();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const store = new LocalFilePrototypeStore(root);
+  let calls = 0;
+  const completed = await prototype(store, ({ phase }) => { if (phase === 'dispatch-confirmed') calls++; }).submit({ productionSource });
+  const resultKey = `result:${completed.result.result_id}`;
+  const result = JSON.parse(store.readImmutable(resultKey).toString('utf8'));
+  assert.equal(result.spec_version, '1.0.0');
+  result.outputs[0].rendition_id = 'tampered-rendition';
+  const bytes = Buffer.from(canonicalJson(result), 'utf8');
+  const entries = structuredClone(store.readEvents(completed.job_id));
+  const terminal = entries.find(item => item.type === 'terminal');
+  assert.ok(terminal);
+  terminal.private_content = 'COMPATIBILITY-PRIVATE-CONTENT-SENTINEL';
+  for (const item of entries) {
+    if (['result-prepared', 'persisting', 'terminal'].includes(item.type)) {
+      item.result_byte_size = bytes.byteLength;
+      item.result_sha256 = sha256(bytes);
+    }
+  }
+  writeLocalBlob(root, resultKey, bytes);
+  writeLocalEventLog(root, completed.job_id, entries);
+
+  const reopened = new LocalFilePrototypeStore(root);
+  let restartedCalls = 0;
+  const restarted = prototype(reopened, () => { restartedCalls++; });
+  const beforeEvents = structuredClone(reopened.readEvents(completed.job_id));
+  const beforeBlobs = reopened.blobCount;
+  assertSafeReconciliation(restarted.inspectRecovery(completed.job_id), [
+    root, completed.job_id, completed.attempt_id, completed.execution_id, completed.result.result_id,
+    completed.result.outputs[0].artifact.artifact_uri, completed.result.outputs[0].artifact.sha256,
+    'COMPATIBILITY-PRIVATE-CONTENT-SENTINEL'
+  ]);
+  assert.deepEqual(reopened.readEvents(completed.job_id), beforeEvents);
+  assert.equal(reopened.blobCount, beforeBlobs);
+  assert.equal(restartedCalls, 0);
+  assert.equal(calls, 1);
+});
+
+
+test('reopened no-result close requires its linked stop and rejects orphan dispatch records', async t => {
+  const root = temporaryDirectory();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const store = new LocalFilePrototypeStore(root);
+  let calls = 0;
+  const controller = new AbortController();
+  const value = prototype(store, ({ phase }) => {
+    if (phase === 'created') controller.abort();
+    if (phase === 'dispatch-confirmed') calls++;
+  });
+  const stopped = await value.submit({
+    productionSource,
+    signal: controller.signal
+  });
+  assert.equal(stopped.status, 'cancelled-before-dispatch');
+  assert.equal(store.readEvents(stopped.job_id).some(item => item.type === 'terminal'), false);
+  const validInspection = prototype(store).inspectRecovery(stopped.job_id);
+  assert.equal(validInspection.status, 'closed-without-result');
+  assert.equal(validInspection.code, 'JOB_CLOSED_WITHOUT_RESULT');
+  const entries = structuredClone(store.readEvents(stopped.job_id));
+  const prepared = entries.find(item => item.type === 'prepared');
+  assert.ok(prepared);
+  const orphanDispatch = {
+    ...structuredClone(prepared),
+    type: 'dispatch-started',
+    attempt_id: 'urn:uuid:30000000-0000-4000-8000-000000000003',
+    execution_id: 'exec-offline-30000000-0000-4000-8000-000000000003',
+    call_number: 1,
+    private_content: 'LOCAL-NO-RESULT-PRIVATE-SENTINEL',
+    exception_text: 'LOCAL-NO-RESULT-EXCEPTION-SENTINEL'
+  };
+  const closeIndex = entries.findIndex(item => item.type === 'job-closed');
+  assert.ok(closeIndex >= 0);
+  entries.splice(closeIndex, 0, orphanDispatch);
+  writeLocalEventLog(root, stopped.job_id, entries);
+
+  const reopened = new LocalFilePrototypeStore(root);
+  let restartedCalls = 0;
+  const restarted = prototype(reopened, () => { restartedCalls++; });
+  const beforeEvents = structuredClone(reopened.readEvents(stopped.job_id));
+  const beforeBlobs = reopened.blobCount;
+  assertSafeReconciliation(restarted.inspectRecovery(stopped.job_id), [
+    root, stopped.job_id, stopped.attempt_id, stopped.execution_id,
+    'LOCAL-NO-RESULT-PRIVATE-SENTINEL', 'LOCAL-NO-RESULT-EXCEPTION-SENTINEL'
+  ]);
+  assert.deepEqual(reopened.readEvents(stopped.job_id), beforeEvents);
+  assert.equal(reopened.blobCount, beforeBlobs);
+  assert.equal(restartedCalls, 0);
+  assert.equal(calls, 0);
+});
+
+
+test('reopened retry expiry validates a job-scoped budget stop against its last eligible result', async t => {
+  const root = temporaryDirectory();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const store = new LocalFilePrototypeStore(root);
+  const clockState = { now: 10_000 };
+  const controlledRuntime = { ...runtime(), now: () => clockState.now };
+  let calls = 0;
+  const value = prototype(store, ({ phase }) => { if (phase === 'dispatch-confirmed') calls++; }, controlledRuntime);
+  const first = await value.submit({
+    productionSource,
+    noOutputResultVersion: '1.1.0',
+    mockOutcome: { kind: 'rate-limit', retry_after_ms: 10 }
+  });
+  assert.equal(first.retry_eligible, true);
+  const admitted = store.readEvents(first.job_id).find(item => item.type === 'admitted');
+  assert.ok(Number.isSafeInteger(admitted.deadline_monotonic_ms));
+  clockState.now = admitted.deadline_monotonic_ms;
+
+  const stopped = await value.retry({ authorizeRetry: true });
+  assert.equal(stopped.status, 'budget-exhausted');
+  const events = store.readEvents(first.job_id);
+  const budgetStop = events.find(item => item.type === 'budget-exhausted' && item.attempt_id === undefined);
+  assert.deepEqual(budgetStop, {
+    job_id: first.job_id,
+    type: 'budget-exhausted',
+    reason: 'time',
+    deadline_monotonic_ms: admitted.deadline_monotonic_ms
+  });
+  assert.equal(events.at(-1).type, 'job-closed');
+  assert.equal(events.at(-1).reason, 'retry-budget-exhausted');
+  assert.equal(calls, 1);
+
+  const reopened = new LocalFilePrototypeStore(root);
+  let restartedCalls = 0;
+  const restarted = prototype(reopened, () => { restartedCalls++; }, controlledRuntime);
+  const beforeEvents = structuredClone(reopened.readEvents(first.job_id));
+  const beforeBlobs = reopened.blobCount;
+  assert.deepEqual(restarted.inspectRecovery(first.job_id), {
+    status: 'budget-exhausted',
+    stage: 'limits',
+    code: 'BUDGET_EXHAUSTED',
+    read_only: true,
+    no_writes: true,
+    no_provider_calls: true,
+    authority_check_required: false
+  });
+  assert.deepEqual(reopened.readEvents(first.job_id), beforeEvents);
+  assert.equal(reopened.blobCount, beforeBlobs);
+  assert.equal(restartedCalls, 0);
+  assert.equal(calls, 1);
+
+  for (const corruption of ['deadline', 'reason', 'close', 'missing-result-chain']) {
+    const corrupted = structuredClone(events);
+    const stop = corrupted.find(item => item.type === 'budget-exhausted' && item.attempt_id === undefined);
+    const close = corrupted.find(item => item.type === 'job-closed');
+    assert.ok(stop);
+    assert.ok(close);
+    if (corruption === 'deadline') stop.deadline_monotonic_ms++;
+    if (corruption === 'reason') stop.reason = 'attempts';
+    if (corruption === 'close') close.reason = 'budget-time';
+    if (corruption === 'missing-result-chain') {
+      for (let index = corrupted.length - 1; index >= 0; index--) {
+        if (['result-prepared', 'persisting', 'terminal'].includes(corrupted[index].type)) {
+          corrupted.splice(index, 1);
+        }
+      }
+    }
+    writeLocalEventLog(root, first.job_id, corrupted);
+
+    const corruptedStore = new LocalFilePrototypeStore(root);
+    let corruptedCalls = 0;
+    const corruptedRunner = prototype(corruptedStore, () => { corruptedCalls++; }, controlledRuntime);
+    const unchangedEvents = structuredClone(corruptedStore.readEvents(first.job_id));
+    const unchangedBlobs = corruptedStore.blobCount;
+    assertSafeReconciliation(corruptedRunner.inspectRecovery(first.job_id), [
+      root, first.job_id, first.attempt_id, first.execution_id,
+      first.result.result_id, 'RETRY-BUDGET-PRIVATE-SENTINEL'
+    ]);
+    assert.deepEqual(corruptedStore.readEvents(first.job_id), unchangedEvents);
+    assert.equal(corruptedStore.blobCount, unchangedBlobs);
+    assert.equal(corruptedCalls, 0);
+    writeLocalEventLog(root, first.job_id, events);
+  }
+});
+
+test('reopened result chain rejects cancelled-before-dispatch naming a completed attempt', async t => {
+  const root = temporaryDirectory();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const store = new LocalFilePrototypeStore(root);
+  const clockState = { now: 10_000 };
+  const controlledRuntime = { ...runtime(), now: () => clockState.now };
+  let calls = 0;
+  const value = prototype(store, ({ phase }) => { if (phase === 'dispatch-confirmed') calls++; }, controlledRuntime);
+  const first = await value.submit({
+    productionSource,
+    noOutputResultVersion: '1.1.0',
+    mockOutcome: { kind: 'rate-limit', retry_after_ms: 10 }
+  });
+  clockState.now += 10;
+  const completed = await value.retry({ authorizeRetry: true });
+  assert.equal(completed.kind, 'terminal');
+  assert.equal(completed.result.status, 'complete');
+  assert.equal(calls, 2);
+  const validReopened = new LocalFilePrototypeStore(root);
+  assert.equal(prototype(validReopened, () => {}, controlledRuntime).inspectRecovery(first.job_id).status, 'terminal');
+
+  const entries = structuredClone(store.readEvents(first.job_id));
+  assert.ok(entries.some(item => item.type === 'dispatch-started' && item.attempt_id === completed.attempt_id));
+  assert.ok(entries.some(item => item.type === 'terminal' && item.attempt_id === completed.attempt_id));
+  const closeIndex = entries.findIndex(item => item.type === 'job-closed');
+  assert.ok(closeIndex >= 0);
+  entries.splice(closeIndex, 0, {
+    job_id: first.job_id,
+    type: 'cancelled-before-dispatch',
+    attempt_id: completed.attempt_id,
+    reason: 'caller-cancelled',
+    private_content: 'CONTRADICTORY-STOP-PRIVATE-SENTINEL'
+  });
+  writeLocalEventLog(root, first.job_id, entries);
+
+  const reopened = new LocalFilePrototypeStore(root);
+  let restartedCalls = 0;
+  const restarted = prototype(reopened, () => { restartedCalls++; }, controlledRuntime);
+  const beforeEvents = structuredClone(reopened.readEvents(first.job_id));
+  const beforeBlobs = reopened.blobCount;
+  assertSafeReconciliation(restarted.inspectRecovery(first.job_id), [
+    root, first.job_id, first.attempt_id, first.execution_id, completed.attempt_id,
+    completed.execution_id, completed.result.result_id, 'CONTRADICTORY-STOP-PRIVATE-SENTINEL'
+  ]);
+  assert.deepEqual(reopened.readEvents(first.job_id), beforeEvents);
+  assert.equal(reopened.blobCount, beforeBlobs);
+  assert.equal(restartedCalls, 0);
+  assert.equal(calls, 2);
+});
+
+
+test('reopened inspection accepts a result after the linked attempt observes its deadline', async t => {
+  const root = temporaryDirectory();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const store = new LocalFilePrototypeStore(root);
+  const clockState = { now: 10_000 };
+  const controlledRuntime = { ...runtime(), now: () => clockState.now };
+  let calls = 0;
+  const mockAdapterFactory = configuration => new (class extends MockTextAdapter {
+    async execute(...args) {
+      const admitted = store.readEvents(store.readJobIds()[0]).find(item => item.type === 'admitted');
+      clockState.now = admitted.deadline_monotonic_ms;
+      return super.execute(...args);
+    }
+  })(configuration);
+  const value = prototype(store,
+    ({ phase }) => { if (phase === 'dispatch-confirmed') calls++; },
+    controlledRuntime, mockAdapterFactory);
+  const completed = await value.submit({ productionSource });
+  assert.equal(completed.result.status, 'complete');
+  assert.equal(calls, 1);
+  const entries = store.readEvents(completed.job_id);
+  const dispatch = entries.find(item => item.type === 'dispatch-started');
+  const budgetStop = entries.find(item => item.type === 'budget-exhausted');
+  const outcome = entries.find(item => item.type === 'provider-outcome');
+  const preparedResult = entries.find(item => item.type === 'result-prepared');
+  assert.deepEqual(budgetStop, {
+    job_id: completed.job_id,
+    type: 'budget-exhausted',
+    reason: 'time',
+    attempt_id: completed.attempt_id,
+    execution_id: completed.execution_id,
+    deadline_monotonic_ms: entries.find(item => item.type === 'admitted').deadline_monotonic_ms
+  });
+  assert.ok(entries.indexOf(dispatch) < entries.indexOf(budgetStop));
+  assert.ok(entries.indexOf(budgetStop) < entries.indexOf(outcome));
+  assert.ok(entries.indexOf(outcome) < entries.indexOf(preparedResult));
+
+  const reopened = new LocalFilePrototypeStore(root);
+  let restartedCalls = 0;
+  const restarted = prototype(reopened, () => { restartedCalls++; }, controlledRuntime);
+  const beforeEvents = structuredClone(reopened.readEvents(completed.job_id));
+  const beforeBlobs = reopened.blobCount;
+  assert.equal(restarted.inspectRecovery(completed.job_id).status, 'terminal');
+  assert.deepEqual(reopened.readEvents(completed.job_id), beforeEvents);
+  assert.equal(reopened.blobCount, beforeBlobs);
+  assert.equal(restartedCalls, 0);
+  assert.equal(calls, 1);
+});
+
+
+test('reopened initial deadline cancellation preserves budget then mapping order', async t => {
+  const root = temporaryDirectory();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const store = new LocalFilePrototypeStore(root);
+  const clockState = { now: 10_000 };
+  const deadlineRuntime = controlledDeadlineRuntime(clockState);
+  const mockAdapterFactory = configuration => new (class extends MockTextAdapter {
+    async execute(...args) {
+      const admitted = store.readEvents(store.readJobIds()[0]).find(item => item.type === 'admitted');
+      clockState.now = admitted.deadline_monotonic_ms;
+      deadlineRuntime.fireTimers();
+      return super.execute(...args);
+    }
+  })(configuration);
+  let calls = 0;
+  const value = prototype(store,
+    ({ phase }) => { if (phase === 'dispatch-confirmed') calls++; },
+    deadlineRuntime.runtime, mockAdapterFactory);
+  const result = await value.submit({
+    productionSource,
+    mockOutcome: { kind: 'success', delay_ms: 5_000 }
+  });
+  assert.equal(result.status, 'contract-mapping-blocked');
+  assert.equal(calls, 1);
+  const entries = store.readEvents(result.job_id);
+  const dispatch = entries.find(item => item.type === 'dispatch-started');
+  const budgetStop = entries.find(item => item.type === 'budget-exhausted');
+  const outcome = entries.find(item => item.type === 'provider-outcome');
+  const mapping = entries.find(item => item.type === 'contract-mapping-blocked');
+  assert.ok(dispatch && budgetStop && outcome && mapping);
+  assert.ok(entries.indexOf(dispatch) < entries.indexOf(budgetStop));
+  assert.ok(entries.indexOf(budgetStop) < entries.indexOf(outcome));
+  assert.ok(entries.indexOf(outcome) < entries.indexOf(mapping));
+  assert.equal(entries.some(item => item.type === 'job-closed' || item.type === 'terminal'), false);
+
+  const reopened = new LocalFilePrototypeStore(root);
+  let restartedCalls = 0;
+  const restarted = prototype(reopened, () => { restartedCalls++; }, deadlineRuntime.runtime);
+  const beforeEvents = structuredClone(reopened.readEvents(result.job_id));
+  const beforeBlobs = reopened.blobCount;
+  const inspection = restarted.inspectRecovery(result.job_id);
+  assert.deepEqual(inspection, {
+    status: 'contract-mapping-blocked',
+    stage: 'mapping',
+    code: 'CONTRACT_MAPPING_BLOCKED',
+    read_only: true,
+    no_writes: true,
+    no_provider_calls: true,
+    authority_check_required: false
+  });
+  for (const value of [root, result.job_id, result.attempt_id, result.execution_id,
+    'PRIVATE-DEADLINE-MAPPING-SENTINEL', 'exception_text']) {
+    assert.equal(JSON.stringify(inspection).includes(value), false);
+  }
+  assert.deepEqual(reopened.readEvents(result.job_id), beforeEvents);
+  assert.equal(reopened.blobCount, beforeBlobs);
+  assert.equal(restartedCalls, 0);
+  assert.equal(calls, 1);
+});
+
+test('reopened retry deadline cancellation links budget, outcome, mapping, and close', async t => {
+  const root = temporaryDirectory();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const store = new LocalFilePrototypeStore(root);
+  const clockState = { now: 10_000 };
+  const deadlineRuntime = controlledDeadlineRuntime(clockState);
+  let mockInstances = 0;
+  const mockAdapterFactory = configuration => {
+    const instanceNumber = ++mockInstances;
+    return new (class extends MockTextAdapter {
+      async execute(...args) {
+        if (instanceNumber === 2) {
+          const admitted = store.readEvents(store.readJobIds()[0]).find(item => item.type === 'admitted');
+          clockState.now = admitted.deadline_monotonic_ms;
+          deadlineRuntime.fireTimers();
+        }
+        return super.execute(...args);
+      }
+    })(configuration);
+  };
+  let calls = 0;
+  const value = prototype(store,
+    ({ phase }) => { if (phase === 'dispatch-confirmed') calls++; },
+    deadlineRuntime.runtime, mockAdapterFactory);
+  const first = await value.submit({
+    productionSource,
+    noOutputResultVersion: '1.1.0',
+    mockOutcome: { kind: 'rate-limit', retry_after_ms: 10 }
+  });
+  assert.equal(first.retry_eligible, true);
+  clockState.now += 10;
+  const stopped = await value.retry({ authorizeRetry: true, mockOutcome: { kind: 'success', delay_ms: 5_000 } });
+  assert.equal(stopped.status, 'contract-mapping-blocked');
+  assert.equal(stopped.job_closed, true);
+  assert.equal(calls, 2);
+  const entries = store.readEvents(first.job_id);
+  const secondAttempt = entries.find(item => item.type === 'prepared' && item.attempt_id !== first.attempt_id);
+  const dispatch = entries.find(item => item.type === 'dispatch-started' && item.attempt_id === secondAttempt.attempt_id);
+  const budgetStop = entries.find(item => item.type === 'budget-exhausted' && item.attempt_id === secondAttempt.attempt_id);
+  const outcome = entries.find(item => item.type === 'provider-outcome' && item.attempt_id === secondAttempt.attempt_id);
+  const mapping = entries.find(item => item.type === 'contract-mapping-blocked' && item.attempt_id === secondAttempt.attempt_id);
+  assert.ok(secondAttempt && dispatch && budgetStop && outcome && mapping);
+  assert.ok(entries.indexOf(dispatch) < entries.indexOf(budgetStop));
+  assert.ok(entries.indexOf(budgetStop) < entries.indexOf(outcome));
+  assert.ok(entries.indexOf(outcome) < entries.indexOf(mapping));
+  assert.equal(entries.at(-1).type, 'job-closed');
+  assert.equal(entries.at(-1).reason, 'retry-contract-mapping-blocked');
+
+  const reopened = new LocalFilePrototypeStore(root);
+  let restartedCalls = 0;
+  const restarted = prototype(reopened, () => { restartedCalls++; }, deadlineRuntime.runtime);
+  const beforeEvents = structuredClone(reopened.readEvents(first.job_id));
+  const beforeBlobs = reopened.blobCount;
+  const inspection = restarted.inspectRecovery(first.job_id);
+  assert.deepEqual(inspection, {
+    status: 'contract-mapping-blocked',
+    stage: 'mapping',
+    code: 'CONTRACT_MAPPING_BLOCKED',
+    read_only: true,
+    no_writes: true,
+    no_provider_calls: true,
+    authority_check_required: false
+  });
+  for (const value of [root, first.job_id, first.attempt_id, first.execution_id,
+    secondAttempt.attempt_id, secondAttempt.execution_id, 'PRIVATE-DEADLINE-MAPPING-SENTINEL']) {
+    assert.equal(JSON.stringify(inspection).includes(value), false);
+  }
+  assert.deepEqual(reopened.readEvents(first.job_id), beforeEvents);
+  assert.equal(reopened.blobCount, beforeBlobs);
+  assert.equal(restartedCalls, 0);
+  assert.equal(calls, 2);
+});
+
+
+test('reopened inspection rejects an unfinished ordinary orphan retry mapping', async t => {
+  const root = temporaryDirectory();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const store = new LocalFilePrototypeStore(root);
+  const clockState = { now: 10_000 };
+  const controlledRuntime = { ...runtime(), now: () => clockState.now };
+  let calls = 0;
+  const value = prototype(store, ({ phase }) => { if (phase === 'dispatch-confirmed') calls++; }, controlledRuntime);
+  const first = await value.submit({
+    productionSource,
+    noOutputResultVersion: '1.1.0',
+    mockOutcome: { kind: 'rate-limit', retry_after_ms: 10 }
+  });
+  clockState.now += 10;
+  const stopped = await value.retry({ authorizeRetry: true, mockOutcome: { kind: 'output-validation' } });
+  assert.equal(stopped.status, 'contract-mapping-blocked');
+  assert.equal(stopped.job_closed, true);
+  assert.equal(calls, 2);
+
+  const events = structuredClone(store.readEvents(first.job_id));
+  const mapping = events.find(item => item.type === 'contract-mapping-blocked'
+    && item.attempt_id === stopped.attempt_id);
+  assert.ok(mapping);
+  assert.equal(mapping.reason, 'no-output-result-not-representable-under-current-validator');
+  const outcome = events.find(item => item.type === 'provider-outcome' && item.attempt_id === stopped.attempt_id);
+  assert.ok(outcome);
+  assert.equal(outcome.status, 'failed');
+  const closed = events.findIndex(item => item.type === 'job-closed');
+  assert.ok(closed >= 0);
+  events.splice(closed, 1);
+  writeLocalEventLog(root, first.job_id, events);
+
+  const reopened = new LocalFilePrototypeStore(root);
+  let restartedCalls = 0;
+  const restarted = prototype(reopened, () => { restartedCalls++; }, controlledRuntime);
+  const beforeEvents = structuredClone(reopened.readEvents(first.job_id));
+  const beforeBlobs = reopened.blobCount;
+  assertSafeReconciliation(restarted.inspectRecovery(first.job_id), [
+    root, first.job_id, first.attempt_id, first.execution_id,
+    stopped.attempt_id, stopped.execution_id, first.result.result_id,
+    'ORDINARY-ORPHAN-MAPPING-PRIVATE-SENTINEL'
+  ]);
+  assert.deepEqual(reopened.readEvents(first.job_id), beforeEvents);
+  assert.equal(reopened.blobCount, beforeBlobs);
+  assert.equal(restartedCalls, 0);
+  assert.equal(calls, 2);
+});
+
+test('reopened inspection accepts an unfinished provider-timeout orphan mapping', async t => {
+  const root = temporaryDirectory();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const store = new LocalFilePrototypeStore(root);
+  const clockState = { now: 10_000 };
+  const controlledRuntime = { ...runtime(), now: () => clockState.now };
+  let calls = 0;
+  const value = prototype(store, ({ phase }) => { if (phase === 'dispatch-confirmed') calls++; }, controlledRuntime);
+  const first = await value.submit({
+    productionSource,
+    noOutputResultVersion: '1.1.0',
+    mockOutcome: { kind: 'rate-limit', retry_after_ms: 10 }
+  });
+  clockState.now += 10;
+  const stopped = await value.retry({ authorizeRetry: true, mockOutcome: { kind: 'timeout' } });
+  assert.equal(stopped.status, 'contract-mapping-blocked');
+  assert.equal(stopped.job_closed, undefined);
+  assert.equal(calls, 2);
+
+  const events = store.readEvents(first.job_id);
+  const secondPrepared = events.find(item => item.type === 'prepared' && item.attempt_id !== first.attempt_id);
+  const secondDispatch = events.find(item => item.type === 'dispatch-started'
+    && item.attempt_id === secondPrepared.attempt_id);
+  const secondOutcome = events.find(item => item.type === 'provider-outcome'
+    && item.attempt_id === secondPrepared.attempt_id);
+  const mapping = events.find(item => item.type === 'contract-mapping-blocked'
+    && item.attempt_id === secondPrepared.attempt_id);
+  assert.ok(secondPrepared && secondDispatch && secondOutcome && mapping);
+  assert.equal(secondOutcome.status, 'timed-out');
+  assert.equal(mapping.reason, 'provider-timeout-mapping-deferred');
+  assert.ok(events.indexOf(secondDispatch) < events.indexOf(secondOutcome));
+  assert.ok(events.indexOf(secondOutcome) < events.indexOf(mapping));
+  assert.equal(events.some(item => item.type === 'job-closed'), false);
+
+  const reopened = new LocalFilePrototypeStore(root);
+  let restartedCalls = 0;
+  const restarted = prototype(reopened, () => { restartedCalls++; }, controlledRuntime);
+  const beforeEvents = structuredClone(reopened.readEvents(first.job_id));
+  const beforeBlobs = reopened.blobCount;
+  const inspection = restarted.inspectRecovery(first.job_id);
+  assert.deepEqual(inspection, {
+    status: 'contract-mapping-blocked',
+    stage: 'mapping',
+    code: 'CONTRACT_MAPPING_BLOCKED',
+    read_only: true,
+    no_writes: true,
+    no_provider_calls: true,
+    authority_check_required: false
+  });
+  for (const value of [root, first.job_id, first.attempt_id, first.execution_id,
+    secondPrepared.attempt_id, secondPrepared.execution_id, 'PROVIDER-TIMEOUT-PRIVATE-SENTINEL']) {
+    assert.equal(JSON.stringify(inspection).includes(value), false);
+  }
+  assert.deepEqual(reopened.readEvents(first.job_id), beforeEvents);
+  assert.equal(reopened.blobCount, beforeBlobs);
+  assert.equal(restartedCalls, 0);
+  assert.equal(calls, 2);
 });

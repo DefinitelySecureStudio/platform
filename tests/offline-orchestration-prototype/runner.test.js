@@ -1645,8 +1645,8 @@ test('deadline expiry does not hide a committed terminal result during read-only
   const inspection = value.inspectRecovery(result.job_id);
   assert.equal(inspection.status, 'terminal');
   assert.equal(inspection.read_only, true);
-  assert.equal(inspection.writes_performed, 0);
-  assert.equal(inspection.provider_calls_performed, 0);
+  assert.equal(inspection.no_writes, true);
+  assert.equal(inspection.no_provider_calls, true);
 });
 
 test('read-only recovery requires every terminal artifact to be readable and match its result', async () => {
@@ -1763,6 +1763,7 @@ test('explicit candidate enables one delayed caller-authorized retry with immuta
   assert.equal(events.filter(e => e.type === 'dispatch-started').length, 2);
   assert.equal(events.filter(e => e.type === 'prepared')[1].retry_of_attempt_id, first.attempt_id);
   assert.equal(events.at(-1).type, 'job-closed');
+  assert.equal(h.value.inspectRecovery(first.job_id).status, 'terminal');
   await assert.rejects(() => h.value.retry({ authorizeRetry: true }), e => e.code === 'RETRY_NOT_AVAILABLE');
 });
 
@@ -2231,7 +2232,15 @@ for (const outcome of ['output-validation', 'cancelled', 'mismatched-success']) 
   if (outcome === 'mismatched-success') assert.equal(lastOutcome.output.content, 'Different synthetic output.');
   assert.deepEqual(h.store.readImmutable(`result:${first.result.result_id}`), original);
   assert.equal(events.filter(e => e.type === 'terminal').length, 1);
-  assert.equal(h.value.inspectRecovery(first.job_id).status, 'terminal');
+  assert.deepEqual(h.value.inspectRecovery(first.job_id), {
+    status: 'contract-mapping-blocked',
+    stage: 'mapping',
+    code: 'CONTRACT_MAPPING_BLOCKED',
+    read_only: true,
+    no_writes: true,
+    no_provider_calls: true,
+    authority_check_required: false
+  });
   await assert.rejects(() => h.value.retry({ authorizeRetry: true }), e => e.code === 'RETRY_NOT_AVAILABLE');
   await assert.rejects(() => h.value.submit({ productionSource }), e => e.code === 'JOB_STORE_LIFETIME_LIMIT');
 });
@@ -2252,8 +2261,9 @@ for (const fault of ['outcome-readback', 'mapping-append', 'close-append', 'ambi
   assert.equal(second.job_closed, undefined);
   const inspection = h.value.inspectRecovery(first.job_id);
   assert.equal(inspection.read_only, true);
-  assert.equal(inspection.status, fault === 'ambiguous-close' ? 'reconciliation-required'
-    : fault === 'close-append' ? 'contract-mapping-blocked' : 'read-only-inspection-required');
+  // A rejected close append and a removed close marker have identical persisted
+  // logs, so both must remain unresolved during read-only inspection.
+  assert.equal(inspection.status, 'reconciliation-required');
   if (!unknownEvents) assert.equal(store.readEvents(first.job_id).some(e => e.type === 'job-closed'), false);
   await assert.rejects(() => h.value.retry({ authorizeRetry: true }), e => e.code === 'RETRY_NOT_AVAILABLE');
 });
@@ -2269,4 +2279,66 @@ test('a timed-out second attempt preserves uncertainty without closing or fabric
   assert.equal(events.filter(e => e.type === 'terminal').length, 1);
   assert.equal(events.filter(e => e.type === 'provider-outcome').length, 2);
   await assert.rejects(() => h.value.retry({ authorizeRetry: true }), e => e.code === 'RETRY_NOT_AVAILABLE');
+});
+
+
+test('closed jobs without a result expose a fixed stop diagnostic and reject orphan attempt links', async () => {
+  const clock = createRuntime();
+  let providerCalls = 0;
+  const h = runner({
+    runtime: clock.runtime,
+    onMockCall({ phase }) {
+      if (phase === 'created') clock.set(10_000 + OFFLINE_ORCHESTRATION_LIMITS.jobBudgetMs);
+      if (phase === 'dispatch-confirmed') providerCalls++;
+    }
+  });
+  const stopped = await h.value.submit({ productionSource });
+  assert.equal(stopped.status, 'budget-exhausted');
+  const validInspection = h.value.inspectRecovery(stopped.job_id);
+  assert.deepEqual(validInspection, {
+    status: 'budget-exhausted',
+    stage: 'limits',
+    code: 'BUDGET_EXHAUSTED',
+    read_only: true,
+    no_writes: true,
+    no_provider_calls: true,
+    authority_check_required: false
+  });
+  const originalReadEvents = h.store.readEvents.bind(h.store);
+  const events = structuredClone(originalReadEvents(stopped.job_id));
+  const prepared = events.find(item => item.type === 'prepared');
+  assert.ok(prepared);
+  const orphanDispatch = {
+    ...structuredClone(prepared),
+    type: 'dispatch-started',
+    attempt_id: 'urn:uuid:30000000-0000-4000-8000-000000000003',
+    execution_id: 'exec-offline-30000000-0000-4000-8000-000000000003',
+    call_number: 1,
+    private_content: 'NO-RESULT-PRIVATE-CONTENT-SENTINEL',
+    exception_text: 'NO-RESULT-EXCEPTION-SENTINEL'
+  };
+  const closeIndex = events.findIndex(item => item.type === 'job-closed');
+  assert.ok(closeIndex >= 0);
+  events.splice(closeIndex, 0, orphanDispatch);
+  h.store.readEvents = jobId => jobId === stopped.job_id ? structuredClone(events) : originalReadEvents(jobId);
+  const beforeEventCount = h.store.eventCount;
+  const beforeBlobCount = h.store.blobCount;
+  const inspection = h.value.inspectRecovery(stopped.job_id);
+  assert.deepEqual(inspection, {
+    status: 'reconciliation-required',
+    stage: 'integrity',
+    code: 'RECONCILIATION_REQUIRED',
+    read_only: true,
+    no_writes: true,
+    no_provider_calls: true,
+    authority_check_required: false
+  });
+  const publicValue = JSON.stringify(inspection);
+  for (const value of [stopped.job_id, prepared.attempt_id, prepared.execution_id,
+    'NO-RESULT-PRIVATE-CONTENT-SENTINEL', 'NO-RESULT-EXCEPTION-SENTINEL']) {
+    assert.equal(publicValue.includes(value), false);
+  }
+  assert.equal(h.store.eventCount, beforeEventCount);
+  assert.equal(h.store.blobCount, beforeBlobCount);
+  assert.equal(providerCalls, 0);
 });
