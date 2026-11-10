@@ -2232,7 +2232,15 @@ for (const outcome of ['output-validation', 'cancelled', 'mismatched-success']) 
   if (outcome === 'mismatched-success') assert.equal(lastOutcome.output.content, 'Different synthetic output.');
   assert.deepEqual(h.store.readImmutable(`result:${first.result.result_id}`), original);
   assert.equal(events.filter(e => e.type === 'terminal').length, 1);
-  assert.equal(h.value.inspectRecovery(first.job_id).status, 'terminal');
+  assert.deepEqual(h.value.inspectRecovery(first.job_id), {
+    status: 'contract-mapping-blocked',
+    stage: 'mapping',
+    code: 'CONTRACT_MAPPING_BLOCKED',
+    read_only: true,
+    no_writes: true,
+    no_provider_calls: true,
+    authority_check_required: false
+  });
   await assert.rejects(() => h.value.retry({ authorizeRetry: true }), e => e.code === 'RETRY_NOT_AVAILABLE');
   await assert.rejects(() => h.value.submit({ productionSource }), e => e.code === 'JOB_STORE_LIFETIME_LIMIT');
 });
@@ -2270,4 +2278,66 @@ test('a timed-out second attempt preserves uncertainty without closing or fabric
   assert.equal(events.filter(e => e.type === 'terminal').length, 1);
   assert.equal(events.filter(e => e.type === 'provider-outcome').length, 2);
   await assert.rejects(() => h.value.retry({ authorizeRetry: true }), e => e.code === 'RETRY_NOT_AVAILABLE');
+});
+
+
+test('closed jobs without a result expose a fixed stop diagnostic and reject orphan attempt links', async () => {
+  const clock = createRuntime();
+  let providerCalls = 0;
+  const h = runner({
+    runtime: clock.runtime,
+    onMockCall({ phase }) {
+      if (phase === 'created') clock.set(10_000 + OFFLINE_ORCHESTRATION_LIMITS.jobBudgetMs);
+      if (phase === 'dispatch-confirmed') providerCalls++;
+    }
+  });
+  const stopped = await h.value.submit({ productionSource });
+  assert.equal(stopped.status, 'budget-exhausted');
+  const validInspection = h.value.inspectRecovery(stopped.job_id);
+  assert.deepEqual(validInspection, {
+    status: 'closed-without-result',
+    stage: 'terminal',
+    code: 'JOB_CLOSED_WITHOUT_RESULT',
+    read_only: true,
+    no_writes: true,
+    no_provider_calls: true,
+    authority_check_required: false
+  });
+  const originalReadEvents = h.store.readEvents.bind(h.store);
+  const events = originalReadEvents(stopped.job_id);
+  const prepared = events.find(item => item.type === 'prepared');
+  assert.ok(prepared);
+  const orphanDispatch = {
+    ...structuredClone(prepared),
+    type: 'dispatch-started',
+    attempt_id: 'urn:uuid:30000000-0000-4000-8000-000000000003',
+    execution_id: 'exec-offline-30000000-0000-4000-8000-000000000003',
+    call_number: 1,
+    private_content: 'NO-RESULT-PRIVATE-CONTENT-SENTINEL',
+    exception_text: 'NO-RESULT-EXCEPTION-SENTINEL'
+  };
+  const closeIndex = events.findIndex(item => item.type === 'job-closed');
+  assert.ok(closeIndex >= 0);
+  events.splice(closeIndex, 0, orphanDispatch);
+  h.store.readEvents = jobId => jobId === stopped.job_id ? structuredClone(events) : originalReadEvents(jobId);
+  const beforeEventCount = h.store.eventCount;
+  const beforeBlobCount = h.store.blobCount;
+  const inspection = h.value.inspectRecovery(stopped.job_id);
+  assert.deepEqual(inspection, {
+    status: 'reconciliation-required',
+    stage: 'integrity',
+    code: 'RECONCILIATION_REQUIRED',
+    read_only: true,
+    no_writes: true,
+    no_provider_calls: true,
+    authority_check_required: false
+  });
+  const publicValue = JSON.stringify(inspection);
+  for (const value of [stopped.job_id, prepared.attempt_id, prepared.execution_id,
+    'NO-RESULT-PRIVATE-CONTENT-SENTINEL', 'NO-RESULT-EXCEPTION-SENTINEL']) {
+    assert.equal(publicValue.includes(value), false);
+  }
+  assert.equal(h.store.eventCount, beforeEventCount);
+  assert.equal(h.store.blobCount, beforeBlobCount);
+  assert.equal(providerCalls, 0);
 });
