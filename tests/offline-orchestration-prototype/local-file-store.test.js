@@ -86,10 +86,10 @@ function runtime() {
   };
 }
 
-function prototype(store, onMockCall = () => {}) {
+function prototype(store, onMockCall = () => {}, runtimeOverride = runtime()) {
   return createOfflineOrchestrationPrototypeForTest({
     store,
-    runtime: runtime(),
+    runtime: runtimeOverride,
     idFactory: randomUUID,
     executionAuthorityProvider: authority(),
     onMockCall
@@ -572,4 +572,105 @@ test('reopened no-result close requires its linked stop and rejects orphan dispa
   assert.equal(reopened.blobCount, beforeBlobs);
   assert.equal(restartedCalls, 0);
   assert.equal(calls, 0);
+});
+
+
+test('reopened retry expiry validates a job-scoped budget stop against its last eligible result', async t => {
+  const root = temporaryDirectory();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const store = new LocalFilePrototypeStore(root);
+  const clockState = { now: 10_000 };
+  const controlledRuntime = { ...runtime(), now: () => clockState.now };
+  let calls = 0;
+  const value = prototype(store, ({ phase }) => { if (phase === 'dispatch-confirmed') calls++; }, controlledRuntime);
+  const first = await value.submit({
+    productionSource,
+    noOutputResultVersion: '1.1.0',
+    mockOutcome: { kind: 'rate-limit', retry_after_ms: 10 }
+  });
+  assert.equal(first.retry_eligible, true);
+  const admitted = store.readEvents(first.job_id).find(item => item.type === 'admitted');
+  assert.ok(Number.isSafeInteger(admitted.deadline_monotonic_ms));
+  clockState.now = admitted.deadline_monotonic_ms;
+
+  const stopped = await value.retry({ authorizeRetry: true });
+  assert.equal(stopped.status, 'budget-exhausted');
+  const events = store.readEvents(first.job_id);
+  const budgetStop = events.find(item => item.type === 'budget-exhausted' && item.attempt_id === undefined);
+  assert.deepEqual(budgetStop, {
+    job_id: first.job_id,
+    type: 'budget-exhausted',
+    reason: 'time',
+    deadline_monotonic_ms: admitted.deadline_monotonic_ms
+  });
+  assert.equal(events.at(-1).type, 'job-closed');
+  assert.equal(events.at(-1).reason, 'retry-budget-exhausted');
+  assert.equal(calls, 1);
+
+  const reopened = new LocalFilePrototypeStore(root);
+  let restartedCalls = 0;
+  const restarted = prototype(reopened, () => { restartedCalls++; }, controlledRuntime);
+  const beforeEvents = structuredClone(reopened.readEvents(first.job_id));
+  const beforeBlobs = reopened.blobCount;
+  assert.deepEqual(restarted.inspectRecovery(first.job_id), {
+    status: 'budget-exhausted',
+    stage: 'limits',
+    code: 'BUDGET_EXHAUSTED',
+    read_only: true,
+    no_writes: true,
+    no_provider_calls: true,
+    authority_check_required: false
+  });
+  assert.deepEqual(reopened.readEvents(first.job_id), beforeEvents);
+  assert.equal(reopened.blobCount, beforeBlobs);
+  assert.equal(restartedCalls, 0);
+  assert.equal(calls, 1);
+});
+
+test('reopened result chain rejects cancelled-before-dispatch naming a completed attempt', async t => {
+  const root = temporaryDirectory();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const store = new LocalFilePrototypeStore(root);
+  const clockState = { now: 10_000 };
+  const controlledRuntime = { ...runtime(), now: () => clockState.now };
+  let calls = 0;
+  const value = prototype(store, ({ phase }) => { if (phase === 'dispatch-confirmed') calls++; }, controlledRuntime);
+  const first = await value.submit({
+    productionSource,
+    noOutputResultVersion: '1.1.0',
+    mockOutcome: { kind: 'rate-limit', retry_after_ms: 10 }
+  });
+  clockState.now += 10;
+  const completed = await value.retry({ authorizeRetry: true });
+  assert.equal(completed.kind, 'terminal');
+  assert.equal(completed.result.status, 'complete');
+  assert.equal(calls, 2);
+
+  const entries = structuredClone(store.readEvents(first.job_id));
+  assert.ok(entries.some(item => item.type === 'dispatch-started' && item.attempt_id === completed.attempt_id));
+  assert.ok(entries.some(item => item.type === 'terminal' && item.attempt_id === completed.attempt_id));
+  const closeIndex = entries.findIndex(item => item.type === 'job-closed');
+  assert.ok(closeIndex >= 0);
+  entries.splice(closeIndex, 0, {
+    job_id: first.job_id,
+    type: 'cancelled-before-dispatch',
+    attempt_id: completed.attempt_id,
+    reason: 'caller-cancelled',
+    private_content: 'CONTRADICTORY-STOP-PRIVATE-SENTINEL'
+  });
+  writeLocalEventLog(root, first.job_id, entries);
+
+  const reopened = new LocalFilePrototypeStore(root);
+  let restartedCalls = 0;
+  const restarted = prototype(reopened, () => { restartedCalls++; }, controlledRuntime);
+  const beforeEvents = structuredClone(reopened.readEvents(first.job_id));
+  const beforeBlobs = reopened.blobCount;
+  assertSafeReconciliation(restarted.inspectRecovery(first.job_id), [
+    root, first.job_id, first.attempt_id, first.execution_id, completed.attempt_id,
+    completed.execution_id, completed.result.result_id, 'CONTRADICTORY-STOP-PRIVATE-SENTINEL'
+  ]);
+  assert.deepEqual(reopened.readEvents(first.job_id), beforeEvents);
+  assert.equal(reopened.blobCount, beforeBlobs);
+  assert.equal(restartedCalls, 0);
+  assert.equal(calls, 2);
 });
