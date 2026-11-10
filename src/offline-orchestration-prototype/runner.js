@@ -2433,7 +2433,9 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
           || (closedEvents.length === 1 && (entries.at(-1) !== closedEvents[0]
             || entries.indexOf(closedEvents[0]) <= Math.max(...stopIndices)))
           || (closedEvents.length === 0 && (orphanCancellationStops.length !== 0
-            || orphanBudgetStops.length !== 0 || orphanMappingStops.length !== 1))
+            || orphanBudgetStops.length !== 0 || orphanMappingStops.length !== 1
+            || (orphanMappingStops[0].reason !== 'deadline-unverifiable'
+              && orphanProviderResult.status !== 'timed-out')))
           || (closedEvents.length === 1 && orphanCancellationStops.length === 1
             && closedEvents[0].reason !== 'cancelled-before-dispatch')
           || (closedEvents.length === 1 && orphanBudgetStops.length === 1
