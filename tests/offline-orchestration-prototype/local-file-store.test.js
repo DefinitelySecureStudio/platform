@@ -966,6 +966,66 @@ test('reopened inspection rejects an unfinished ordinary orphan retry mapping', 
   assert.equal(calls, 2);
 });
 
+
+test('reopened inspection rejects missing or replaced production links on a trailing resultless retry', async t => {
+  for (const linkCase of ['missing', 'replaced']) {
+    await t.test(linkCase, async t => {
+      const root = temporaryDirectory();
+      t.after(() => rmSync(root, { recursive: true, force: true }));
+      const store = new LocalFilePrototypeStore(root);
+      const clockState = { now: 10_000 };
+      const controlledRuntime = { ...runtime(), now: () => clockState.now };
+      let calls = 0;
+      const value = prototype(store, ({ phase }) => { if (phase === 'dispatch-confirmed') calls++; }, controlledRuntime);
+      const first = await value.submit({
+        productionSource,
+        noOutputResultVersion: '1.1.0',
+        mockOutcome: { kind: 'rate-limit', retry_after_ms: 10 }
+      });
+      clockState.now += 10;
+      const stopped = await value.retry({ authorizeRetry: true, mockOutcome: { kind: 'output-validation' } });
+      assert.equal(stopped.status, 'contract-mapping-blocked');
+      assert.equal(stopped.job_closed, true);
+      assert.equal(calls, 2);
+
+      const events = structuredClone(store.readEvents(first.job_id));
+      const admitted = events.find(item => item.type === 'admitted');
+      const prepared = events.find(item => item.type === 'prepared' && item.attempt_id === stopped.attempt_id);
+      assert.ok(admitted && prepared);
+      assert.deepEqual(prepared.production, admitted.production);
+      const privateSentinel = 'TRAILING-RETRY-PRODUCTION-PRIVATE-SENTINEL';
+      if (linkCase === 'missing') {
+        delete prepared.production;
+      } else {
+        prepared.production = {
+          ...prepared.production,
+          identity: {
+            ...prepared.production.identity,
+            sha256: 'sha256:' + '0'.repeat(64),
+            private_content: privateSentinel
+          }
+        };
+      }
+      writeLocalEventLog(root, first.job_id, events);
+
+      const reopened = new LocalFilePrototypeStore(root);
+      let restartedCalls = 0;
+      const restarted = prototype(reopened, () => { restartedCalls++; }, controlledRuntime);
+      const beforeEvents = structuredClone(reopened.readEvents(first.job_id));
+      const beforeBlobs = reopened.blobCount;
+      assertSafeReconciliation(restarted.inspectRecovery(first.job_id), [
+        root, first.job_id, first.attempt_id, first.execution_id,
+        stopped.attempt_id, stopped.execution_id, first.result.result_id,
+        privateSentinel
+      ]);
+      assert.deepEqual(reopened.readEvents(first.job_id), beforeEvents);
+      assert.equal(reopened.blobCount, beforeBlobs);
+      assert.equal(restartedCalls, 0);
+      assert.equal(calls, 2);
+    });
+  }
+});
+
 test('reopened inspection accepts an unfinished provider-timeout orphan mapping', async t => {
   const root = temporaryDirectory();
   t.after(() => rmSync(root, { recursive: true, force: true }));

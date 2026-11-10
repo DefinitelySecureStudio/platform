@@ -317,12 +317,17 @@ or a successful response with mismatched output) closes the **host job** after
 confirming the `contract-mapping-blocked` event and `job-closed` append. It returns
 `status: 'contract-mapping-blocked', job_closed: true`. The prior terminal result
 and both provider outcomes remain immutable; no second Comic result or terminal
-result link is fabricated. Recovery reports the host job as terminal.
+result link is fabricated. When the host close and lifecycle links verify,
+read-only `inspectRecovery()` reports `contract-mapping-blocked`, not
+`terminal`: the host stopped while the Comic mapping remains unresolved.
+Missing, malformed, or inconsistent links require reconciliation rather than a
+terminal-result claim. Provider timeouts that leave a valid resultless mapping
+unclosed remain an explicitly unresolved, value-free mapping diagnostic.
 
-This closes an exhausted job, not the unresolved contract mapping. Uncertain
-outcome/readback/index/close writes and provider timeouts still require
-reconciliation and do not claim confirmed closure. The store's existing
-one-job lifetime limit remains in force even after confirmed closure.
+This closes an exhausted host job, not the unresolved contract mapping.
+Uncertain outcome/readback/index/close writes require reconciliation and do
+not claim confirmed closure. The store's existing one-job lifetime limit
+remains in force even after confirmed closure.
 
 The candidate validator's bounded no-output path requires exactly one prompt
 binding. Schema-valid productions with zero or multiple prompt bindings receive
@@ -393,8 +398,9 @@ store.
 Coverage is limited to the pinned synthetic no-context local path, including
 successful and no-output rate-limit results, reopened inspection, retry and
 reopen, and corruption cases for orphan/interleaved attempts, malformed
-production links, inconsistent result outcomes, resume-window links, and
-schema-valid output compatibility tampering. This does not authenticate
+production links on result-bearing and trailing resultless retries,
+inconsistent result outcomes, resume-window links, and schema-valid output
+compatibility tampering. This does not authenticate
 same-account edits to the local store, establish power-loss durability or
 support for other filesystems, add providers or infrastructure, use production
 data, or close Studio issue #110.
