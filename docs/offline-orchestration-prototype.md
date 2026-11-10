@@ -355,5 +355,32 @@ O07 receive bounded prerequisite passes only for the synthetic path described
 in the [durable-resume decision packet](o08-durable-resume-decision-packet.md);
 their Studio issues remain open and no broader production readiness is implied.
 O08 receives a scoped pass for its accepted synthetic, no-context,
-local-filesystem behavior, while issue #109 remains open and O09 remains
-separately gated.
+local-filesystem behavior, while issue #109 remains open. The bounded O09
+result-link inspection slice and its remaining limits are recorded below; this
+does not close Studio issue #110 or claim broader acceptance.
+## O09 result-link inspection slice (2026-11-10)
+
+The opt-in local-file-store inspection now validates the canonical result
+lifecycle links for each result-bearing attempt before classifying recovery.
+For each attempt, the unique `prepared`, `dispatch-started`, `provider-outcome`,
+`result-prepared`, `persisting`, and `terminal` events must agree on job,
+attempt, execution, result ID, result status, byte size, and digest where
+recorded, and occur in order. The provider outcome payload and canonical result
+bytes must match their lifecycle references; the result must link to the
+admitted synthetic production, and every output artifact URI, byte size, and
+digest must resolve to matching local bytes. Missing, duplicate, malformed, or
+contradictory links fail closed as `reconciliation-required`. Inspection
+performs no writes or provider calls.
+
+The public `inspectRecovery()` projection contains only fixed status, stage,
+and code values with boolean fields. It never returns job, attempt, execution,
+result, or artifact identifiers; lifecycle event names; local paths; hashes;
+protected content; exception text; or fingerprints. Result, outcome, and
+artifact bytes remain in the caller-owned private local store.
+
+Coverage is limited to the pinned synthetic no-context local path, including
+successful and no-output rate-limit results, reopened-store inspection, and a
+canonical event-log duplicate-link corruption case. This does not authenticate
+same-account edits to the local store, establish power-loss durability or
+support for other filesystems, add providers or infrastructure, use production
+data, or close Studio issue #110.
