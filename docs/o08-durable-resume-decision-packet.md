@@ -410,7 +410,7 @@ This reconciliation uses Platform `main` at `0b6dbfb3f2334626ec251a634ee677ecae2
 | Finite transient, exhausted-attempt, authorized-resume and denied-resume fixtures; one adapter/effect boundary | Covered for the pinned Comic Manifest fixture, synthetic authorities, local filesystem and `MockTextAdapter`. No context-enabled resume, live provider, production storage or other effect boundary is covered. |
 | No generic exactly-once claim | Preserved. The local atomic claim limits concurrent/repeated local resume attempts and uncertain dispatch is never automatically replayed; this is not provider-level deduplication or a general exactly-once guarantee. |
 
-**O08 receives a scoped pass** for the accepted synthetic, no-context, local-filesystem behavior, including termination as stopping automatic execution while preserving ambiguous outcomes for reconciliation. This verdict relies on actual runner/store and subprocess tests; `resume-proposal-harness.test.js` is a reference-only model and is not counted as runtime evidence. The pass does not claim provider deduplication, generic exactly-once behavior, context-enabled restart, power-loss durability, support for other filesystems, or live-provider support. Studio issues #106–#109 remain open; this documentation does not close them. O09 has not been started or unblocked.
+**O08 receives a scoped pass** for the accepted synthetic, no-context, local-filesystem behavior, including termination as stopping automatic execution while preserving ambiguous outcomes for reconciliation. This verdict relies on actual runner/store and subprocess tests; `resume-proposal-harness.test.js` is a reference-only model and is not counted as runtime evidence. The pass does not claim provider deduplication, generic exactly-once behavior, context-enabled restart, power-loss durability, support for other filesystems, or live-provider support. Studio issues #106–#109 remain open; this documentation does not close them. The bounded O09 result-link inspection was merged in platform PR #75. This follow-up adds a trailing-retry production-reference check; Studio issue #110 remains open, and no broader durability or acceptance claim follows.
 
 ## Scope estimate and exclusions
 
@@ -420,7 +420,8 @@ The no-context writable slice above is likewise narrow; durable-resume claims
 beyond the scoped pass remain unsupported and subject to separate review and
 contract gates.
 Production-grade
-persistent storage, an authenticated integrity root, provider-specific
-deduplication, and O09's result linkage remain separate decisions. This slice
-does not introduce a provider, alter current retry behavior, close O08, or
-unblock O09.
+persistent storage, an authenticated integrity root, and provider-specific
+deduplication remain separate decisions. O09's bounded result-link inspection
+was merged in platform PR #75; this follow-up checks the production reference
+on a trailing resultless retry. It does not introduce a provider or claim
+broader durability or acceptance, and it does not close O08 or issue #110.
