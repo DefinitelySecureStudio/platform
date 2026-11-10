@@ -402,34 +402,39 @@ test('reopened inspection rejects orphan attempt lifecycle records without expos
   }
 });
 
-test('reopened inspection reconciles a malformed prepared production before canonicalization', async t => {
-  const root = temporaryDirectory();
-  t.after(() => rmSync(root, { recursive: true, force: true }));
-  const store = new LocalFilePrototypeStore(root);
-  let calls = 0;
-  const completed = await prototype(store, () => { calls++; }).submit({ productionSource });
-  const entries = store.readEvents(completed.job_id);
-  const prepared = entries.find(item => item.type === 'prepared');
-  assert.ok(prepared);
-  delete prepared.production;
-  prepared.private_content = 'MALFORMED-PRIVATE-CONTENT-SENTINEL';
-  prepared.exception_text = 'MALFORMED-EXCEPTION-SENTINEL';
-  writeLocalEventLog(root, completed.job_id, entries);
+test('reopened inspection reconciles absent and non-object prepared production before canonicalization', async t => {
+  for (const corruption of ['absent', 'non-object']) {
+    await t.test(corruption, async t => {
+      const root = temporaryDirectory();
+      t.after(() => rmSync(root, { recursive: true, force: true }));
+      const store = new LocalFilePrototypeStore(root);
+      let calls = 0;
+      const completed = await prototype(store, () => { calls++; }).submit({ productionSource });
+      const entries = store.readEvents(completed.job_id);
+      const prepared = entries.find(item => item.type === 'prepared');
+      assert.ok(prepared);
+      if (corruption === 'absent') delete prepared.production;
+      else prepared.production = 'MALFORMED-PRODUCTION-SENTINEL';
+      prepared.private_content = 'MALFORMED-PRIVATE-CONTENT-SENTINEL';
+      prepared.exception_text = 'MALFORMED-EXCEPTION-SENTINEL';
+      writeLocalEventLog(root, completed.job_id, entries);
 
-  const reopened = new LocalFilePrototypeStore(root);
-  let restartedCalls = 0;
-  const restarted = prototype(reopened, () => { restartedCalls++; });
-  const beforeEvents = structuredClone(reopened.readEvents(completed.job_id));
-  const beforeBlobs = reopened.blobCount;
-  assertSafeReconciliation(restarted.inspectRecovery(completed.job_id), [
-    root, completed.job_id, completed.attempt_id, completed.execution_id,
-    completed.result.result_id, 'MALFORMED-PRIVATE-CONTENT-SENTINEL',
-    'MALFORMED-EXCEPTION-SENTINEL'
-  ]);
-  assert.deepEqual(reopened.readEvents(completed.job_id), beforeEvents);
-  assert.equal(reopened.blobCount, beforeBlobs);
-  assert.equal(restartedCalls, 0);
-  assert.equal(calls, 1);
+      const reopened = new LocalFilePrototypeStore(root);
+      let restartedCalls = 0;
+      const restarted = prototype(reopened, () => { restartedCalls++; });
+      const beforeEvents = structuredClone(reopened.readEvents(completed.job_id));
+      const beforeBlobs = reopened.blobCount;
+      assertSafeReconciliation(restarted.inspectRecovery(completed.job_id), [
+        root, completed.job_id, completed.attempt_id, completed.execution_id,
+        completed.result.result_id, 'MALFORMED-PRODUCTION-SENTINEL',
+        'MALFORMED-PRIVATE-CONTENT-SENTINEL', 'MALFORMED-EXCEPTION-SENTINEL'
+      ]);
+      assert.deepEqual(reopened.readEvents(completed.job_id), beforeEvents);
+      assert.equal(reopened.blobCount, beforeBlobs);
+      assert.equal(restartedCalls, 0);
+      assert.equal(calls, 1);
+    });
+  }
 });
 
 test('reopened inspection rejects a 1.1.0 no-output result paired with a success outcome', async t => {
