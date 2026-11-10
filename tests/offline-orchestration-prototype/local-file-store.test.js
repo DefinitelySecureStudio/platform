@@ -916,3 +916,111 @@ test('reopened retry deadline cancellation links budget, outcome, mapping, and c
   assert.equal(restartedCalls, 0);
   assert.equal(calls, 2);
 });
+
+
+test('reopened inspection rejects an unfinished ordinary orphan retry mapping', async t => {
+  const root = temporaryDirectory();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const store = new LocalFilePrototypeStore(root);
+  const clockState = { now: 10_000 };
+  const controlledRuntime = { ...runtime(), now: () => clockState.now };
+  let calls = 0;
+  const value = prototype(store, ({ phase }) => { if (phase === 'dispatch-confirmed') calls++; }, controlledRuntime);
+  const first = await value.submit({
+    productionSource,
+    noOutputResultVersion: '1.1.0',
+    mockOutcome: { kind: 'rate-limit', retry_after_ms: 10 }
+  });
+  clockState.now += 10;
+  const stopped = await value.retry({ authorizeRetry: true, mockOutcome: { kind: 'output-validation' } });
+  assert.equal(stopped.status, 'contract-mapping-blocked');
+  assert.equal(stopped.job_closed, true);
+  assert.equal(calls, 2);
+
+  const events = structuredClone(store.readEvents(first.job_id));
+  const mapping = events.find(item => item.type === 'contract-mapping-blocked'
+    && item.attempt_id === stopped.attempt_id);
+  assert.ok(mapping);
+  assert.equal(mapping.reason, 'no-output-result-not-representable-under-current-validator');
+  const outcome = events.find(item => item.type === 'provider-outcome' && item.attempt_id === stopped.attempt_id);
+  assert.ok(outcome);
+  assert.equal(outcome.status, 'failed');
+  const closed = events.findIndex(item => item.type === 'job-closed');
+  assert.ok(closed >= 0);
+  events.splice(closed, 1);
+  writeLocalEventLog(root, first.job_id, events);
+
+  const reopened = new LocalFilePrototypeStore(root);
+  let restartedCalls = 0;
+  const restarted = prototype(reopened, () => { restartedCalls++; }, controlledRuntime);
+  const beforeEvents = structuredClone(reopened.readEvents(first.job_id));
+  const beforeBlobs = reopened.blobCount;
+  assertSafeReconciliation(restarted.inspectRecovery(first.job_id), [
+    root, first.job_id, first.attempt_id, first.execution_id,
+    stopped.attempt_id, stopped.execution_id, first.result.result_id,
+    'ORDINARY-ORPHAN-MAPPING-PRIVATE-SENTINEL'
+  ]);
+  assert.deepEqual(reopened.readEvents(first.job_id), beforeEvents);
+  assert.equal(reopened.blobCount, beforeBlobs);
+  assert.equal(restartedCalls, 0);
+  assert.equal(calls, 2);
+});
+
+test('reopened inspection accepts an unfinished provider-timeout orphan mapping', async t => {
+  const root = temporaryDirectory();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const store = new LocalFilePrototypeStore(root);
+  const clockState = { now: 10_000 };
+  const controlledRuntime = { ...runtime(), now: () => clockState.now };
+  let calls = 0;
+  const value = prototype(store, ({ phase }) => { if (phase === 'dispatch-confirmed') calls++; }, controlledRuntime);
+  const first = await value.submit({
+    productionSource,
+    noOutputResultVersion: '1.1.0',
+    mockOutcome: { kind: 'rate-limit', retry_after_ms: 10 }
+  });
+  clockState.now += 10;
+  const stopped = await value.retry({ authorizeRetry: true, mockOutcome: { kind: 'timeout' } });
+  assert.equal(stopped.status, 'contract-mapping-blocked');
+  assert.equal(stopped.job_closed, undefined);
+  assert.equal(calls, 2);
+
+  const events = store.readEvents(first.job_id);
+  const secondPrepared = events.find(item => item.type === 'prepared' && item.attempt_id !== first.attempt_id);
+  const secondDispatch = events.find(item => item.type === 'dispatch-started'
+    && item.attempt_id === secondPrepared.attempt_id);
+  const secondOutcome = events.find(item => item.type === 'provider-outcome'
+    && item.attempt_id === secondPrepared.attempt_id);
+  const mapping = events.find(item => item.type === 'contract-mapping-blocked'
+    && item.attempt_id === secondPrepared.attempt_id);
+  assert.ok(secondPrepared && secondDispatch && secondOutcome && mapping);
+  assert.equal(secondOutcome.status, 'timed-out');
+  assert.equal(mapping.reason, 'provider-timeout-mapping-deferred');
+  assert.ok(events.indexOf(secondDispatch) < events.indexOf(secondOutcome));
+  assert.ok(events.indexOf(secondOutcome) < events.indexOf(mapping));
+  assert.equal(events.some(item => item.type === 'job-closed'), false);
+
+  const reopened = new LocalFilePrototypeStore(root);
+  let restartedCalls = 0;
+  const restarted = prototype(reopened, () => { restartedCalls++; }, controlledRuntime);
+  const beforeEvents = structuredClone(reopened.readEvents(first.job_id));
+  const beforeBlobs = reopened.blobCount;
+  const inspection = restarted.inspectRecovery(first.job_id);
+  assert.deepEqual(inspection, {
+    status: 'contract-mapping-blocked',
+    stage: 'mapping',
+    code: 'CONTRACT_MAPPING_BLOCKED',
+    read_only: true,
+    no_writes: true,
+    no_provider_calls: true,
+    authority_check_required: false
+  });
+  for (const value of [root, first.job_id, first.attempt_id, first.execution_id,
+    secondPrepared.attempt_id, secondPrepared.execution_id, 'PROVIDER-TIMEOUT-PRIVATE-SENTINEL']) {
+    assert.equal(JSON.stringify(inspection).includes(value), false);
+  }
+  assert.deepEqual(reopened.readEvents(first.job_id), beforeEvents);
+  assert.equal(reopened.blobCount, beforeBlobs);
+  assert.equal(restartedCalls, 0);
+  assert.equal(calls, 2);
+});
