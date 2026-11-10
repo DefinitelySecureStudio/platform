@@ -2377,9 +2377,9 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
             || entries.indexOf(orphanOutcome) <= entries.indexOf(orphanDispatch)))) {
           return reconciliationRequired();
         }
+        let orphanProviderResult;
         if (orphanOutcome) {
           const orphanOutcomeBytes = verifiedBlobs.get(orphanOutcome.payload_key);
-          let orphanProviderResult;
           try { orphanProviderResult = JSON.parse(orphanOutcomeBytes.toString('utf8')); } catch {
             return reconciliationRequired();
           }
@@ -2387,16 +2387,64 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
             || orphanProviderResult.execution_id !== orphanExecutionId
             || orphanProviderResult.status !== orphanOutcome.status) return reconciliationRequired();
         }
-        const lastAttemptIndex = entries.indexOf(orphanOutcome ?? orphanDispatch ?? orphanPrepared[0]);
+        const orphanBudgetStops = orphanStops.filter(item => item.type === 'budget-exhausted');
+        const orphanCancellationStops = orphanStops.filter(item => item.type === 'cancelled-before-dispatch');
+        const orphanMappingStops = orphanStops.filter(item => item.type === 'contract-mapping-blocked');
         const stopIndices = orphanStops.map(item => entries.indexOf(item));
         const closedEvents = entries.filter(item => item.type === 'job-closed');
         if (orphanStops.some(item => item.execution_id !== undefined
-            && item.execution_id !== orphanExecutionId)
-          || stopIndices.some(index => index <= lastAttemptIndex)
+            && item.execution_id !== orphanExecutionId)) return reconciliationRequired();
+        if (orphanCancellationStops.length === 1) {
+          const [stop] = orphanCancellationStops;
+          const stopKeys = ['attempt_id', 'job_id', 'reason', 'type'];
+          if (orphanDispatch || orphanOutcome || orphanBudgetStops.length !== 0 || orphanMappingStops.length !== 0
+            || Object.keys(stop).sort().join('|') !== stopKeys.join('|')
+            || stop.job_id !== jobId || stop.attempt_id !== orphanId || stop.reason !== 'caller-cancelled'
+            || entries.indexOf(stop) <= entries.indexOf(orphanPrepared[0])) return reconciliationRequired();
+        }
+        if (orphanBudgetStops.length === 1) {
+          const [stop] = orphanBudgetStops;
+          const stopKeys = ['attempt_id', 'deadline_monotonic_ms', 'execution_id', 'job_id', 'reason', 'type'];
+          const previousAttemptEvent = orphanDispatch ?? orphanPrepared[0];
+          if (Object.keys(stop).sort().join('|') !== stopKeys.join('|')
+            || stop.job_id !== jobId || stop.attempt_id !== orphanId || stop.execution_id !== orphanExecutionId
+            || stop.reason !== 'time' || !Number.isSafeInteger(admitted.deadline_monotonic_ms)
+            || stop.deadline_monotonic_ms !== admitted.deadline_monotonic_ms
+            || entries.indexOf(stop) <= entries.indexOf(previousAttemptEvent)
+            || (orphanOutcome && entries.indexOf(stop) >= entries.indexOf(orphanOutcome))) {
+            return reconciliationRequired();
+          }
+        }
+        if (orphanMappingStops.length === 1) {
+          const [mapping] = orphanMappingStops;
+          const mappingKeys = ['attempt_id', 'execution_id', 'job_id', 'provider_outcome_sha256', 'reason', 'type'];
+          const allowedReasons = new Set(['comic-result-validation-rejected', 'deadline-unverifiable',
+            'no-output-result-not-representable-under-current-validator', 'provider-timeout-mapping-deferred',
+            'unsupported-normalized-result-mapping']);
+          if (!orphanOutcome || Object.keys(mapping).sort().join('|') !== mappingKeys.join('|')
+            || mapping.job_id !== jobId || mapping.attempt_id !== orphanId
+            || mapping.execution_id !== orphanExecutionId
+            || !allowedReasons.has(mapping.reason) || mapping.provider_outcome_sha256 !== orphanOutcome.sha256
+            || entries.indexOf(mapping) <= entries.indexOf(orphanOutcome)) return reconciliationRequired();
+        }
+        if (orphanCancellationStops.length > 1 || orphanBudgetStops.length > 1 || orphanMappingStops.length > 1
+          || (orphanOutcome && orphanMappingStops.length !== 1)
+          || (!orphanOutcome && orphanMappingStops.length !== 0)
           || (closedEvents.length === 1 && (entries.at(-1) !== closedEvents[0]
             || entries.indexOf(closedEvents[0]) <= Math.max(...stopIndices)))
-          || (closedEvents.length === 0 && (orphanStops.length !== 1
-            || orphanStops[0].type !== 'contract-mapping-blocked'))) return reconciliationRequired();
+          || (closedEvents.length === 0 && (orphanCancellationStops.length !== 0
+            || orphanBudgetStops.length !== 0 || orphanMappingStops.length !== 1))
+          || (closedEvents.length === 1 && orphanCancellationStops.length === 1
+            && closedEvents[0].reason !== 'cancelled-before-dispatch')
+          || (closedEvents.length === 1 && orphanBudgetStops.length === 1
+            && orphanMappingStops.length === 0 && closedEvents[0].reason !== 'budget-time')
+          || (closedEvents.length === 1 && orphanMappingStops.length === 1
+            && (!orphanOutcome || !['failed', 'cancelled', 'succeeded'].includes(orphanProviderResult.status)
+              || closedEvents[0].reason !== 'retry-contract-mapping-blocked'))
+          || (closedEvents.length === 1 && orphanCancellationStops.length === 0
+            && orphanBudgetStops.length === 0 && orphanMappingStops.length === 0)) {
+          return reconciliationRequired();
+        }
       }
       const closedWithoutRetry = entries.filter(item => item.type === 'closed-without-retry');
       const jobClosedForRetry = entries.find(item => item.type === 'job-closed');
@@ -2506,9 +2554,9 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
             || !Number.isSafeInteger(outcome.byte_size) || outcome.byte_size < 0
             || typeof outcome.sha256 !== 'string' || !/^sha256:[0-9a-f]{64}$/.test(outcome.sha256)
             || entries.indexOf(outcome) <= entries.indexOf(dispatch)))) return reconciliationRequired();
+        let providerResult;
         if (outcome) {
           const outcomeBytes = verifiedBlobs.get(outcome.payload_key);
-          let providerResult;
           try { providerResult = JSON.parse(outcomeBytes.toString('utf8')); } catch {
             return reconciliationRequired();
           }
@@ -2516,18 +2564,60 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
             || providerResult.execution_id !== prepared.execution_id
             || providerResult.status !== outcome.status) return reconciliationRequired();
         }
+        const budgetStops = stops.filter(item => item.type === 'budget-exhausted');
+        const cancellationStops = stops.filter(item => item.type === 'cancelled-before-dispatch');
+        const mappingStops = stops.filter(item => item.type === 'contract-mapping-blocked');
+        const preparedIndex = entries.indexOf(prepared);
         const closedEventsForAttempt = entries.filter(item => item.type === 'job-closed');
-        const lastAttemptIndex = entries.indexOf(outcome ?? dispatch ?? prepared);
+        if (cancellationStops.length === 1) {
+          const [stop] = cancellationStops;
+          const stopKeys = ['attempt_id', 'job_id', 'reason', 'type'];
+          if (dispatch || outcome || budgetStops.length !== 0 || mappingStops.length !== 0
+            || Object.keys(stop).sort().join('|') !== stopKeys.join('|')
+            || stop.job_id !== jobId || stop.attempt_id !== attemptId || stop.reason !== 'caller-cancelled'
+            || entries.indexOf(stop) <= preparedIndex) return reconciliationRequired();
+        }
+        if (budgetStops.length === 1) {
+          const [stop] = budgetStops;
+          const stopKeys = ['attempt_id', 'deadline_monotonic_ms', 'execution_id', 'job_id', 'reason', 'type'];
+          const previousAttemptEvent = dispatch ?? prepared;
+          if (Object.keys(stop).sort().join('|') !== stopKeys.join('|')
+            || stop.job_id !== jobId || stop.attempt_id !== attemptId
+            || stop.execution_id !== prepared.execution_id || stop.reason !== 'time'
+            || !Number.isSafeInteger(admitted.deadline_monotonic_ms)
+            || stop.deadline_monotonic_ms !== admitted.deadline_monotonic_ms
+            || entries.indexOf(stop) <= entries.indexOf(previousAttemptEvent)
+            || (outcome && entries.indexOf(stop) >= entries.indexOf(outcome))) return reconciliationRequired();
+        }
+        if (mappingStops.length === 1) {
+          const [mapping] = mappingStops;
+          const mappingKeys = ['attempt_id', 'execution_id', 'job_id', 'provider_outcome_sha256', 'reason', 'type'];
+          const allowedReasons = new Set(['comic-result-validation-rejected', 'deadline-unverifiable',
+            'no-output-result-not-representable-under-current-validator', 'provider-timeout-mapping-deferred',
+            'unsupported-normalized-result-mapping']);
+          if (!outcome || Object.keys(mapping).sort().join('|') !== mappingKeys.join('|')
+            || mapping.job_id !== jobId || mapping.attempt_id !== attemptId
+            || mapping.execution_id !== prepared.execution_id
+            || !allowedReasons.has(mapping.reason) || mapping.provider_outcome_sha256 !== outcome.sha256
+            || entries.indexOf(mapping) <= entries.indexOf(outcome)) return reconciliationRequired();
+        }
+        if (cancellationStops.length > 1 || budgetStops.length > 1 || mappingStops.length > 1
+          || (outcome && mappingStops.length !== 1)
+          || (!outcome && mappingStops.length !== 0)) return reconciliationRequired();
         const stopIndices = stops.map(item => entries.indexOf(item));
-        if (stopIndices.some(index => index <= lastAttemptIndex)
+        if (closedEventsForAttempt.length > 1
           || (closedEventsForAttempt.length === 1 && (entries.at(-1) !== closedEventsForAttempt[0]
             || stopIndices.length === 0 || entries.indexOf(closedEventsForAttempt[0]) <= Math.max(...stopIndices)))
-          || (stops.some(item => item.type === 'cancelled-before-dispatch') && (dispatch || outcome))
-          || (closedEventsForAttempt.length === 1 && !stops.some(item =>
-            item.type === 'budget-exhausted' || item.type === 'cancelled-before-dispatch'))
-          || (closedEventsForAttempt.length === 0 && stops.some(item => item.type !== 'contract-mapping-blocked'))) {
-          return reconciliationRequired();
-        }
+          || (closedEventsForAttempt.length === 1 && cancellationStops.length === 1
+            && closedEventsForAttempt[0].reason !== 'cancelled-before-dispatch')
+          || (closedEventsForAttempt.length === 1 && budgetStops.length === 1
+            && mappingStops.length === 0 && closedEventsForAttempt[0].reason !== 'budget-time')
+          || (closedEventsForAttempt.length === 1 && mappingStops.length !== 0)
+          || (closedEventsForAttempt.length === 1 && cancellationStops.length === 0
+            && budgetStops.length === 0 && mappingStops.length === 0)
+          || (closedEventsForAttempt.length === 0
+            && (cancellationStops.length !== 0 || (budgetStops.length !== 0 && mappingStops.length === 0)
+              || mappingStops.length !== 1))) return reconciliationRequired();
       }
       if (entries.some(item => ['prepared', 'dispatch-started', 'provider-outcome',
           'contract-mapping-blocked'].includes(item.type) && item.attempt_id === undefined)) {
