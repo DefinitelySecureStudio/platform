@@ -358,6 +358,7 @@ O08 receives a scoped pass for its accepted synthetic, no-context,
 local-filesystem behavior, while issue #109 remains open. The bounded O09
 result-link inspection slice and its remaining limits are recorded below; this
 does not close Studio issue #110 or claim broader acceptance.
+
 ## O09 result-link inspection slice (2026-11-10)
 
 The opt-in local-file-store inspection now validates the canonical result
