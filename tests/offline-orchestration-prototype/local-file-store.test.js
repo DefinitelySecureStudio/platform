@@ -329,3 +329,188 @@ test('read-only recovery rejects duplicate result links after reopening and keep
   assert.equal(restartedCalls, 0);
   assert.equal(calls, 1);
 });
+
+
+function localEventPath(root, jobId) {
+  return join(root, 'events', `${Buffer.from(jobId).toString('base64url')}.jsonl`);
+}
+
+function localBlobPath(root, key) {
+  return join(root, 'blobs', `${Buffer.from(key).toString('base64url')}.blob`);
+}
+
+function writeLocalEventLog(root, jobId, entries) {
+  writeFileSync(localEventPath(root, jobId), `${entries.map(item => canonicalJson(item)).join('\\n')}\\n`);
+}
+
+function writeLocalBlob(root, key, bytes) {
+  writeFileSync(localBlobPath(root, key), bytes);
+}
+
+function assertSafeReconciliation(inspection, values) {
+  assert.deepEqual(inspection, {
+    status: 'reconciliation-required',
+    stage: 'integrity',
+    code: 'RECONCILIATION_REQUIRED',
+    read_only: true,
+    no_writes: true,
+    no_provider_calls: true,
+    authority_check_required: false
+  });
+  const publicValue = JSON.stringify(inspection);
+  for (const value of values) assert.equal(publicValue.includes(value), false);
+}
+
+test('reopened inspection rejects orphan attempt lifecycle records without exposing their values', async t => {
+  for (const orphanType of ['prepared', 'dispatch-started', 'provider-outcome']) {
+    await t.test(orphanType, async t => {
+      const root = temporaryDirectory();
+      t.after(() => rmSync(root, { recursive: true, force: true }));
+      const store = new LocalFilePrototypeStore(root);
+      let calls = 0;
+      const completed = await prototype(store, () => { calls++; }).submit({ productionSource });
+      const entries = store.readEvents(completed.job_id);
+      const source = entries.find(item => item.type === orphanType);
+      assert.ok(source);
+      const orphan = structuredClone(source);
+      orphan.attempt_id = 'urn:uuid:30000000-0000-4000-8000-000000000003';
+      orphan.private_content = 'ORPHAN-PRIVATE-CONTENT-SENTINEL';
+      orphan.exception_text = 'ORPHAN-EXCEPTION-SENTINEL';
+      orphan.fingerprint = 'ORPHAN-FINGERPRINT-SENTINEL';
+      const closeIndex = entries.findIndex(item => item.type === 'job-closed');
+      assert.ok(closeIndex >= 0);
+      entries.splice(closeIndex, 0, orphan);
+      writeLocalEventLog(root, completed.job_id, entries);
+
+      const reopened = new LocalFilePrototypeStore(root);
+      let restartedCalls = 0;
+      const restarted = prototype(reopened, () => { restartedCalls++; });
+      const beforeEvents = structuredClone(reopened.readEvents(completed.job_id));
+      const beforeBlobs = reopened.blobCount;
+      const inspection = restarted.inspectRecovery(completed.job_id);
+      assertSafeReconciliation(inspection, [
+        root, completed.job_id, completed.attempt_id, completed.execution_id,
+        completed.result.result_id, completed.result.outputs[0].artifact.artifact_uri,
+        completed.result.outputs[0].artifact.sha256, 'ORPHAN-PRIVATE-CONTENT-SENTINEL',
+        'ORPHAN-EXCEPTION-SENTINEL', 'ORPHAN-FINGERPRINT-SENTINEL'
+      ]);
+      assert.deepEqual(reopened.readEvents(completed.job_id), beforeEvents);
+      assert.equal(reopened.blobCount, beforeBlobs);
+      assert.equal(restartedCalls, 0);
+      assert.equal(calls, 1);
+    });
+  }
+});
+
+test('reopened inspection reconciles a malformed prepared production before canonicalization', async t => {
+  const root = temporaryDirectory();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const store = new LocalFilePrototypeStore(root);
+  let calls = 0;
+  const completed = await prototype(store, () => { calls++; }).submit({ productionSource });
+  const entries = store.readEvents(completed.job_id);
+  const prepared = entries.find(item => item.type === 'prepared');
+  assert.ok(prepared);
+  delete prepared.production;
+  prepared.private_content = 'MALFORMED-PRIVATE-CONTENT-SENTINEL';
+  prepared.exception_text = 'MALFORMED-EXCEPTION-SENTINEL';
+  writeLocalEventLog(root, completed.job_id, entries);
+
+  const reopened = new LocalFilePrototypeStore(root);
+  let restartedCalls = 0;
+  const restarted = prototype(reopened, () => { restartedCalls++; });
+  const beforeEvents = structuredClone(reopened.readEvents(completed.job_id));
+  const beforeBlobs = reopened.blobCount;
+  assertSafeReconciliation(restarted.inspectRecovery(completed.job_id), [
+    root, completed.job_id, completed.attempt_id, completed.execution_id,
+    completed.result.result_id, 'MALFORMED-PRIVATE-CONTENT-SENTINEL',
+    'MALFORMED-EXCEPTION-SENTINEL'
+  ]);
+  assert.deepEqual(reopened.readEvents(completed.job_id), beforeEvents);
+  assert.equal(reopened.blobCount, beforeBlobs);
+  assert.equal(restartedCalls, 0);
+  assert.equal(calls, 1);
+});
+
+test('reopened inspection rejects a 1.1.0 no-output result paired with a success outcome', async t => {
+  const root = temporaryDirectory();
+  const successRoot = temporaryDirectory();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  t.after(() => rmSync(successRoot, { recursive: true, force: true }));
+  const failedStore = new LocalFilePrototypeStore(root);
+  let calls = 0;
+  const failed = await prototype(failedStore, () => { calls++; }).submit({
+    productionSource,
+    noOutputResultVersion: '1.1.0',
+    mockOutcome: { kind: 'rate-limit', retry_after_ms: 10 }
+  });
+  assert.equal(failed.result.spec_version, '1.1.0');
+  const successStore = new LocalFilePrototypeStore(successRoot);
+  const successful = await prototype(successStore).submit({ productionSource });
+  const successOutcomeEvent = successStore.readEvents(successful.job_id).find(item => item.type === 'provider-outcome');
+  const successOutcome = JSON.parse(successStore.readImmutable(successOutcomeEvent.payload_key).toString('utf8'));
+  successOutcome.execution_id = failed.execution_id;
+  if (Object.hasOwn(successOutcome, 'idempotency_key')) successOutcome.idempotency_key = `idem-${failed.execution_id}`;
+  const bytes = Buffer.from(canonicalJson(successOutcome), 'utf8');
+  const entries = failedStore.readEvents(failed.job_id);
+  const outcome = entries.find(item => item.type === 'provider-outcome');
+  outcome.status = 'succeeded';
+  outcome.byte_size = bytes.byteLength;
+  outcome.sha256 = sha256(bytes);
+  outcome.private_content = 'OUTCOME-PRIVATE-CONTENT-SENTINEL';
+  writeLocalBlob(root, outcome.payload_key, bytes);
+  writeLocalEventLog(root, failed.job_id, entries);
+
+  const reopened = new LocalFilePrototypeStore(root);
+  let restartedCalls = 0;
+  const restarted = prototype(reopened, () => { restartedCalls++; });
+  const beforeEvents = structuredClone(reopened.readEvents(failed.job_id));
+  const beforeBlobs = reopened.blobCount;
+  assertSafeReconciliation(restarted.inspectRecovery(failed.job_id), [
+    root, failed.job_id, failed.attempt_id, failed.execution_id, failed.result.result_id,
+    failed.result.outputs.length === 0 ? 'NO-ARTIFACT' : failed.result.outputs[0].artifact.artifact_uri,
+    'OUTCOME-PRIVATE-CONTENT-SENTINEL'
+  ]);
+  assert.deepEqual(reopened.readEvents(failed.job_id), beforeEvents);
+  assert.equal(reopened.blobCount, beforeBlobs);
+  assert.equal(restartedCalls, 0);
+  assert.equal(calls, 1);
+});
+
+test('reopened v1.0 result inspection checks production-output compatibility after linked digest updates', async t => {
+  const root = temporaryDirectory();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const store = new LocalFilePrototypeStore(root);
+  let calls = 0;
+  const completed = await prototype(store, () => { calls++; }).submit({ productionSource });
+  const resultKey = `result:${completed.result.result_id}`;
+  const result = JSON.parse(store.readImmutable(resultKey).toString('utf8'));
+  assert.equal(result.spec_version, '1.0.0');
+  result.outputs[0].rendition_id = 'tampered-rendition';
+  result.private_content = 'COMPATIBILITY-PRIVATE-CONTENT-SENTINEL';
+  const bytes = Buffer.from(canonicalJson(result), 'utf8');
+  const entries = store.readEvents(completed.job_id);
+  for (const item of entries) {
+    if (['result-prepared', 'persisting', 'terminal'].includes(item.type)) {
+      item.result_byte_size = bytes.byteLength;
+      item.result_sha256 = sha256(bytes);
+    }
+  }
+  writeLocalBlob(root, resultKey, bytes);
+  writeLocalEventLog(root, completed.job_id, entries);
+
+  const reopened = new LocalFilePrototypeStore(root);
+  let restartedCalls = 0;
+  const restarted = prototype(reopened, () => { restartedCalls++; });
+  const beforeEvents = structuredClone(reopened.readEvents(completed.job_id));
+  const beforeBlobs = reopened.blobCount;
+  assertSafeReconciliation(restarted.inspectRecovery(completed.job_id), [
+    root, completed.job_id, completed.attempt_id, completed.execution_id, completed.result.result_id,
+    completed.result.outputs[0].artifact.artifact_uri, completed.result.outputs[0].artifact.sha256,
+    'COMPATIBILITY-PRIVATE-CONTENT-SENTINEL'
+  ]);
+  assert.deepEqual(reopened.readEvents(completed.job_id), beforeEvents);
+  assert.equal(reopened.blobCount, beforeBlobs);
+  assert.equal(restartedCalls, 0);
+  assert.equal(calls, 1);
+});
