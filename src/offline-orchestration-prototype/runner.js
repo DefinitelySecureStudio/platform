@@ -63,7 +63,8 @@ const RECOVERY_DIAGNOSTIC_STATES = Object.freeze({
   'budget-exhausted': Object.freeze({ stage: 'limits', code: 'BUDGET_EXHAUSTED' }),
   'contract-mapping-blocked': Object.freeze({ stage: 'mapping', code: 'CONTRACT_MAPPING_BLOCKED' }),
   'execution-unresolved': Object.freeze({ stage: 'execution', code: 'EXECUTION_UNRESOLVED' }),
-  'read-only-inspection-required': Object.freeze({ stage: 'inspection', code: 'INSPECTION_REQUIRED' })
+  'read-only-inspection-required': Object.freeze({ stage: 'inspection', code: 'INSPECTION_REQUIRED' }),
+  'closed-without-result': Object.freeze({ stage: 'terminal', code: 'JOB_CLOSED_WITHOUT_RESULT' })
 });
 
 const defaultRuntime = Object.freeze({
@@ -2103,6 +2104,9 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     if (resultPrepared.length > 0) {
       const productionBytes = verifiedBlobs.get(admitted.input_key);
       let production;
+      if (!admitted.production || typeof admitted.production !== 'object' || Array.isArray(admitted.production)) {
+        return reconciliationRequired();
+      }
       try {
         production = readProduction(productionBytes.toString('utf8'));
         if (!productionBytes.equals(Buffer.from(production.canonical, 'utf8'))
@@ -2149,6 +2153,31 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
         const [outcome] = outcomes;
         const [persistingRecord] = persistingMatches;
         const [terminal] = terminalMatches;
+        if (priorChain) {
+          const priorWindows = matching('resume-window', priorChain.attemptId);
+          if (priorWindows.length !== 1) return reconciliationRequired();
+          const priorWindow = priorWindows[0];
+          const timeRecord = admitted.resume_time;
+          const windowKeys = ['authority_id', 'context_enabled', 'deadline_at_ms', 'domain_id', 'epoch_id', 'started_at_ms'];
+          const validTimeRecord = timeRecord && typeof timeRecord === 'object' && !Array.isArray(timeRecord)
+            && Object.keys(timeRecord).sort().join('|') === windowKeys.join('|')
+            && timeRecord.authority_id === SYNTHETIC_RESUME_TIME_AUTHORITY_ID && typeof timeRecord.domain_id === 'string'
+            && typeof timeRecord.epoch_id === 'string' && timeRecord.context_enabled === false
+            && Number.isSafeInteger(timeRecord.started_at_ms) && Number.isSafeInteger(timeRecord.deadline_at_ms)
+            && timeRecord.deadline_at_ms === checkedAdd(timeRecord.started_at_ms, OFFLINE_ORCHESTRATION_LIMITS.jobBudgetMs);
+          const priorWindowIndex = entries.indexOf(priorWindow);
+          if (!validTimeRecord || priorWindow.attempt_id !== priorChain.attemptId
+            || priorWindow.execution_id !== priorChain.executionId
+            || priorWindow.terminal_result_id !== priorChain.resultId
+            || !Number.isSafeInteger(priorWindow.checked_at_ms)
+            || priorWindow.checked_at_ms < timeRecord.started_at_ms
+            || priorWindow.checked_at_ms >= timeRecord.deadline_at_ms
+            || priorWindow.retry_not_before_at_ms !== checkedAdd(priorWindow.checked_at_ms,
+              priorChain.providerResult.error.retry_after_ms)
+            || priorWindow.deadline_at_ms !== timeRecord.deadline_at_ms
+            || priorWindowIndex <= priorChain.terminalIndex
+            || entries.indexOf(prepared) <= priorWindowIndex) return reconciliationRequired();
+        } else if (prepared.retry_of_attempt_id !== null) return reconciliationRequired();
         const ordered = [prepared, dispatch, outcome, preparedResult, persistingRecord, terminal]
           .map(item => entries.indexOf(item));
         if (ordered.some((index, position) => index < 0
@@ -2164,6 +2193,8 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
           || outcome.payload_key !== `provider-outcome:${executionId}` || !isDigest(outcome.sha256)
           || !Number.isSafeInteger(outcome.byte_size) || outcome.byte_size < 0
           || !Number.isSafeInteger(dispatch.call_number) || dispatch.call_number < 1
+          || !admitted.production || typeof admitted.production !== 'object' || Array.isArray(admitted.production)
+          || !prepared.production || typeof prepared.production !== 'object' || Array.isArray(prepared.production)
           || canonicalJson(prepared.production) !== canonicalJson(admitted.production)) {
           return reconciliationRequired();
         }
@@ -2184,9 +2215,7 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
           return reconciliationRequired();
         }
         if (!providerResult || typeof providerResult !== 'object' || Array.isArray(providerResult)
-          || !result || typeof result !== 'object' || Array.isArray(result)
-          || !admitted.production || typeof admitted.production !== 'object' || Array.isArray(admitted.production)
-          || !prepared.production || typeof prepared.production !== 'object' || Array.isArray(prepared.production)) {
+          || !result || typeof result !== 'object' || Array.isArray(result)) {
           return reconciliationRequired();
         }
         if ((!priorChain && prepared.retry_of_attempt_id !== null)
@@ -2195,18 +2224,28 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
             || !eligibleRateLimit(priorChain.providerResult)))) return reconciliationRequired();
         let resultValidation;
         try {
+          const resultSource = canonicalJson(result);
           resultValidation = result.spec_version === '1.1.0'
-            ? validateComicBuildResultCandidate(canonicalJson(result), production.canonical)
-            : result.spec_version === '1.0.0' ? validateComicManifest(canonicalJson(result)) : { valid: false };
+            ? validateComicBuildResultCandidate(resultSource, production.canonical)
+            : result.spec_version === '1.0.0' ? validateComicManifest(resultSource) : { valid: false };
+          const compatibility = result.spec_version === '1.1.0' ? resultValidation
+            : result.spec_version === '1.0.0'
+              ? validateComicOutputCompatibility(production.canonical, resultSource) : { valid: false };
           if (!validateExecutionDocument(providerResult).valid
             || providerResult.execution_id !== executionId || providerResult.status !== outcome.status
             || result.result_id !== resultId || result.attempt_id !== attemptId || result.status !== status
             || canonicalJson(prepared.production) !== canonicalJson(admitted.production)
             || canonicalJson(result.production) !== canonicalJson(admitted.production)
-            || !resultValidation.valid) return reconciliationRequired();
+            || !resultValidation.valid || !compatibility.valid) return reconciliationRequired();
+          if (result.spec_version === '1.1.0'
+            && (admitted.no_output_result_version !== '1.1.0' || result.status !== 'failed'
+              || providerResult.status !== 'failed' || !eligibleRateLimit(providerResult)
+              || result.outputs.length !== 0)) return reconciliationRequired();
           if (result.status === 'complete') {
-            if (providerResult.status !== 'succeeded' || typeof providerResult.output?.content !== 'string'
-              || result.outputs.length !== 1) return reconciliationRequired();
+            if (result.spec_version !== '1.0.0' || providerResult.status !== 'succeeded'
+              || typeof providerResult.output?.content !== 'string' || result.outputs.length !== 1) {
+              return reconciliationRequired();
+            }
             const outputBytes = Buffer.from(providerResult.output.content, 'utf8');
             const artifact = result.outputs[0].artifact;
             const storedArtifact = verifiedBlobs.get(`artifact:${artifact.artifact_uri}`);
@@ -2218,7 +2257,100 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
         } catch {
           return reconciliationRequired();
         }
-        priorChain = { attemptId, providerResult, result };
+        const ownWindows = matching('resume-window', attemptId);
+        if (ownWindows.length > 1) return reconciliationRequired();
+        let resumeWindowIndex;
+        if (ownWindows.length === 1) {
+          const resumeWindow = ownWindows[0];
+          const timeRecord = admitted.resume_time;
+          const timeKeys = 'authority_id|context_enabled|deadline_at_ms|domain_id|epoch_id|started_at_ms';
+          if (!timeRecord || Object.keys(timeRecord).sort().join('|') !== timeKeys
+            || timeRecord.authority_id !== SYNTHETIC_RESUME_TIME_AUTHORITY_ID
+            || typeof timeRecord.domain_id !== 'string' || typeof timeRecord.epoch_id !== 'string'
+            || timeRecord.context_enabled !== false
+            || !Number.isSafeInteger(timeRecord.started_at_ms)
+            || !Number.isSafeInteger(timeRecord.deadline_at_ms)
+            || resumeWindow.attempt_id !== attemptId || resumeWindow.execution_id !== executionId
+            || resumeWindow.terminal_result_id !== resultId
+            || result.status !== 'failed' || result.outputs.length !== 0
+            || !eligibleRateLimit(providerResult)
+            || !Number.isSafeInteger(resumeWindow.checked_at_ms)
+            || resumeWindow.checked_at_ms < timeRecord.started_at_ms
+            || resumeWindow.checked_at_ms >= timeRecord.deadline_at_ms
+            || resumeWindow.retry_not_before_at_ms !== checkedAdd(resumeWindow.checked_at_ms,
+              providerResult.error.retry_after_ms)
+            || resumeWindow.deadline_at_ms !== timeRecord.deadline_at_ms
+            || entries.indexOf(resumeWindow) <= entries.indexOf(terminal)) return reconciliationRequired();
+          resumeWindowIndex = entries.indexOf(resumeWindow);
+        }
+        priorChain = { attemptId, executionId, resultId, terminalIndex: entries.indexOf(terminal),
+          resumeWindowIndex, providerResult, result };
+      }
+
+      // All result-bearing attempt records must belong to a verified chain. The
+      // only allowed trailing attempt is an explicitly stopped retry with no result.
+      const resultAttemptEventTypes = new Set(['prepared', 'dispatch-started', 'provider-outcome',
+        'result-prepared', 'persisting', 'terminal', 'resume-window',
+        'contract-mapping-blocked', 'budget-exhausted', 'cancelled-before-dispatch']);
+      const orphanIds = new Set(entries.filter(item => resultAttemptEventTypes.has(item.type)
+        && item.attempt_id !== undefined && !seenAttempts.has(item.attempt_id))
+        .map(item => item.attempt_id));
+      if (orphanIds.size > 0) {
+        if (orphanIds.size !== 1 || !priorChain || priorChain.resumeWindowIndex === undefined) {
+          return reconciliationRequired();
+        }
+        const [orphanId] = orphanIds;
+        const orphanEvents = entries.filter(item => resultAttemptEventTypes.has(item.type)
+          && item.attempt_id === orphanId);
+        const ofType = type => orphanEvents.filter(item => item.type === type);
+        const orphanPrepared = ofType('prepared');
+        const orphanDispatches = ofType('dispatch-started');
+        const orphanOutcomes = ofType('provider-outcome');
+        const orphanStops = orphanEvents.filter(item => ['contract-mapping-blocked',
+          'budget-exhausted', 'cancelled-before-dispatch'].includes(item.type));
+        const orphanResults = orphanEvents.filter(item => ['result-prepared', 'persisting',
+          'terminal', 'resume-window'].includes(item.type));
+        const stopCounts = new Map();
+        for (const item of orphanStops) stopCounts.set(item.type, (stopCounts.get(item.type) ?? 0) + 1);
+        if (orphanPrepared.length !== 1 || orphanDispatches.length > 1 || orphanOutcomes.length > 1
+          || orphanStops.length < 1 || [...stopCounts.values()].some(count => count > 1) || orphanResults.length !== 0
+          || orphanPrepared[0].retry_of_attempt_id !== priorChain.attemptId
+          || !isResourceId(orphanId) || !isExecutionId(orphanPrepared[0].execution_id)
+          || entries.indexOf(orphanPrepared[0]) <= priorChain.resumeWindowIndex) {
+          return reconciliationRequired();
+        }
+        const orphanExecutionId = orphanPrepared[0].execution_id;
+        const orphanDispatch = orphanDispatches[0];
+        const orphanOutcome = orphanOutcomes[0];
+        if ((orphanDispatch && (orphanDispatch.execution_id !== orphanExecutionId
+            || orphanDispatch.call_number !== 1
+            || entries.indexOf(orphanDispatch) <= entries.indexOf(orphanPrepared[0])))
+          || (orphanOutcome && (!orphanDispatch || orphanOutcome.execution_id !== orphanExecutionId
+            || orphanOutcome.payload_key !== `provider-outcome:${orphanExecutionId}`
+            || !isDigest(orphanOutcome.sha256) || !Number.isSafeInteger(orphanOutcome.byte_size)
+            || entries.indexOf(orphanOutcome) <= entries.indexOf(orphanDispatch)))) {
+          return reconciliationRequired();
+        }
+        if (orphanOutcome) {
+          const orphanOutcomeBytes = verifiedBlobs.get(orphanOutcome.payload_key);
+          let orphanProviderResult;
+          try { orphanProviderResult = JSON.parse(orphanOutcomeBytes.toString('utf8')); } catch {
+            return reconciliationRequired();
+          }
+          if (!orphanProviderResult || !validateExecutionDocument(orphanProviderResult).valid
+            || orphanProviderResult.execution_id !== orphanExecutionId
+            || orphanProviderResult.status !== orphanOutcome.status) return reconciliationRequired();
+        }
+        const lastAttemptIndex = entries.indexOf(orphanOutcome ?? orphanDispatch ?? orphanPrepared[0]);
+        const stopIndices = orphanStops.map(item => entries.indexOf(item));
+        const closedEvents = entries.filter(item => item.type === 'job-closed');
+        if (orphanStops.some(item => item.execution_id !== undefined
+            && item.execution_id !== orphanExecutionId)
+          || stopIndices.some(index => index <= lastAttemptIndex)
+          || (closedEvents.length === 1 && (entries.at(-1) !== closedEvents[0]
+            || entries.indexOf(closedEvents[0]) <= Math.max(...stopIndices)))
+          || (closedEvents.length === 0 && (orphanStops.length !== 1
+            || orphanStops[0].type !== 'contract-mapping-blocked'))) return reconciliationRequired();
       }
     }
 
@@ -2231,7 +2363,9 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     const dispatched = entries.some(item => item.type === 'dispatch-started');
     const outcomeRecorded = entries.some(item => item.type === 'provider-outcome');
     const budgetExhausted = entries.some(item => item.type === 'budget-exhausted');
-    if (terminal) return recoveryDiagnostic('terminal');
+    if (terminal) return recoveryDiagnostic(resultPrepared.length > 0 ? 'terminal'
+      : blocked ? 'contract-mapping-blocked'
+        : budgetExhausted ? 'budget-exhausted' : 'closed-without-result');
 
     const resumeClassification = classifyResumeCandidate(jobId, entries, admitted, verifiedBlobs);
     if (resumeClassification) {
