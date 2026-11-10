@@ -144,11 +144,48 @@ test('reopened local store reports a read-only candidate at the inclusive retry 
   });
 
   const inspected = restarted.inspectRecovery(seeded.jobId);
-  assert.equal(inspected.status, 'resume-candidate');
-  assert.equal(inspected.authority_check_required, true);
-  assert.equal(inspected.read_only, true);
-  assert.equal(inspected.writes_performed, 0);
-  assert.equal(inspected.provider_calls_performed, 0);
+  assert.deepEqual(inspected, {
+    status: 'resume-candidate',
+    stage: 'resume',
+    code: 'RESUME_CANDIDATE',
+    read_only: true,
+    no_writes: true,
+    no_provider_calls: true,
+    authority_check_required: true
+  });
+
+  const result = seeded.result.result;
+  const events = reopened.readEvents(seeded.jobId);
+  const resultPrepared = events.filter(item => item.type === 'result-prepared');
+  const persisting = events.filter(item => item.type === 'persisting');
+  const terminal = events.filter(item => item.type === 'terminal');
+  assert.equal(resultPrepared.length, 1);
+  assert.equal(persisting.length, 1);
+  assert.equal(terminal.length, 1);
+  for (const link of [resultPrepared[0], persisting[0], terminal[0]]) {
+    assert.equal(link.attempt_id, seeded.result.attempt_id);
+    assert.equal(link.execution_id, seeded.result.execution_id);
+    assert.equal(link.result_id, result.result_id);
+    assert.equal(link.result_byte_size, Buffer.byteLength(canonicalJson(result)));
+    assert.equal(link.result_sha256, `sha256:${createHash('sha256').update(canonicalJson(result)).digest('hex')}`);
+  }
+  assert.equal(resultPrepared[0].status, 'failed');
+  const resultBytes = reopened.readImmutable(`result:${result.result_id}`);
+  assert.ok(Buffer.isBuffer(resultBytes));
+  assert.equal(resultBytes.toString('utf8'), canonicalJson(result));
+  assert.deepEqual(result.outputs, []);
+  const outcome = events.find(item => item.type === 'provider-outcome');
+  assert.equal(outcome.attempt_id, seeded.result.attempt_id);
+  assert.equal(outcome.execution_id, seeded.result.execution_id);
+  assert.equal(outcome.status, 'failed');
+  assert.equal(outcome.payload_key, `provider-outcome:${seeded.result.execution_id}`);
+  const resumeWindow = events.find(item => item.type === 'resume-window');
+  assert.equal(resumeWindow.terminal_result_id, result.result_id);
+  const diagnostic = JSON.stringify(inspected);
+  for (const value of [seeded.jobId, seeded.result.attempt_id, seeded.result.execution_id,
+    result.result_id, outcome.payload_key, resultPrepared[0].result_sha256]) {
+    assert.equal(diagnostic.includes(value), false);
+  }
   assert.equal(reopened.eventCount, beforeEvents);
   assert.equal(reopened.blobCount, beforeBlobs);
   assert.equal(resumeClaimCalls(), 0);
