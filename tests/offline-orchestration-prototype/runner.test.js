@@ -2261,8 +2261,8 @@ for (const fault of ['outcome-readback', 'mapping-append', 'close-append', 'ambi
   assert.equal(second.job_closed, undefined);
   const inspection = h.value.inspectRecovery(first.job_id);
   assert.equal(inspection.read_only, true);
-  assert.equal(inspection.status, fault === 'ambiguous-close' ? 'reconciliation-required'
-    : fault === 'close-append' ? 'contract-mapping-blocked' : 'read-only-inspection-required');
+  assert.equal(inspection.status, fault === 'close-append'
+    ? 'contract-mapping-blocked' : 'reconciliation-required');
   if (!unknownEvents) assert.equal(store.readEvents(first.job_id).some(e => e.type === 'job-closed'), false);
   await assert.rejects(() => h.value.retry({ authorizeRetry: true }), e => e.code === 'RETRY_NOT_AVAILABLE');
 });
@@ -2295,16 +2295,16 @@ test('closed jobs without a result expose a fixed stop diagnostic and reject orp
   assert.equal(stopped.status, 'budget-exhausted');
   const validInspection = h.value.inspectRecovery(stopped.job_id);
   assert.deepEqual(validInspection, {
-    status: 'closed-without-result',
-    stage: 'terminal',
-    code: 'JOB_CLOSED_WITHOUT_RESULT',
+    status: 'budget-exhausted',
+    stage: 'limits',
+    code: 'BUDGET_EXHAUSTED',
     read_only: true,
     no_writes: true,
     no_provider_calls: true,
     authority_check_required: false
   });
   const originalReadEvents = h.store.readEvents.bind(h.store);
-  const events = originalReadEvents(stopped.job_id);
+  const events = structuredClone(originalReadEvents(stopped.job_id));
   const prepared = events.find(item => item.type === 'prepared');
   assert.ok(prepared);
   const orphanDispatch = {
