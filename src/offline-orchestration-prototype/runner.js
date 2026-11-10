@@ -2169,8 +2169,9 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
             || stop.execution_id !== executionId
             || !Number.isSafeInteger(admitted.deadline_monotonic_ms)
             || stop.deadline_monotonic_ms !== admitted.deadline_monotonic_ms
-            || entries.indexOf(stop) <= entries.indexOf(outcome)
-            || entries.indexOf(stop) >= entries.indexOf(preparedResult)) return reconciliationRequired();
+            || entries.indexOf(stop) <= entries.indexOf(dispatch)
+            || entries.indexOf(stop) >= entries.indexOf(outcome)
+            || entries.indexOf(outcome) >= entries.indexOf(preparedResult)) return reconciliationRequired();
         }
         if (priorChain) {
           const priorWindows = matching('resume-window', priorChain.attemptId);
@@ -2445,6 +2446,25 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       const noResultStopCounts = new Map();
       for (const item of noResultStops) noResultStopCounts.set(item.type, (noResultStopCounts.get(item.type) ?? 0) + 1);
       if ([...noResultStopCounts.values()].some(count => count > 1)) return reconciliationRequired();
+      const jobScopedBudgetStopsWithoutResult = noResultStops.filter(item =>
+        item.type === 'budget-exhausted' && item.attempt_id === undefined);
+      if (jobScopedBudgetStopsWithoutResult.length > 1) return reconciliationRequired();
+      if (jobScopedBudgetStopsWithoutResult.length === 1) {
+        const [stop] = jobScopedBudgetStopsWithoutResult;
+        const closed = entries.filter(item => item.type === 'job-closed');
+        const timeStopKeys = ['deadline_monotonic_ms', 'job_id', 'reason', 'type'];
+        const materialStopKeys = ['job_id', 'reason', 'type'];
+        const expectedKeys = stop.reason === 'time' ? timeStopKeys
+          : ['prompt', 'material'].includes(stop.reason) ? materialStopKeys : [];
+        if (attemptIds.size !== 0 || expectedKeys.length === 0
+          || Object.keys(stop).sort().join('|') !== [...expectedKeys].sort().join('|')
+          || stop.job_id !== jobId || stop.type !== 'budget-exhausted'
+          || (stop.reason === 'time' && (!Number.isSafeInteger(admitted.deadline_monotonic_ms)
+            || stop.deadline_monotonic_ms !== admitted.deadline_monotonic_ms))
+          || closed.length !== 1 || closed[0].reason !== `budget-${stop.reason}`
+          || entries.indexOf(stop) >= entries.indexOf(closed[0])
+          || entries.at(-1) !== closed[0]) return reconciliationRequired();
+      }
       if (attemptIds.size === 1) {
         const [attemptId] = attemptIds;
         const attemptRecords = noResultAttemptRecords.filter(item => item.attempt_id === attemptId);
