@@ -368,8 +368,8 @@ test('reopened inspection rejects orphan attempt lifecycle records without expos
       t.after(() => rmSync(root, { recursive: true, force: true }));
       const store = new LocalFilePrototypeStore(root);
       let calls = 0;
-      const completed = await prototype(store, () => { calls++; }).submit({ productionSource });
-      const entries = store.readEvents(completed.job_id);
+      const completed = await prototype(store, ({ phase }) => { if (phase === 'dispatch-confirmed') calls++; }).submit({ productionSource });
+      const entries = structuredClone(store.readEvents(completed.job_id));
       const source = entries.find(item => item.type === orphanType);
       assert.ok(source);
       const orphan = structuredClone(source);
@@ -409,8 +409,8 @@ test('reopened inspection reconciles absent and non-object prepared production b
       t.after(() => rmSync(root, { recursive: true, force: true }));
       const store = new LocalFilePrototypeStore(root);
       let calls = 0;
-      const completed = await prototype(store, () => { calls++; }).submit({ productionSource });
-      const entries = store.readEvents(completed.job_id);
+      const completed = await prototype(store, ({ phase }) => { if (phase === 'dispatch-confirmed') calls++; }).submit({ productionSource });
+      const entries = structuredClone(store.readEvents(completed.job_id));
       const prepared = entries.find(item => item.type === 'prepared');
       assert.ok(prepared);
       if (corruption === 'absent') delete prepared.production;
@@ -444,7 +444,7 @@ test('reopened inspection rejects a 1.1.0 no-output result paired with a success
   t.after(() => rmSync(successRoot, { recursive: true, force: true }));
   const failedStore = new LocalFilePrototypeStore(root);
   let calls = 0;
-  const failed = await prototype(failedStore, () => { calls++; }).submit({
+  const failed = await prototype(failedStore, ({ phase }) => { if (phase === 'dispatch-confirmed') calls++; }).submit({
     productionSource,
     noOutputResultVersion: '1.1.0',
     mockOutcome: { kind: 'rate-limit', retry_after_ms: 10 }
@@ -457,7 +457,7 @@ test('reopened inspection rejects a 1.1.0 no-output result paired with a success
   successOutcome.execution_id = failed.execution_id;
   if (Object.hasOwn(successOutcome, 'idempotency_key')) successOutcome.idempotency_key = `idem-${failed.execution_id}`;
   const bytes = Buffer.from(canonicalJson(successOutcome), 'utf8');
-  const entries = failedStore.readEvents(failed.job_id);
+  const entries = structuredClone(failedStore.readEvents(failed.job_id));
   const outcome = entries.find(item => item.type === 'provider-outcome');
   outcome.status = 'succeeded';
   outcome.byte_size = bytes.byteLength;
@@ -487,14 +487,16 @@ test('reopened v1.0 result inspection checks production-output compatibility aft
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const store = new LocalFilePrototypeStore(root);
   let calls = 0;
-  const completed = await prototype(store, () => { calls++; }).submit({ productionSource });
+  const completed = await prototype(store, ({ phase }) => { if (phase === 'dispatch-confirmed') calls++; }).submit({ productionSource });
   const resultKey = `result:${completed.result.result_id}`;
   const result = JSON.parse(store.readImmutable(resultKey).toString('utf8'));
   assert.equal(result.spec_version, '1.0.0');
   result.outputs[0].rendition_id = 'tampered-rendition';
-  result.private_content = 'COMPATIBILITY-PRIVATE-CONTENT-SENTINEL';
   const bytes = Buffer.from(canonicalJson(result), 'utf8');
-  const entries = store.readEvents(completed.job_id);
+  const entries = structuredClone(store.readEvents(completed.job_id));
+  const terminal = entries.find(item => item.type === 'terminal');
+  assert.ok(terminal);
+  terminal.private_content = 'COMPATIBILITY-PRIVATE-CONTENT-SENTINEL';
   for (const item of entries) {
     if (['result-prepared', 'persisting', 'terminal'].includes(item.type)) {
       item.result_byte_size = bytes.byteLength;
@@ -527,8 +529,11 @@ test('reopened no-result close requires its linked stop and rejects orphan dispa
   const store = new LocalFilePrototypeStore(root);
   let calls = 0;
   const controller = new AbortController();
-  controller.abort();
-  const stopped = await prototype(store, () => { calls++; }).submit({
+  const value = prototype(store, ({ phase }) => {
+    if (phase === 'created') controller.abort();
+    if (phase === 'dispatch-confirmed') calls++;
+  });
+  const stopped = await value.submit({
     productionSource,
     signal: controller.signal
   });
@@ -537,7 +542,7 @@ test('reopened no-result close requires its linked stop and rejects orphan dispa
   const validInspection = prototype(store).inspectRecovery(stopped.job_id);
   assert.equal(validInspection.status, 'closed-without-result');
   assert.equal(validInspection.code, 'JOB_CLOSED_WITHOUT_RESULT');
-  const entries = store.readEvents(stopped.job_id);
+  const entries = structuredClone(store.readEvents(stopped.job_id));
   const prepared = entries.find(item => item.type === 'prepared');
   assert.ok(prepared);
   const orphanDispatch = {
