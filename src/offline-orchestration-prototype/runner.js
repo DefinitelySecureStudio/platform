@@ -46,6 +46,25 @@ const EXPECTED_EXECUTION_SCOPE = Object.freeze({
   revision: 1,
   identity_sha256: EXPECTED_PRODUCTION_SHA256
 });
+const RECOVERY_EVENT_TYPES = new Set([
+  'admitted', 'authorization-blocked', 'budget-exhausted', 'cancelled-before-dispatch',
+  'closed-without-retry', 'contract-mapping-blocked', 'dispatch-started', 'job-closed',
+  'persisting', 'prepared', 'provider-outcome', 'result-prepared', 'resume-window', 'terminal'
+]);
+const RECOVERY_DIAGNOSTIC_STATES = Object.freeze({
+  'not-found': Object.freeze({ stage: 'lookup', code: 'RECORD_NOT_FOUND' }),
+  'reconciliation-required': Object.freeze({ stage: 'integrity', code: 'RECONCILIATION_REQUIRED' }),
+  terminal: Object.freeze({ stage: 'terminal', code: 'TERMINAL_RESULT_VERIFIED' }),
+  'resume-candidate': Object.freeze({ stage: 'resume', code: 'RESUME_CANDIDATE' }),
+  'resume-window-empty': Object.freeze({ stage: 'resume', code: 'RESUME_WINDOW_EMPTY' }),
+  'retry-delay-not-elapsed': Object.freeze({ stage: 'resume', code: 'RETRY_DELAY_NOT_ELAPSED' }),
+  'resume-not-eligible': Object.freeze({ stage: 'resume', code: 'RESUME_NOT_ELIGIBLE' }),
+  'deadline-unverifiable': Object.freeze({ stage: 'time', code: 'DEADLINE_UNVERIFIABLE' }),
+  'budget-exhausted': Object.freeze({ stage: 'limits', code: 'BUDGET_EXHAUSTED' }),
+  'contract-mapping-blocked': Object.freeze({ stage: 'mapping', code: 'CONTRACT_MAPPING_BLOCKED' }),
+  'execution-unresolved': Object.freeze({ stage: 'execution', code: 'EXECUTION_UNRESOLVED' }),
+  'read-only-inspection-required': Object.freeze({ stage: 'inspection', code: 'INSPECTION_REQUIRED' })
+});
 
 const defaultRuntime = Object.freeze({
   now: () => Math.floor(performance.now()),
@@ -68,6 +87,21 @@ function freezeDeep(value, seen = new WeakSet()) {
   seen.add(value);
   for (const child of Object.values(value)) freezeDeep(child, seen);
   return Object.freeze(value);
+}
+
+function recoveryDiagnostic(status) {
+  const safeStatus = Object.prototype.hasOwnProperty.call(RECOVERY_DIAGNOSTIC_STATES, status)
+    ? status : 'reconciliation-required';
+  const { stage, code } = RECOVERY_DIAGNOSTIC_STATES[safeStatus];
+  return freezeDeep({
+    status: safeStatus,
+    stage,
+    code,
+    read_only: true,
+    no_writes: true,
+    no_provider_calls: true,
+    authority_check_required: safeStatus === 'resume-candidate'
+  });
 }
 
 function digest(bytes) {
@@ -2000,17 +2034,21 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
 
   function inspectRecoveryCore(jobId, { beforeProtectedRead, onCandidate } = {}) {
     if (typeof jobId !== 'string' || !jobId) throw new OfflineOrchestrationError('INVALID_JOB_ID');
+    const reconciliationRequired = () => recoveryDiagnostic('reconciliation-required');
     let entries;
     try { entries = store.readEvents(jobId); } catch {
-      return freezeDeep({ kind: 'recovery-inspection', status: 'reconciliation-required', job_id: jobId, read_only: true });
+      return reconciliationRequired();
     }
     if (entries === UNKNOWN_STORE_STATE || !Array.isArray(entries)) {
-      return freezeDeep({ kind: 'recovery-inspection', status: 'reconciliation-required', job_id: jobId, read_only: true });
+      return reconciliationRequired();
     }
-    if (entries.length === 0) return freezeDeep({ kind: 'recovery-inspection', status: 'not-found', job_id: jobId, read_only: true });
-    const admitted = entries.find(item => item.type === 'admitted');
-    if (!admitted || entries.filter(item => item.type === 'admitted').length !== 1) {
-      return freezeDeep({ kind: 'recovery-inspection', status: 'reconciliation-required', job_id: jobId, read_only: true });
+    if (entries.length === 0) return recoveryDiagnostic('not-found');
+    const admittedEvents = entries.filter(item => item?.type === 'admitted');
+    const admitted = admittedEvents[0];
+    if (!admitted || admittedEvents.length !== 1
+      || entries.some(item => !item || typeof item !== 'object' || Array.isArray(item)
+        || item.job_id !== jobId || typeof item.type !== 'string' || !RECOVERY_EVENT_TYPES.has(item.type))) {
+      return reconciliationRequired();
     }
     const verifiedBlobs = new Map();
     const readVerifiedBlob = (key, expectedSize, expectedSha) => {
@@ -2028,65 +2066,187 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
     const verifyBlob = (key, expectedSize, expectedSha) => readVerifiedBlob(key, expectedSize, expectedSha) !== false;
     if (!verifyBlob(admitted.input_key, admitted.input_byte_size, admitted.input_sha256)
       || !verifyBlob(admitted.prompt_key, admitted.prompt_byte_size, admitted.prompt_sha256)) {
-      return freezeDeep({ kind: 'recovery-inspection', status: 'reconciliation-required', job_id: jobId, read_only: true });
+      return reconciliationRequired();
     }
     for (const item of entries) {
       if (item.type === 'provider-outcome'
         && !verifyBlob(item.payload_key, item.byte_size, item.sha256)) {
-        return freezeDeep({ kind: 'recovery-inspection', status: 'reconciliation-required', job_id: jobId, read_only: true });
+        return reconciliationRequired();
       }
       if (item.type === 'persisting' || item.type === 'terminal') {
         const resultBytes = readVerifiedBlob(`result:${item.result_id}`, item.result_byte_size, item.result_sha256);
-        if (resultBytes === false) {
-          return freezeDeep({ kind: 'recovery-inspection', status: 'reconciliation-required', job_id: jobId, read_only: true });
-        }
+        if (resultBytes === false) return reconciliationRequired();
         let result;
         try { result = JSON.parse(resultBytes.toString('utf8')); } catch {
-          return freezeDeep({ kind: 'recovery-inspection', status: 'reconciliation-required', job_id: jobId, read_only: true });
+          return reconciliationRequired();
         }
-        for (const output of result.outputs ?? []) {
+        if (!result || typeof result !== 'object' || Array.isArray(result) || !Array.isArray(result.outputs)) {
+          return reconciliationRequired();
+        }
+        for (const output of result.outputs) {
+          if (!output || typeof output !== 'object' || Array.isArray(output)) return reconciliationRequired();
           const artifact = output.artifact;
-          if (!artifact || !verifyBlob(`artifact:${artifact.artifact_uri}`, artifact.byte_size, artifact.sha256)) {
-            return freezeDeep({ kind: 'recovery-inspection', status: 'reconciliation-required', job_id: jobId, read_only: true });
+          if (!artifact || typeof artifact !== 'object' || Array.isArray(artifact)
+            || !verifyBlob(`artifact:${artifact.artifact_uri}`, artifact.byte_size, artifact.sha256)) {
+            return reconciliationRequired();
           }
         }
       }
     }
-    const last = entries.at(-1);
-    const terminal = entries.some(item => item.type === 'job-closed');
+
+    const resultPrepared = entries.filter(item => item.type === 'result-prepared');
+    const persisting = entries.filter(item => item.type === 'persisting');
+    const terminals = entries.filter(item => item.type === 'terminal');
+    if (resultPrepared.length !== persisting.length || resultPrepared.length !== terminals.length) {
+      return reconciliationRequired();
+    }
+    if (resultPrepared.length > 0) {
+      const productionBytes = verifiedBlobs.get(admitted.input_key);
+      let production;
+      try {
+        production = readProduction(productionBytes.toString('utf8'));
+        if (!productionBytes.equals(Buffer.from(production.canonical, 'utf8'))
+          || canonicalJson(admitted.production) !== canonicalJson(production.reference)) {
+          return reconciliationRequired();
+        }
+      } catch {
+        return reconciliationRequired();
+      }
+
+      const seenAttempts = new Set();
+      const seenExecutions = new Set();
+      const seenResults = new Set();
+      let priorChain;
+      const matching = (type, attemptId) => entries.filter(item => item.type === type && item.attempt_id === attemptId);
+      const isResourceId = value => typeof value === 'string' && value.startsWith('urn:uuid:')
+        && UUID.test(value.slice('urn:uuid:'.length));
+      const isExecutionId = value => typeof value === 'string' && value.startsWith('exec-offline-')
+        && UUID.test(value.slice('exec-offline-'.length));
+      const isDigest = value => typeof value === 'string' && /^sha256:[0-9a-f]{64}$/.test(value);
+      for (const preparedResult of resultPrepared) {
+        const { attempt_id: attemptId, execution_id: executionId, result_id: resultId,
+          result_byte_size: byteSize, result_sha256: sha256, status } = preparedResult;
+        if (!isResourceId(attemptId) || !isExecutionId(executionId) || !isResourceId(resultId)
+          || !Number.isSafeInteger(byteSize) || byteSize < 0 || !isDigest(sha256)
+          || !['complete', 'failed'].includes(status)
+          || seenAttempts.size >= OFFLINE_ORCHESTRATION_LIMITS.maxAttemptsPerJob
+          || seenAttempts.has(attemptId) || seenExecutions.has(executionId) || seenResults.has(resultId)) {
+          return reconciliationRequired();
+        }
+        seenAttempts.add(attemptId);
+        seenExecutions.add(executionId);
+        seenResults.add(resultId);
+
+        const preparedAttempts = matching('prepared', attemptId);
+        const dispatches = matching('dispatch-started', attemptId);
+        const outcomes = matching('provider-outcome', attemptId);
+        const persistingMatches = matching('persisting', attemptId);
+        const terminalMatches = matching('terminal', attemptId);
+        if (preparedAttempts.length !== 1 || dispatches.length !== 1 || outcomes.length !== 1
+          || persistingMatches.length !== 1 || terminalMatches.length !== 1) return reconciliationRequired();
+        const [prepared] = preparedAttempts;
+        const [dispatch] = dispatches;
+        const [outcome] = outcomes;
+        const [persistingRecord] = persistingMatches;
+        const [terminal] = terminalMatches;
+        const ordered = [prepared, dispatch, outcome, preparedResult, persistingRecord, terminal]
+          .map(item => entries.indexOf(item));
+        if (ordered.some((index, position) => index < 0
+          || (position > 0 && index <= ordered[position - 1]))) return reconciliationRequired();
+
+        if (prepared.execution_id !== executionId || dispatch.execution_id !== executionId
+          || outcome.execution_id !== executionId || persistingRecord.execution_id !== executionId
+          || terminal.execution_id !== executionId || persistingRecord.result_id !== resultId
+          || terminal.result_id !== resultId || persistingRecord.result_byte_size !== byteSize
+          || terminal.result_byte_size !== byteSize || persistingRecord.result_sha256 !== sha256
+          || terminal.result_sha256 !== sha256 || persistingRecord.attempt_id !== attemptId
+          || terminal.attempt_id !== attemptId || preparedResult.job_id !== jobId
+          || outcome.payload_key !== `provider-outcome:${executionId}` || !isDigest(outcome.sha256)
+          || !Number.isSafeInteger(outcome.byte_size) || outcome.byte_size < 0
+          || !Number.isSafeInteger(dispatch.call_number) || dispatch.call_number < 1
+          || canonicalJson(prepared.production) !== canonicalJson(admitted.production)) {
+          return reconciliationRequired();
+        }
+
+        const outcomeBytes = verifiedBlobs.get(outcome.payload_key);
+        const resultBytes = verifiedBlobs.get(`result:${resultId}`);
+        if (!Buffer.isBuffer(outcomeBytes) || !Buffer.isBuffer(resultBytes)) return reconciliationRequired();
+        let providerResult;
+        let result;
+        try {
+          const outcomeSource = outcomeBytes.toString('utf8');
+          const resultSource = resultBytes.toString('utf8');
+          providerResult = JSON.parse(outcomeSource);
+          result = JSON.parse(resultSource);
+          if (!outcomeBytes.equals(Buffer.from(canonicalJson(providerResult), 'utf8'))
+            || !resultBytes.equals(Buffer.from(canonicalJson(result), 'utf8'))) return reconciliationRequired();
+        } catch {
+          return reconciliationRequired();
+        }
+        if (!providerResult || typeof providerResult !== 'object' || Array.isArray(providerResult)
+          || !result || typeof result !== 'object' || Array.isArray(result)
+          || !admitted.production || typeof admitted.production !== 'object' || Array.isArray(admitted.production)
+          || !prepared.production || typeof prepared.production !== 'object' || Array.isArray(prepared.production)) {
+          return reconciliationRequired();
+        }
+        if ((!priorChain && prepared.retry_of_attempt_id !== null)
+          || (priorChain && (prepared.retry_of_attempt_id !== priorChain.attemptId
+            || priorChain.result.status !== 'failed' || priorChain.result.outputs.length !== 0
+            || !eligibleRateLimit(priorChain.providerResult)))) return reconciliationRequired();
+        let resultValidation;
+        try {
+          resultValidation = result.spec_version === '1.1.0'
+            ? validateComicBuildResultCandidate(canonicalJson(result), production.canonical)
+            : result.spec_version === '1.0.0' ? validateComicManifest(canonicalJson(result)) : { valid: false };
+          if (!validateExecutionDocument(providerResult).valid
+            || providerResult.execution_id !== executionId || providerResult.status !== outcome.status
+            || result.result_id !== resultId || result.attempt_id !== attemptId || result.status !== status
+            || canonicalJson(prepared.production) !== canonicalJson(admitted.production)
+            || canonicalJson(result.production) !== canonicalJson(admitted.production)
+            || !resultValidation.valid) return reconciliationRequired();
+          if (result.status === 'complete') {
+            if (providerResult.status !== 'succeeded' || typeof providerResult.output?.content !== 'string'
+              || result.outputs.length !== 1) return reconciliationRequired();
+            const outputBytes = Buffer.from(providerResult.output.content, 'utf8');
+            const artifact = result.outputs[0].artifact;
+            const storedArtifact = verifiedBlobs.get(`artifact:${artifact.artifact_uri}`);
+            if (!Buffer.isBuffer(storedArtifact) || !storedArtifact.equals(outputBytes)
+              || artifact.byte_size !== outputBytes.byteLength || artifact.sha256 !== digest(outputBytes)) {
+              return reconciliationRequired();
+            }
+          } else if (result.outputs.length !== 0) return reconciliationRequired();
+        } catch {
+          return reconciliationRequired();
+        }
+        priorChain = { attemptId, providerResult, result };
+      }
+    }
+
+    const closedEvents = entries.filter(item => item.type === 'job-closed');
+    if (closedEvents.length > 1 || (closedEvents.length === 1 && entries.at(-1) !== closedEvents[0])) {
+      return reconciliationRequired();
+    }
+    const terminal = closedEvents.length === 1;
     const blocked = entries.some(item => item.type === 'contract-mapping-blocked');
     const dispatched = entries.some(item => item.type === 'dispatch-started');
     const outcomeRecorded = entries.some(item => item.type === 'provider-outcome');
     const budgetExhausted = entries.some(item => item.type === 'budget-exhausted');
-    if (terminal) {
-      return freezeDeep({ kind: 'recovery-inspection', status: 'terminal', last_lifecycle_event: last.type,
-        job_id: jobId, read_only: true, writes_performed: 0, provider_calls_performed: 0 });
-    }
+    if (terminal) return recoveryDiagnostic('terminal');
+
     const resumeClassification = classifyResumeCandidate(jobId, entries, admitted, verifiedBlobs);
     if (resumeClassification) {
       if (resumeClassification.candidate) onCandidate?.(resumeClassification.candidate);
-      return freezeDeep({ kind: 'recovery-inspection', status: resumeClassification.status,
-        ...(resumeClassification.status === 'resume-candidate' ? { authority_check_required: true } : {}),
-        last_lifecycle_event: last.type, job_id: jobId, read_only: true,
-        writes_performed: 0, provider_calls_performed: 0 });
+      return recoveryDiagnostic(resumeClassification.status);
     }
     const clock = safeClock(runtime);
     const deadlineUnverifiable = !clock || clock.epochId !== admitted.clock_epoch_id
       || !Number.isSafeInteger(admitted.deadline_monotonic_ms);
     const deadlineExpired = !deadlineUnverifiable && clock.now >= admitted.deadline_monotonic_ms;
-    return freezeDeep({ kind: 'recovery-inspection',
-      status: blocked ? 'contract-mapping-blocked'
-        : deadlineUnverifiable ? 'deadline-unverifiable'
-          : budgetExhausted || deadlineExpired ? 'budget-exhausted'
-            : dispatched && !outcomeRecorded ? 'execution-unresolved' : 'read-only-inspection-required',
-      last_lifecycle_event: last.type,
-      job_id: jobId,
-      read_only: true,
-      writes_performed: 0,
-      provider_calls_performed: 0
-    });
+    return recoveryDiagnostic(blocked ? 'contract-mapping-blocked'
+      : deadlineUnverifiable ? 'deadline-unverifiable'
+        : budgetExhausted || deadlineExpired ? 'budget-exhausted'
+          : dispatched && !outcomeRecorded ? 'execution-unresolved' : 'read-only-inspection-required');
   }
-
   function inspectRecovery(jobId) {
     return inspectRecoveryCore(jobId);
   }
