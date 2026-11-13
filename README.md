@@ -162,3 +162,8 @@ publishing.
 The [offline orchestration prototype](docs/offline-orchestration-prototype.md)
 is an experimental in-memory mock flow for one exact synthetic fixture. It does
 not enable real-provider or production execution.
+
+## Synthetic operator handoff
+
+See the [offline operator runbook](docs/offline-operator-runbook.md) for the
+bounded synthetic workflow, stop/recovery decisions and clean-checkout replay.
