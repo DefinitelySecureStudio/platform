@@ -27,8 +27,8 @@ with uncommitted changes or reused dependencies is not clean-checkout evidence.
 npm ci
 # Installation may use the package registry. The following checks are offline.
 export NODE_OPTIONS="--import=$PWD/tests/support/offline-network-tripwire.mjs"
-npm test
-npm run test:comic-manifest-conformance
+node --test
+node scripts/check-comic-manifest-conformance.mjs
 node scripts/check-context-builder.mjs
 node scripts/check-offline-operator-replay.mjs
 ```
@@ -36,6 +36,8 @@ node scripts/check-offline-operator-replay.mjs
 All commands must exit zero. Retain complete logs, not only the final line.
 The tripwire blocks the instrumented Node network APIs and is not an OS network
 sandbox. Security tests intentionally exercise a denied network operation.
+Use direct Node commands after enabling the tripwire: npm itself may attempt
+registry update checks, which the tripwire correctly rejects.
 Never install provider credentials or production data for these commands.
 The synthetic fixture dates, IDs and clocks are fixed, not real authorization.
 
