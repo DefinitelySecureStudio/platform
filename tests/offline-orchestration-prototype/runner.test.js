@@ -1904,6 +1904,8 @@ test('retry authority is rechecked after asynchronous mock preflight', async () 
   const clock = createRuntime();
   const authority = authorityFixture();
   let descriptions = 0;
+  let allocatedIds = 0;
+  const freshId = idFactory();
   const mocks = [];
   class RevokingMock extends MockTextAdapter {
     async describe() {
@@ -1913,12 +1915,24 @@ test('retry authority is rechecked after asynchronous mock preflight', async () 
   }
   const h = runner({
     runtime: clock.runtime,
+    idFactory: () => { allocatedIds++; return freshId(); },
     executionAuthorityProvider: authority.verifier,
     mockAdapterFactory: configuration => { const mock = new RevokingMock(configuration); mocks.push(mock); return mock; }
   });
   const first = await h.value.submit(candidateOptions);
+  const beforeIds = allocatedIds;
+  const beforeEvents = h.store.readEvents(first.job_id);
+  const beforeBlobs = h.store.blobCount;
+  const firstResultKey = `result:${first.result.result_id}`;
+  const firstResultBytes = h.store.readImmutable(firstResultKey);
   clock.advance(10);
-  assert.equal((await h.value.retry({ authorizeRetry: true })).status, 'authorization-denied');
+  await assert.rejects(() => h.value.retry({ authorizeRetry: true }),
+    error => error.code === 'EXECUTION_AUTHORITY_DENIED');
+  assert.equal(allocatedIds, beforeIds);
+  assert.deepEqual(h.store.readEvents(first.job_id), beforeEvents);
+  assert.equal(h.store.blobCount, beforeBlobs);
+  assert.deepEqual(h.store.readImmutable(firstResultKey), firstResultBytes);
+  assert.deepEqual(mocks.map(mock => mock.calls.length), [1, 0]);
   assert.equal(mocks.reduce((count, mock) => count + mock.calls.length, 0), 1);
   assert.equal(h.store.readEvents(first.job_id).filter(e => e.type === 'dispatch-started').length, 1);
 });
@@ -1930,12 +1944,15 @@ test('retry evidence is revalidated after final authority await before mock disp
     unknownBlob: key => unknownEvidence && key.startsWith('provider-outcome:')
   });
   const authority = authorityFixture();
-  let retryVerifications = 0;
+  let jobId;
   const provider = {
     ...authority.verifier,
     async verify(request) {
       const evidence = await authority.verifier.verify(request);
-      if (request.action === 'retry' && ++retryVerifications === 3) unknownEvidence = true;
+      if (request.action === 'retry'
+        && store.readEvents(jobId).filter(item => item.type === 'dispatch-started').length === 2) {
+        unknownEvidence = true;
+      }
       return evidence;
     }
   };
@@ -1949,6 +1966,7 @@ test('retry evidence is revalidated after final authority await before mock disp
     }
   });
   const first = await h.value.submit(candidateOptions);
+  jobId = first.job_id;
   clock.advance(10);
   const result = await h.value.retry({ authorizeRetry: true });
   assert.equal(result.status, 'reconciliation-required');

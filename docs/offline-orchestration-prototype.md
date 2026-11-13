@@ -404,3 +404,42 @@ compatibility tampering. This does not authenticate
 same-account edits to the local store, establish power-loss durability or
 support for other filesystems, add providers or infrastructure, use production
 data, or close Studio issue #110.
+
+
+## O10 corrective boundaries (2026-11-10)
+
+Ordinary retry refreshes current execution and, when installed, package-use
+authority immediately after asynchronous mock description and before reusing
+the cached prompt, allocating attempt/execution IDs, reserving output material
+or appending a prepared attempt. Cancellation and the original deadline are
+checked again across that authority await. A rejection at this boundary raises
+the fixed authority or deadline error without preparing another attempt; the
+first immutable result is preserved. The final dispatch checks remain in place.
+
+A resumed prepared attempt retains a `resumed_clock` record with its monotonic
+epoch, paired post-claim stable and monotonic samples, and translated monotonic
+deadline. Inspection verifies the exact shape, safe integer bounds, placement
+after the prior resume window, inclusive retry bound, exclusive stable deadline
+and the translation from the original stable deadline. Deadline-stop evidence
+must match that attempt's verified deadline, not the original process's
+unrelated monotonic reading. Same-process records without this optional mapping
+still use the admitted deadline. Missing or inconsistent evidence for a
+translated deadline requires reconciliation. This is local consistency
+validation, not clock authenticity or same-account tamper protection.
+
+A confirmed authorization-denied retry can be inspected as
+`closed-without-result`. It requires a verified eligible first result, one
+fresh prepared retry, an optional single dispatch marker, one exactly linked
+`authorization-blocked` record for action `retry`, and the matching final
+`job-closed` record. No second provider outcome, result or contradictory stop
+may be present. A dispatch marker records intent before the final authority
+gate; the confirmed authorization stop records that the mock effect was denied.
+The prior result remains immutable and is not relabeled as the retry's result.
+Missing, duplicate, misordered or contradictory evidence still fails closed.
+
+Regression coverage includes reopened pre-effect and in-flight resumed deadline
+stops, late execution/package-use denial, cancellation and deadline during retry
+preflight and authority waits, ordinary and resumed authorization stops, and
+corrupted clock/stop evidence. The existing synthetic-only, two-attempt,
+local-file-store scope and all production exclusions remain unchanged. These
+corrections do not close Studio issue #111 or declare a broader O10 pass.

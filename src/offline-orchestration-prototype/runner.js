@@ -972,6 +972,24 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       if (error instanceof OfflineOrchestrationError) throw error;
       throw new OfflineOrchestrationError('INVALID_MOCK_ADAPTER');
     }
+    // Retry preflight may await host code. Refresh every input-use boundary
+    // before touching the cached prompt, allocating IDs or reserving material.
+    // submit/resume supply descriptors whose boundaries were already checked.
+    if (!preflight) {
+      if (useRequest) {
+        const current = await requireContextBoundary(authorizationAction, useRequest, cancellation,
+          job.authorityClock, job.clockEpochId, job.deadlineMonotonicMs);
+        contextEvidence = current.contextEvidence;
+        assertContextBoundaryCurrent(authorizationAction, useRequest, current.executionEvidence,
+          contextEvidence, cancellation, job.authorityClock, job.clockEpochId, job.deadlineMonotonicMs);
+        job.contextUseEvidence = contextEvidence;
+      } else {
+        const evidence = await requireExecutionAuthority(authorizationAction, cancellation, job.authorityClock);
+        const failure = currentAuthorityFailure(evidence, authorizationAction, cancellation, job.authorityClock)
+          ?? hostBoundaryFailure(cancellation, job.clockEpochId, job.deadlineMonotonicMs);
+        if (failure) throw new OfflineOrchestrationError(failure);
+      }
+    }
     if (!(mock instanceof MockTextAdapter) || !validateExecutionDocument(descriptor).valid) {
       throw new OfflineOrchestrationError('MOCK_ADAPTER_REQUIRED');
     }
@@ -1022,6 +1040,7 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       attempt_id: attemptId,
       execution_id: executionId,
       retry_of_attempt_id: retryOfAttemptId ?? null,
+      ...(job.resumedClock ? { resumed_clock: job.resumedClock } : {}),
       production: job.production.reference,
       reservation: {
         prompt_bytes: job.promptBytes.byteLength,
@@ -1881,6 +1900,12 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
         retryNotBefore: undefined, state: 'retry-eligible', closed: false,
         clockEpochId: postClaimMonotonic.epochId, admittedMonotonicMs: postClaimMonotonic.now,
         deadlineMonotonicMs, authorityClock: authorityState,
+        resumedClock: {
+          clock_epoch_id: postClaimMonotonic.epochId,
+          sampled_monotonic_ms: postClaimMonotonic.now,
+          sampled_at_ms: postClaimTime.now,
+          deadline_monotonic_ms: deadlineMonotonicMs
+        },
         resumeTimeState, resumeTimeBounds: timeBounds,
         resumeAuthorityEvidence: authorityEvidence
       };
@@ -2051,6 +2076,37 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
         || item.job_id !== jobId || typeof item.type !== 'string' || !RECOVERY_EVENT_TYPES.has(item.type))) {
       return reconciliationRequired();
     }
+    // A resumed attempt has a different monotonic epoch. Bind its translated
+    // deadline to the original stable-time window rather than comparing the
+    // unrelated absolute monotonic readings. Legacy same-process attempts keep
+    // using the admitted deadline; unverifiable translations fail closed.
+    const preparedDeadlines = new Map();
+    for (const prepared of entries.filter(item => item.type === 'prepared')) {
+      let deadline = admitted.deadline_monotonic_ms;
+      if (Object.hasOwn(prepared, 'resumed_clock')) {
+        const mapping = prepared.resumed_clock;
+        const time = admitted.resume_time;
+        const windows = entries.filter(item => item.type === 'resume-window'
+          && item.attempt_id === prepared.retry_of_attempt_id);
+        const keys = 'clock_epoch_id|deadline_monotonic_ms|sampled_at_ms|sampled_monotonic_ms';
+        if (!mapping || typeof mapping !== 'object' || Array.isArray(mapping)
+          || Object.keys(mapping).sort().join('|') !== keys
+          || typeof mapping.clock_epoch_id !== 'string' || !mapping.clock_epoch_id
+          || !Number.isSafeInteger(mapping.sampled_monotonic_ms) || mapping.sampled_monotonic_ms < 0
+          || !Number.isSafeInteger(mapping.sampled_at_ms) || mapping.sampled_at_ms < 0
+          || !time || time.context_enabled !== false || windows.length !== 1
+          || !Number.isSafeInteger(time.deadline_at_ms)
+          || !Number.isSafeInteger(windows[0].retry_not_before_at_ms)
+          || mapping.sampled_at_ms < windows[0].retry_not_before_at_ms
+          || mapping.sampled_at_ms >= time.deadline_at_ms
+          || entries.indexOf(windows[0]) >= entries.indexOf(prepared)
+          || !Number.isSafeInteger(mapping.deadline_monotonic_ms)
+          || mapping.deadline_monotonic_ms !== checkedAdd(mapping.sampled_monotonic_ms,
+            time.deadline_at_ms - mapping.sampled_at_ms)) return reconciliationRequired();
+        deadline = mapping.deadline_monotonic_ms;
+      }
+      preparedDeadlines.set(prepared, deadline);
+    }
     const verifiedBlobs = new Map();
     const readVerifiedBlob = (key, expectedSize, expectedSha) => {
       beforeProtectedRead?.();
@@ -2160,6 +2216,7 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
         const attemptMappingStops = matching('contract-mapping-blocked', attemptId);
         const attemptBudgetStops = matching('budget-exhausted', attemptId);
         if (attemptCancellationStops.length !== 0 || attemptMappingStops.length !== 0
+          || matching('authorization-blocked', attemptId).length !== 0
           || attemptBudgetStops.length > 1) return reconciliationRequired();
         if (attemptBudgetStops.length === 1) {
           const [stop] = attemptBudgetStops;
@@ -2167,8 +2224,8 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
           if (Object.keys(stop).sort().join('|') !== stopKeys.join('|')
             || stop.job_id !== jobId || stop.reason !== 'time'
             || stop.execution_id !== executionId
-            || !Number.isSafeInteger(admitted.deadline_monotonic_ms)
-            || stop.deadline_monotonic_ms !== admitted.deadline_monotonic_ms
+            || !Number.isSafeInteger(preparedDeadlines.get(prepared))
+            || stop.deadline_monotonic_ms !== preparedDeadlines.get(prepared)
             || entries.indexOf(stop) <= entries.indexOf(dispatch)
             || entries.indexOf(stop) >= entries.indexOf(outcome)
             || entries.indexOf(outcome) >= entries.indexOf(preparedResult)) return reconciliationRequired();
@@ -2326,7 +2383,7 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       // only allowed trailing attempt is an explicitly stopped retry with no result.
       const resultAttemptEventTypes = new Set(['prepared', 'dispatch-started', 'provider-outcome',
         'result-prepared', 'persisting', 'terminal', 'resume-window',
-        'contract-mapping-blocked', 'budget-exhausted', 'cancelled-before-dispatch']);
+        'contract-mapping-blocked', 'budget-exhausted', 'cancelled-before-dispatch', 'authorization-blocked']);
       if (jobScopedBudgetStops.length > 1
         || entries.some(item => resultAttemptEventTypes.has(item.type) && item.attempt_id === undefined
           && item.type !== 'budget-exhausted')) {
@@ -2342,6 +2399,9 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
       const orphanIds = new Set(orphanAttemptRecords.map(item => item.attempt_id));
       if (orphanIds.size > 0) {
         if (orphanIds.size !== 1 || !priorChain
+          || seenAttempts.size >= OFFLINE_ORCHESTRATION_LIMITS.maxAttemptsPerJob
+          || priorChain.result.status !== 'failed' || priorChain.result.outputs.length !== 0
+          || !eligibleRateLimit(priorChain.providerResult)
           || (admitted.resume_time !== undefined && priorChain.resumeWindowIndex === undefined)) {
           return reconciliationRequired();
         }
@@ -2353,7 +2413,7 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
         const orphanDispatches = ofType('dispatch-started');
         const orphanOutcomes = ofType('provider-outcome');
         const orphanStops = orphanEvents.filter(item => ['contract-mapping-blocked',
-          'budget-exhausted', 'cancelled-before-dispatch'].includes(item.type));
+          'budget-exhausted', 'cancelled-before-dispatch', 'authorization-blocked'].includes(item.type));
         const orphanResults = orphanEvents.filter(item => ['result-prepared', 'persisting',
           'terminal', 'resume-window'].includes(item.type));
         const stopCounts = new Map();
@@ -2399,10 +2459,24 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
         const orphanBudgetStops = orphanStops.filter(item => item.type === 'budget-exhausted');
         const orphanCancellationStops = orphanStops.filter(item => item.type === 'cancelled-before-dispatch');
         const orphanMappingStops = orphanStops.filter(item => item.type === 'contract-mapping-blocked');
+        const orphanAuthorizationStops = orphanStops.filter(item => item.type === 'authorization-blocked');
         const stopIndices = orphanStops.map(item => entries.indexOf(item));
         const closedEvents = entries.filter(item => item.type === 'job-closed');
         if (orphanStops.some(item => item.execution_id !== undefined
             && item.execution_id !== orphanExecutionId)) return reconciliationRequired();
+        if (orphanAuthorizationStops.length === 1) {
+          const [stop] = orphanAuthorizationStops;
+          const stopKeys = 'action|attempt_id|execution_id|job_id|type';
+          if (Object.keys(stop).sort().join('|') !== stopKeys
+            || stop.job_id !== jobId || stop.attempt_id !== orphanId
+            || stop.execution_id !== orphanExecutionId || stop.action !== 'retry'
+            || orphanOutcome || orphanStops.length !== 1
+            || entries.indexOf(stop) <= entries.indexOf(orphanDispatch ?? orphanPrepared[0])
+            || closedEvents.length !== 1 || closedEvents[0].reason !== 'execution-authority-denied'
+            || Object.keys(closedEvents[0]).sort().join('|') !== 'job_id|reason|type') {
+            return reconciliationRequired();
+          }
+        }
         if (orphanCancellationStops.length === 1) {
           const [stop] = orphanCancellationStops;
           const stopKeys = ['attempt_id', 'job_id', 'reason', 'type'];
@@ -2417,8 +2491,8 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
           const previousAttemptEvent = orphanDispatch ?? orphanPrepared[0];
           if (Object.keys(stop).sort().join('|') !== stopKeys.join('|')
             || stop.job_id !== jobId || stop.attempt_id !== orphanId || stop.execution_id !== orphanExecutionId
-            || stop.reason !== 'time' || !Number.isSafeInteger(admitted.deadline_monotonic_ms)
-            || stop.deadline_monotonic_ms !== admitted.deadline_monotonic_ms
+            || stop.reason !== 'time' || !Number.isSafeInteger(preparedDeadlines.get(orphanPrepared[0]))
+            || stop.deadline_monotonic_ms !== preparedDeadlines.get(orphanPrepared[0])
             || entries.indexOf(stop) <= entries.indexOf(previousAttemptEvent)
             || (orphanOutcome && entries.indexOf(stop) >= entries.indexOf(orphanOutcome))) {
             return reconciliationRequired();
@@ -2453,7 +2527,8 @@ function createRunner({ runtime = defaultRuntime, store = new InMemoryPrototypeS
             && (!orphanOutcome || !['failed', 'cancelled', 'succeeded'].includes(orphanProviderResult.status)
               || closedEvents[0].reason !== 'retry-contract-mapping-blocked'))
           || (closedEvents.length === 1 && orphanCancellationStops.length === 0
-            && orphanBudgetStops.length === 0 && orphanMappingStops.length === 0)) {
+            && orphanBudgetStops.length === 0 && orphanMappingStops.length === 0
+            && orphanAuthorizationStops.length === 0)) {
           return reconciliationRequired();
         }
       }
