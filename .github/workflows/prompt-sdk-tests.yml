@@ -25,3 +25,5 @@ jobs:
         run: npm run test:comic-manifest-conformance
       - name: Offline Context Builder conformance and reference flows
         run: node scripts/check-context-builder.mjs
+      - name: Synthetic operator replay
+        run: node --import=./tests/support/offline-network-tripwire.mjs scripts/check-offline-operator-replay.mjs
