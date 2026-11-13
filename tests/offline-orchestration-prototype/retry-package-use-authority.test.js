@@ -13,13 +13,15 @@ import {
   createOfflineOrchestrationPrototypeForTest,
   InMemoryPrototypeStore
 } from '../../src/offline-orchestration-prototype/testing.js';
+import { OFFLINE_ORCHESTRATION_LIMITS } from '../../src/offline-orchestration-prototype/limits.js';
 import { SYNTHETIC_EXECUTION_PURPOSE } from '../../src/offline-orchestration-prototype/execution-authority.js';
 
 const fixture = JSON.parse(await readFile(new URL('../fixtures/comic-manifest-v1.json', import.meta.url), 'utf8'));
 const contextFixture = JSON.parse(await readFile(new URL('../fixtures/context-builder-v1.json', import.meta.url), 'utf8'));
 const productionSource = JSON.stringify(fixture.production);
 
-function makeHarness({ shortRetryUseWindow = false } = {}) {
+function makeHarness({ shortRetryUseWindow = false, onRetryDescribe, onFreshAuthority } = {}) {
+  let descriptions = 0;
   let monotonic = 10_000;
   let wallNow = Date.parse(fixture.at);
   let nextId = 1;
@@ -80,20 +82,51 @@ function makeHarness({ shortRetryUseWindow = false } = {}) {
   }]));
   const store = new InMemoryPrototypeStore();
   const mocks = [];
+  const blobs = new Map();
+  const writeImmutable = store.writeImmutable.bind(store);
+  store.writeImmutable = (key, bytes) => {
+    const result = writeImmutable(key, bytes);
+    blobs.set(key, Buffer.from(bytes));
+    return result;
+  };
+  const authorityProvider = (provider, kind) => ({
+    ...provider,
+    async verify(request) {
+      const evidence = await provider.verify(request);
+      if (descriptions >= 2) await onFreshAuthority?.(kind);
+      return evidence;
+    }
+  });
+  class DeferredMock extends MockTextAdapter {
+    async describe() {
+      if (++descriptions === 2) await onRetryDescribe?.();
+      return super.describe();
+    }
+  }
   const value = createOfflineOrchestrationPrototypeForTest({
     runtime, store,
     idFactory: () => `80000000-0000-4000-8000-${String(nextId++).padStart(12, '0')}`,
-    executionAuthorityProvider: execution.verifier,
+    executionAuthorityProvider: authorityProvider(execution.verifier, 'execution'),
     syntheticContextReaders: { id: 'studio.synthetic.comic-context-readers', mode: 'synthetic', readers },
-    contextUseAuthorityProvider: use.verifier,
+    contextUseAuthorityProvider: authorityProvider(use.verifier, 'context'),
     mockAdapterFactory(configuration) {
-      const mock = new MockTextAdapter(configuration);
+      const mock = new DeferredMock(configuration);
       mocks.push(mock);
       return mock;
     }
   });
   return {
-    value, store, reads, mocks, revoke: use.revoke,
+    value, store, reads, mocks, revoke: use.revoke, revokeExecution: execution.revoke,
+    snapshot(jobId) {
+      return {
+        ids: nextId - 1,
+        events: store.readEvents(jobId),
+        eventCount: store.eventCount,
+        blobCount: store.blobCount,
+        blobs: [...blobs.keys()].map(key => [key, store.readImmutable(key)]),
+        reads: [...reads]
+      };
+    },
     setWallNow(value) { wallNow = value; },
     advance(value) { monotonic += value; }
   };
@@ -129,3 +162,59 @@ for (const denied of ['revoked', 'expired']) test(`cached retry with ${denied} p
   assert.equal(harness.mocks[0].calls.length, 1);
   assert.equal(harness.store.eventCount, eventCount);
 });
+
+function deferred() {
+  let resolve;
+  const promise = new Promise(done => { resolve = done; });
+  return { promise, resolve };
+}
+
+const lateDenials = [
+  { name: 'execution revocation', code: 'EXECUTION_AUTHORITY_DENIED',
+    deny: harness => harness.revokeExecution('60000000-0000-4000-8000-000000000002') },
+  { name: 'package-use revocation', code: 'SYNTHETIC_CONTEXT_AUTHORITY_DENIED',
+    deny: harness => harness.revoke('70000000-0000-4000-8000-000000000002') },
+  { name: 'package-use expiry', code: 'SYNTHETIC_CONTEXT_AUTHORITY_DENIED', shortRetryUseWindow: true,
+    deny: harness => harness.setWallNow(Date.parse('2026-09-15T12:10:01Z')) },
+  { name: 'cancellation', code: 'EXECUTION_AUTHORITY_DENIED',
+    deny: (_harness, controller) => controller.abort() },
+  { name: 'deadline expiry', code: 'EXECUTION_DEADLINE_EXPIRED',
+    deny: harness => harness.advance(OFFLINE_ORCHESTRATION_LIMITS.jobBudgetMs) }
+];
+
+for (const boundary of ['describe', 'execution', 'context']) {
+  const denials = boundary === 'describe' ? lateDenials : lateDenials.slice(3);
+  for (const denial of denials) test(`cached retry rejects ${denial.name} during awaited ${boundary} before allocating an attempt`, async () => {
+    const entered = deferred();
+    const release = deferred();
+    const pause = async () => {
+      entered.resolve();
+      await release.promise;
+    };
+    const harness = makeHarness({
+      shortRetryUseWindow: denial.shortRetryUseWindow,
+      onRetryDescribe: boundary === 'describe' ? pause : undefined,
+      onFreshAuthority: kind => kind === boundary ? pause() : undefined
+    });
+    const first = await harness.value.submit({
+      productionSource, syntheticContext: true, noOutputResultVersion: '1.1.0',
+      mockOutcome: { kind: 'rate-limit', retry_after_ms: 5 }
+    });
+    assert.equal(first.retry_eligible, true);
+    const originalFirst = canonicalJson(first);
+    const before = harness.snapshot(first.job_id);
+    harness.advance(5);
+    const controller = new AbortController();
+    const retry = harness.value.retry({ authorizeRetry: true, signal: controller.signal });
+    const expectedCode = boundary === 'context' && denial.name === 'cancellation'
+      ? 'SYNTHETIC_CONTEXT_AUTHORITY_DENIED' : denial.code;
+    const rejected = assert.rejects(retry, error => error.code === expectedCode);
+    await entered.promise;
+    denial.deny(harness, controller);
+    release.resolve();
+    await rejected;
+    assert.deepEqual(harness.mocks.map(mock => mock.calls.length), [1, 0]);
+    assert.deepEqual(harness.snapshot(first.job_id), before);
+    assert.equal(canonicalJson(first), originalFirst);
+  });
+}

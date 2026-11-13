@@ -1,5 +1,13 @@
 # Changelog
 
+## O10 review fixes — 2026-11-10
+
+Refresh retry authority after asynchronous preflight before cached input use or
+attempt preparation. Bind resumed deadline inspection to the recorded clock
+translation and validate confirmed authorization-denied retry closure without
+misreporting it as corruption. Add synthetic regression and contradictory-record
+tests; preserve the original result, provider-call limits and production scope.
+
 ## Review fixes — 2026-11-04
 
 Close the exhausted host job after a confirmed unmappable retry outcome while
